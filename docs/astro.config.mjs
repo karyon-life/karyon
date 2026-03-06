@@ -6,7 +6,7 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
 	integrations: [
 		starlight({
-			title: 'Astro AI Architecture Book',
+			title: 'Karyon: The Architecture of a Cellular Graph Intelligence',
 			sidebar: [
 				{
 					label: 'Book Outline',
