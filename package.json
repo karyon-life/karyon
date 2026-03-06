@@ -1,0 +1,14 @@
+{
+  "name": "karyon",
+  "version": "1.0.0",
+  "description": "Karyon project with Starlight Docs",
+  "private": true,
+  "scripts": {
+    "docs:dev": "npm run dev --workspace docs",
+    "docs:build": "npm run build --workspace docs",
+    "docs:preview": "npm run preview --workspace docs"
+  },
+  "workspaces": [
+    "docs"
+  ]
+}
