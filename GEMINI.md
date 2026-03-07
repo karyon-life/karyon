@@ -19,7 +19,7 @@ While each chapter will contain distinct section topics (as outlined in `book-ou
 4.  **The Engineering Reality (Trade-offs):** A dedicated section outlining the primary bottlenecks, risks, or computational costs of the approach (e.g., broadcast storms, NVMe I/O limits, NUMA constraints).
 5.  **Summary / Transition:** A brief conclusion that recaps the core takeaway and logically bridges to the next chapter.
 
-*Note: Do not literally enforce identical section files for every chapter. Adapt these thematic requirements naturally into the specific bullet points provided in the syllabus.*
+**CRITICAL FILE STRUCTURE RULE:** When populating or drafting chapters, you MUST strictly utilize the exact section filenames and directory structures already present in the workspace or defined explicitly by the syllabus constraints. Do NOT literally enforce the generic thematic stages above as filenames. Adapt the thematic requirements naturally into the corresponding, specifically named section files provided. UNDER NO CIRCUMSTANCES should you rename, delete, or override existing chapter section files with generic thematic stage names (e.g., never overwrite a specific syllabus topic file like `2-graph-vs-matrix.md` with a generic `2-theoretical-foundation.md`).
 
 ## 3. Writing Style and Formatting
 
