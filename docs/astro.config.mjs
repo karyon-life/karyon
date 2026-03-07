@@ -7,6 +7,9 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Karyon: The Architecture of a Cellular Graph Intelligence',
+			components: {
+				SiteTitle: './src/components/SiteTitle.astro',
+			},
 			sidebar: [
 				{
 					label: 'Book Outline',
