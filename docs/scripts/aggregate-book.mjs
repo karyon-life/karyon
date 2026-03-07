@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const docsDir = path.join(process.cwd(), 'src', 'content', 'docs');
 const outputDir = path.join(process.cwd(), 'public');
-const outputFile = path.join(outputDir, 'karyon-architecture-book.md');
+const outputFile = path.join(outputDir, 'book.md');
 
 function getBookFiles(dir) {
   let results = [];
