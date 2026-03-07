@@ -19,6 +19,7 @@ pnpm-debug.log*
 dist/
 build/
 .output/
+docs/public/*.md
 
 # Astro
 .astro/
