@@ -37,25 +37,25 @@ To sustainably support half a million concurrent AI cells continuously rewiring 
 ---
 
 ### References
-1. <a id="ref-1"></a>[A Review of Continual Learning in Edge AI](https://www.researchgate.net/publication/400065898_A_Review_of_Continual_Learning_in_Edge_AI). (n.d.). ResearchGate. Accessed March 7, 2026.
-2. <a id="ref-2"></a>[MedXIAOHE: A Comprehensive Recipe for Building Medical MLLMs](https://arxiv.org/html/2602.12705v2). (n.d.). arXiv.org. Accessed March 7, 2026.
-3. <a id="ref-3"></a>[Catastrophic Forgetting in Deep Learning: A Comprehensive Taxonomy](https://arxiv.org/pdf/2312.10549). (n.d.). arXiv.org. Accessed March 7, 2026.
-4. <a id="ref-4"></a>[Bridging Brains and Machines: A Unified Frontier in Neuroscience, Artificial Intelligence, and Neuromorphic Systems](https://arxiv.org/html/2507.10722v1). (n.d.). arXiv. Accessed March 7, 2026.
-5. <a id="ref-5"></a>[Cannistraci-Hebb Training of Convolutional Neural Networks](https://www.preprints.org/manuscript/202509.1904/v1). (n.d.). Preprints.org. Accessed March 7, 2026.
-6. <a id="ref-6"></a>[Pioneering network shape intelligence for protein-protein interaction prediction via Cannistraci-Hebb network automata theory](https://tud.qucosa.de/en/api/qucosa%3A89529/attachment/ATT-0/). (n.d.). Qucosa. Accessed March 7, 2026.
-7. <a id="ref-7"></a>[Cannistraci-Hebb Training with N:M Semi-Structured ...](https://openreview.net/pdf/7723cb985089083b114e2820ac429cf5ea03186c.pdf). (n.d.). OpenReview. Accessed March 7, 2026.
-8. <a id="ref-8"></a>[SKA: A STANDARD AI INFRASTRUCTURE FOR STUDYING FORWARD-ONLY LEARNING THROUGH KNOWLEDGE ACCUMULATION IN LLMS](https://www.researchgate.net/publication/397241049_SKA_A_STANDARD_AI_INFRASTRUCTURE_FOR_STUDYING_FORWARD-ONLY_LEARNING_THROUGH_KNOWLEDGE_ACCUMULATION_IN_LLMS). (n.d.). ResearchGate. Accessed March 7, 2026.
-9. <a id="ref-9"></a>[Track: Poster Session 7 - NeurIPS](https://neurips.cc/virtual/2021/session/44797). (n.d.). Accessed March 7, 2026.
-10. <a id="ref-10"></a>[A brain-inspired memory transformation based differentiable neural computer for reasoning-based question answering](https://www.frontiersin.org/journals/artificial-intelligence/articles/10.3389/frai.2025.1635932/full). (n.d.). Frontiers. Accessed March 7, 2026.
-11. <a id="ref-11"></a>[Memory Mechanisms in Advanced AI Architectures: A Unified Cross-Domain Analysis](https://openreview.net/pdf?id=XAp1BSZxbC). (n.d.). OpenReview. Accessed March 7, 2026.
-12. <a id="ref-12"></a>[The Midnight Revelation: How AI Systems Are Learning to Remember Like Humans](https://medium.com/data-science-collective/the-midnight-revelation-how-ai-systems-are-learning-to-remember-like-humans-fbd785fd106b). (n.d.). Medium. Accessed March 7, 2026.
-13. <a id="ref-13"></a>[Memgraph in high-throughput workloads](https://memgraph.com/docs/deployment/workloads/memgraph-in-high-throughput-workloads). (n.d.). Accessed March 7, 2026.
-14. <a id="ref-14"></a>[Launching XTDB v2 — time-travel SQL database to simplify ...](https://xtdb.com/blog/launching-xtdb-v2). (n.d.). Accessed March 7, 2026.
-15. <a id="ref-15"></a>[Speedy Transactions in Multicore In-Memory Databases](https://dash.harvard.edu/bitstreams/7312037d-2c31-6bd4-e053-0100007fdf3b/download). (n.d.). Harvard DASH. Accessed March 7, 2026.
-16. <a id="ref-16"></a>[TuskFlow: An Efficient Graph Database for Long-Running ...](https://www.vldb.org/pvldb/vol18/p4777-theodorakis.pdf). (n.d.). VLDB. Accessed March 7, 2026.
-17. <a id="ref-17"></a>[Scale-Free Graph Processing on a NUMA Machine](https://people.ece.ubc.ca/matei/papers/ia3-tanuj.pdf). (n.d.). Accessed March 7, 2026.
-18. <a id="ref-18"></a>[NUMA Data-Access Bandwidth Characterization](https://synergy.cs.vt.edu/pubs/papers/braithwaite-thesis-2012-numa.pdf). (n.d.). SyNeRGy Lab. Accessed March 7, 2026.
-19. <a id="ref-19"></a>[UNIVERSIDAD DE CHILE FACULTAD DE CIENCIAS FÍSICAS Y MATEM´ATICAS DEPARTAMENTO DE CIENCIAS DE LA COMPUTACI´ON PARALLEL METHODS](https://repositorio.uchile.cl/bitstream/handle/2250/136491/Parallel-methods-for-classical-and-disordered-Spin-models.pdf?sequence=1). (n.d.). Accessed March 7, 2026.
-20. <a id="ref-20"></a>[Pond: CXL-Based Memory Pooling Systems for Cloud Platforms](https://www.microsoft.com/en-us/research/wp-content/uploads/2022/10/Pond-ASPLOS23.pdf). (n.d.). Microsoft. Accessed March 7, 2026.
-21. <a id="ref-21"></a>[Arm Neoverse V2: A Look at AWS Graviton 4-Electronics Headlines-EEWORLD](https://en.eeworld.com.cn/mp/Icbank/a382346.jspx). (n.d.). Accessed March 7, 2026.
-22. <a id="ref-22"></a>[Performance Evaluation of the Impact of NUMA on One-sided RDMA ...](https://www.cse.lehigh.edu/~palmieri/files/pubs/CR-SRDS-2020.pdf). (n.d.). Accessed March 7, 2026.
+1. <a id="ref-1"></a>[https://www.researchgate.net/publication/400065898_A_Review_of_Continual_Learning_in_Edge_AI](https://www.researchgate.net/publication/400065898_A_Review_of_Continual_Learning_in_Edge_AI). (n.d.). ResearchGate. Accessed March 7, 2026.
+2. <a id="ref-2"></a>[https://arxiv.org/html/2602.12705v2](https://arxiv.org/html/2602.12705v2). (n.d.). arXiv.org. Accessed March 7, 2026.
+3. <a id="ref-3"></a>[https://arxiv.org/pdf/2312.10549](https://arxiv.org/pdf/2312.10549). (n.d.). arXiv.org. Accessed March 7, 2026.
+4. <a id="ref-4"></a>[https://arxiv.org/html/2507.10722v1](https://arxiv.org/html/2507.10722v1). (n.d.). arXiv. Accessed March 7, 2026.
+5. <a id="ref-5"></a>[https://www.preprints.org/manuscript/202509.1904/v1](https://www.preprints.org/manuscript/202509.1904/v1). (n.d.). Preprints.org. Accessed March 7, 2026.
+6. <a id="ref-6"></a>[https://tud.qucosa.de/en/api/qucosa%3A89529/attachment/ATT-0/](https://tud.qucosa.de/en/api/qucosa%3A89529/attachment/ATT-0/). (n.d.). Qucosa. Accessed March 7, 2026.
+7. <a id="ref-7"></a>[https://openreview.net/pdf/7723cb985089083b114e2820ac429cf5ea03186c.pdf](https://openreview.net/pdf/7723cb985089083b114e2820ac429cf5ea03186c.pdf). (n.d.). OpenReview. Accessed March 7, 2026.
+8. <a id="ref-8"></a>[https://www.researchgate.net/publication/397241049_SKA_A_STANDARD_AI_INFRASTRUCTURE_FOR_STUDYING_FORWARD-ONLY_LEARNING_THROUGH_KNOWLEDGE_ACCUMULATION_IN_LLMS](https://www.researchgate.net/publication/397241049_SKA_A_STANDARD_AI_INFRASTRUCTURE_FOR_STUDYING_FORWARD-ONLY_LEARNING_THROUGH_KNOWLEDGE_ACCUMULATION_IN_LLMS). (n.d.). ResearchGate. Accessed March 7, 2026.
+9. <a id="ref-9"></a>[https://neurips.cc/virtual/2021/session/44797](https://neurips.cc/virtual/2021/session/44797). (n.d.). Accessed March 7, 2026.
+10. <a id="ref-10"></a>[https://www.frontiersin.org/journals/artificial-intelligence/articles/10.3389/frai.2025.1635932/full](https://www.frontiersin.org/journals/artificial-intelligence/articles/10.3389/frai.2025.1635932/full). (n.d.). Frontiers. Accessed March 7, 2026.
+11. <a id="ref-11"></a>[https://openreview.net/pdf?id=XAp1BSZxbC](https://openreview.net/pdf?id=XAp1BSZxbC). (n.d.). OpenReview. Accessed March 7, 2026.
+12. <a id="ref-12"></a>[https://medium.com/data-science-collective/the-midnight-revelation-how-ai-systems-are-learning-to-remember-like-humans-fbd785fd106b](https://medium.com/data-science-collective/the-midnight-revelation-how-ai-systems-are-learning-to-remember-like-humans-fbd785fd106b). (n.d.). Medium. Accessed March 7, 2026.
+13. <a id="ref-13"></a>[https://memgraph.com/docs/deployment/workloads/memgraph-in-high-throughput-workloads](https://memgraph.com/docs/deployment/workloads/memgraph-in-high-throughput-workloads). (n.d.). Accessed March 7, 2026.
+14. <a id="ref-14"></a>[https://xtdb.com/blog/launching-xtdb-v2](https://xtdb.com/blog/launching-xtdb-v2). (n.d.). Accessed March 7, 2026.
+15. <a id="ref-15"></a>[https://dash.harvard.edu/bitstreams/7312037d-2c31-6bd4-e053-0100007fdf3b/download](https://dash.harvard.edu/bitstreams/7312037d-2c31-6bd4-e053-0100007fdf3b/download). (n.d.). Harvard DASH. Accessed March 7, 2026.
+16. <a id="ref-16"></a>[https://www.vldb.org/pvldb/vol18/p4777-theodorakis.pdf](https://www.vldb.org/pvldb/vol18/p4777-theodorakis.pdf). (n.d.). VLDB. Accessed March 7, 2026.
+17. <a id="ref-17"></a>[https://people.ece.ubc.ca/matei/papers/ia3-tanuj.pdf](https://people.ece.ubc.ca/matei/papers/ia3-tanuj.pdf). (n.d.). Accessed March 7, 2026.
+18. <a id="ref-18"></a>[https://synergy.cs.vt.edu/pubs/papers/braithwaite-thesis-2012-numa.pdf](https://synergy.cs.vt.edu/pubs/papers/braithwaite-thesis-2012-numa.pdf). (n.d.). SyNeRGy Lab. Accessed March 7, 2026.
+19. <a id="ref-19"></a>[https://repositorio.uchile.cl/bitstream/handle/2250/136491/Parallel-methods-for-classical-and-disordered-Spin-models.pdf?sequence=1](https://repositorio.uchile.cl/bitstream/handle/2250/136491/Parallel-methods-for-classical-and-disordered-Spin-models.pdf?sequence=1). (n.d.). Accessed March 7, 2026.
+20. <a id="ref-20"></a>[https://www.microsoft.com/en-us/research/wp-content/uploads/2022/10/Pond-ASPLOS23.pdf](https://www.microsoft.com/en-us/research/wp-content/uploads/2022/10/Pond-ASPLOS23.pdf). (n.d.). Microsoft. Accessed March 7, 2026.
+21. <a id="ref-21"></a>[https://en.eeworld.com.cn/mp/Icbank/a382346.jspx](https://en.eeworld.com.cn/mp/Icbank/a382346.jspx). (n.d.). Accessed March 7, 2026.
+22. <a id="ref-22"></a>[https://www.cse.lehigh.edu/~palmieri/files/pubs/CR-SRDS-2020.pdf](https://www.cse.lehigh.edu/~palmieri/files/pubs/CR-SRDS-2020.pdf). (n.d.). Accessed March 7, 2026.
