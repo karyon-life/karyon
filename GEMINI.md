@@ -55,3 +55,10 @@ Ensure consistent usage of these terms:
 *   **DNA:** Declarative YAML configuration schemas.
 *   **Apoptosis:** Programmed cell death based on utility weights.
 *   **Metabolism:** Compute/Resource constraints (CPU, RAM, I/O).
+
+## 7. Citation and Reference Formatting Standard
+
+All documentation site chapters must strictly adhere to the following citation format:
+*   **In-text citations:** Must use bracketed numbers with an anchor link to the reference, e.g., `[[1]](#ref-1)`. Do NOT use standard APA name/date formats like `(Smith, 2024)` in the text.
+*   **Reference List Format:** 
+    `1. <a id="ref-1"></a>Author. (Year). *Title*. Source. [actual_url](actual_url)`
