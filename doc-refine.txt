@@ -3,9 +3,9 @@ Act as an expert academic editor and structural architect. Your objective is to 
 
 Input Files Context:
 
-    Chapter Section: [docs/src/content/docs/part-3/chapter-6/4-the-sleep-cycle-memory-consolidation.md] – This dictates the tone, pacing, and overarching structure.
+    Chapter Section: [docs/src/content/docs/part-6/chapter-12/5-abstract-intent.md] – This dictates the tone, pacing, and overarching structure.
 
-    Research Paper: [research/6.4-AI-Abstraction-Memory-and-Hardware.md] – This contains the robust academic evidence, data, and references.
+    Research Paper: [research/12.5-Software-Architecture-Drift-Detection-Research.md] – This contains the robust academic evidence, data, and references.
 
 Workflow Execution Plan:
 You must execute this task in two distinct phases. Do not proceed to Phase 2 until I have explicitly approved the Phase 1 Artifact.
