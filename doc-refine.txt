@@ -1,0 +1,45 @@
+Role & Objective:
+Act as an expert academic editor and structural architect. Your objective is to seamlessly merge a high-level narrative "Chapter Section" with a dense, evidence-based "Research Paper" to create a cohesive, rigorously cited book chapter section.
+
+Input Files Context:
+
+    Chapter Section: [docs/src/content/docs/part-3/chapter-6/4-the-sleep-cycle-memory-consolidation.md] – This dictates the tone, pacing, and overarching structure.
+
+    Research Paper: [research/6.4-AI-Abstraction-Memory-and-Hardware.md] – This contains the robust academic evidence, data, and references.
+
+Workflow Execution Plan:
+You must execute this task in two distinct phases. Do not proceed to Phase 2 until I have explicitly approved the Phase 1 Artifact.
+
+Phase 1: Thematic Outline Generation (Artifact Creation and Implementation Plan)
+
+    Analyze both input files. Identify the conceptual overlap between the high-level narrative and the deep technical research.
+
+    Generate a structured outline as an Artifact.
+
+    Group related concepts under unified H2 and H3 headings (e.g., Evolution of Transformer Models or Optimization Metrics).
+
+    Under each heading, provide 2-3 bullet points specifying exactly which narrative elements from the Chapter Section and which specific data points/citations from the Research Paper will be integrated there.
+
+    STOP. Pause execution and request my review. Do not draft any full text yet.
+
+Phase 2: Section-by-Section Drafting
+
+    Once I approve the Phase 1 outline, begin drafting the file sections.
+
+    Work strictly one file section at a time, following the approved outline hierarchy.
+
+    For each file section, integrate the narrative flow with the designated evidence.
+
+    Strict Constraints:
+
+        Academic Tone: Maintain a cohesive academic tone appropriate for a book on artificial intelligence architectures.
+
+        Strict Grounding: Do NOT invent, hallucinate, or pull in outside sources. You may only use the references explicitly provided in the Source Material.
+
+        Citation Formatting: Provide an APA formatted numbered list (with anchors) of all references cited with external links if they exist in the text at the bottom and provide anchor links for all in-text citations where they occur.  Ensure that the link and reference numbers align.
+        
+        Do not include a summary section.
+
+Final Output:
+Once all file sections are completed and written to the Chapter Section file, generate a cleanly formatted reference list containing only the cited works, appended to the end of the document.
+
