@@ -2,6 +2,8 @@
 title: "Hebbian Wiring & Spatial Pooling"
 ---
 
+## Introduction
+
 To achieve continuous, lock-free learning, Karyon must forge relationships from unstructured data without the computationally crippling overhead of backpropagation. It does this by reverting to one of the oldest and most robust biological principles in computational neuroscience: Hebbian learning. The academic consensus emphatically supports this shift toward continuous, unsupervised Hebbian learning embedded within non-matrix architectures, particularly for autonomous, safety-critical edge environments that must adapt to streaming data without catastrophic forgetting [[1]](#ref-1), [[2]](#ref-2). 
 
 This section explores the "Skin" approach—how generic spatial pooler cells operate on raw byte streams to naturally discover and map the structural boundaries of unfamiliar environments, transforming opaque data into traversable graph topology.
@@ -44,6 +46,12 @@ First, **Micro-Batching in the Cytoplasm**: While Karyon strictly forbids buffer
 Second, **High-Performance Hardware Constraints**: The architectural viability of this approach relies entirely on the underlying hardware cache. Sustaining this level of continuous Hebbian wiring necessitates substantial, high-speed RAM allocations (e.g., 8-channel ECC RAM) capable of holding the active temporal graph with near-zero latency [[16]](#ref-16), [[17]](#ref-17). Ultimately, non-von Neumann neuromorphic architectures utilizing Processing-In-Memory (PIM), paired with entirely lock-free and asynchronous parallel orchestration, form the terminal requirement for hyper-scaled graph updates [[18]](#ref-18), [[19]](#ref-19).
 
 ---
+
+## Summary
+
+To continuously absorb reality without the performance overhead of matrix recalibration, Karyon depends on dynamic, lock-free Hebbian wiring. By utilizing specialized Spatial Pooler cells to evaluate token co-occurrence in its fast-access Working Memory, the system automatically translates unstructured byte streams into a rigid, explicitly routable topology.
+
+***
 
 ### References
 

@@ -2,6 +2,8 @@
 title: "The Cross-Workspace Architect"
 ---
 
+## Introduction
+
 The ambition of the Cellular Graph architecture extends beyond mastering a single codebase or executing isolated, linear scripts. A mature software architect does not compartmentalize knowledge perfectly between repositories. They leverage the architectural patterns learned while optimizing a Python backend to inform the restructuring of a TypeScript frontend. 
 
 Karyon models this exact holistic reasoning dynamically. In its mature state, the organism assumes the role of a unified, sovereign control plane—a central intelligence that orbits above individual workspaces, orchestrating an entire ecosystem of modular repositories simultaneously.
@@ -60,11 +62,11 @@ If the semantic code graph indicates a newly deployed execution limb pushes a sy
 
 ## Summary
 
-The capability to function holistically across diverse code workspaces is the ultimate expression of الكaryon’s biological modeling. By enforcing an absolute separation between the underlying computational engine and its living `.karyon` memory state, the intelligence transcends localized script execution to perform true architectural cross-pollination. 
+The capability to function holistically across diverse code workspaces is the ultimate expression of Karyon’s biological modeling. By enforcing an absolute separation between the underlying computational engine and its living `.karyon` memory state, the intelligence transcends localized script execution to perform true architectural cross-pollination. 
 
 As we conclude Part V, we have mapped the boundaries of the entity’s metabolic drives, sovereign directives, and holistic planning capabilities. Part VI transitions from theory and structure into the concrete lifecycle of Karyon—how we boot the initial Elixir cells, leverage distributed test environments, and systematically train the organism from its earliest syntax ingestion to its maturation into a functioning digital architect.
 
-----
+***
 
 ### References
 

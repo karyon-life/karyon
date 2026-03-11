@@ -2,6 +2,8 @@
 title: "Catastrophic Forgetting & Hardware Economics"
 ---
 
+## Introduction
+
 The ambition to create an artificial intelligence that learns continuously is fundamentally incompatible with the physical architecture of modern hardware and the mathematical assumptions of transformer models.
 
 Attempting to update a dense parameter model (such as a 27-billion parameter LLM) in real-time during inference presents a catastrophic engineering hurdle. Standard backpropagation requires a forward pass to calculate the loss, followed by a backward pass that relies on storing intermediate activations in memory. This massive memory and compute overhead makes concurrent learning and low-latency inference practically impossible.
@@ -59,6 +61,10 @@ Dense matrices force information into rigid, fixed dimensions. Organizing knowle
 Sparse algorithms, such as graph-based processing, suffer from low arithmetic intensity and are heavily penalized by unpredictable pointer chasing. This behavior results in uncoalesced memory accesses and constant cache misses, slamming sparse architectures into a rigid "memory wall" where performance is bound completely by memory bandwidth rather than compute throughput [[8]](#ref-8). 
 
 To scale graph-based learning natively, we must shift the operational bottleneck away from GPU compute constraints and toward CPU concurrency and multi-channel memory bandwidth, fully abandoning the economic incentives that birthed the transformer matrix.
+
+## Summary
+
+Continuous, lifelong learning in dense transformers is structurally and economically catastrophic. The requirement for global gradient descent over massive internal matrices causes irreducible representational drift and epistemic amnesia, while external workarounds like RAG only patch the prompt without altering the static neural topology. To escape this mathematical trap and build an entity capable of persistent localized memory, AI architecture must sever its reliance on the GPU compute models entirely and adopt biological scaling principles.
 
 ***
 

@@ -2,6 +2,8 @@
 title: "The Pain Receptor"
 ---
 
+## Introduction
+
 A system that only builds connections will eventually memorize everything, transforming into an inflexible, over-indexed database incapable of navigating shifting environments. To distill noise into knowledge, the organism must learn what *not* to do. It requires a biological mechanism for pain. 
 
 In the context of artificial cognitive architectures, an artificial "Pain Receptor" is defined computationally as a hardcoded, highly precise error-correction mechanism. Traditional artificial neural networks, reliant on static topologies and global backpropagation, are highly susceptible to catastrophic forgetting when confronted with environmental volatility [[1]](#ref-1). To counteract this, modern frameworks are increasingly governed by predictive coding and structural plasticity [[1]](#ref-1). This section details the architectural implementation of Karyon's Pain Receptor—the mechanism of calculating Prediction Error, propagating failure states across the Rhizome, and executing synaptic pruning to sever unviable logical pathways.
@@ -40,6 +42,12 @@ First, the system mathematically decouples predictive uncertainty into two disti
 Second, the daemons must apply rigorous **Decay Thresholds**. Instantaneous weight zeroing is eschewed in favor of mathematical degradation formulas, such as continuous exponential penalty functions [[15]](#ref-15) or probabilistic Spike-Timing-Dependent Plasticity (p-STDP) rules [[16]](#ref-16). By scaling the decay inversely to the weight magnitude, historically reliable pathways remain structurally intact during initial failures. Furthermore, Temporal-Difference Variational Continual Learning (TD-VCL) safeguards are implemented to ensure that localized transient errors do not compound and accidentally erase past knowledge paradigms as the system resolves the prediction error [[12]](#ref-12).
 
 ---
+
+## Summary
+
+Pure accumulation of knowledge without a robust corrective mechanism inevitably yields hallucinatory and inflexible models. Karyon counters this by implementing a deterministic Pain Receptor: an innate architectural mandate that rapidly processes absolute execution failures as high-precision prediction errors, severing the responsible fault pathways via background synaptic pruning.
+
+***
 
 ## References
 

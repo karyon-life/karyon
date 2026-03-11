@@ -9,11 +9,10 @@ This chapter transitions from the "Why" of biological intelligence to the concre
 Building an intelligence that accurately mimics biological processes necessitates abandoning the monolithic software patterns that dominate the industry. A biological entity is fundamentally highly concurrent, asynchronously communicating, and radically fault-tolerant. Creating this in a digital environment requires an architecture built on similar principles.
 
 We will explore the anatomy of the Karyon organism by examining its core subsystems:
-
-1.  **The Nucleus (Microkernel Philosophy):** The imperative of keeping the core execution engine strictly isolated and sterile, separating the physics of the environment from the acquired knowledge.
-2.  **The Cytoplasm (Erlang/BEAM):** The highly concurrent, fluid medium that orchestrates the lifecycle, communication, and apoptosis of 500k biologically isolated Actor processes. 
-3.  **The Organelles (Rust NIFs):** The integration of hyper-optimized Native Implemented Functions to execute the bare-metal, mathematically intense graph traversals necessary for intelligence without starving the 8-channel memory bandwidth.
-4.  **The Cellular Membrane (KVM/QEMU):** The sovereign, air-gapped isolation boundary that protects the organism, connected to the external execution environment via the Virtio-fs shared state bridge.
-5.  **The Nervous System:** The peer-to-peer ZeroMQ and NATS signaling protocols that rigidly enforce zero-latency, zero-buffering communication across the massive cellular colony.
+1. **The Nucleus (Microkernel Philosophy):** The imperative of keeping the core execution engine strictly isolated and sterile, separating the physics of the environment from the acquired knowledge.
+2. **The Cytoplasm (Erlang/BEAM):** The highly concurrent, fluid medium orchestrating the lifecycle, communication, and apoptosis of isolated Actor processes. 
+3. **The Organelles (Rust NIFs):** Utilizing hyper-optimized Native Implemented Functions to execute bare-metal, mathematically intense graph traversals safely across 8-channel memory boundaries.
+4. **The Cellular Membrane (KVM/QEMU):** The sovereign, air-gapped boundary protecting the organism, connected directly to the execution via a high-performance Virtio-fs shared state bridge.
+5. **The Nervous System (ZeroMQ/NATS):** Enforcing strict peer-to-peer signaling and ambient diffusion protocols with a fundamental zero-latency, zero-buffering rule.
 
 The integration of these disparate components forms the physical foundation—the *Karyon*—upon which the actual topological memory graph (the *Rhizome*) will eventually grow and learn.

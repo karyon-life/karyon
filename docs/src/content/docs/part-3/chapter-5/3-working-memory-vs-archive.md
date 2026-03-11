@@ -2,6 +2,8 @@
 title: "Working Memory vs Archive"
 ---
 
+## Introduction
+
 Replacing matrix layers with a continuous topological map introduces an immediate architectural friction point: the conflict between reactive, low-latency execution and massive, immutable data storage. 
 
 If thousands of lightweight Elixir cells are actively parsing code and processing network events, they cannot afford to wait for a database to write thousands of concurrent graph edges to a slow hard drive. Conversely, if all experiences are loaded purely into RAM for execution speed, the system loses its temporal history upon a power loss or reboot.
@@ -49,6 +51,12 @@ Karyon achieves long-term archiving utilizing **XTDB**, a temporal graph databas
 However, committing batch-consolidated super-nodes into the immutable MVCC temporal database introduces the most severe performance bottleneck in the dual-layer paradigm. MVCC allows concurrent operations by stringing chronological object versions into deeply nested pointer chains. When Karyon flushes a heavily interconnected batch of new super-nodes, the database attempts to ingest a "mammoth transaction" [[10]](#ref-10).
 
 Because a single super-node aggregates the history of dozens of constituent nodes, inserting it requires updating the version pointers of a vast array of adjacent entities. This process triggers severe serialization stalls, leading to version chain explosions and lock contention that force the MVCC scheduler to block concurrent operations [[10]](#ref-10). Furthermore, the sudden influx of uncompressed node deprecations overloads garbage collection, creating intense hardware pressure on CPU caches and causing catastrophic tail latency spikes that prevent the system from seamlessly resuming real-time execution. Mitigating these bottlenecks requires adopting experimental deterministic protocols or lock-free parallel path copying to safely bypass mammoth batch commits without stalling the global view [[11]](#ref-11).
+
+## Summary
+
+To reconcile the conflict between microsecond execution latency and massive historical storage, Karyon strictly bifurcates its memory architecture. An in-RAM Memgraph instance serves as the highly volatile synaptic working memory, while a dedicated background consolidation daemon—the sleep cycle—compresses and archives episodic traces into the permanent XTDB temporal vault.
+
+***
 
 ## References
 

@@ -2,6 +2,8 @@
 title: "Predictive Processing & Active Inference"
 ---
 
+## Introduction
+
 The fundamental flaw of the modern autoregressive transformer is its reliance on absolute, idealized labels. In a standard supervised learning environment, a dense parameter model attempts to predict a single token and is then immediately mathematically corrected by a static dataset (backpropagation). This loop permanently isolates the model from the real-world consequences of its output. The standard backpropagation algorithm suffers from profound neurobiological implausibility—specifically the "weight transport problem" and "layerwise locking," which structurally prohibit true distributed parallelization and continuous online learning [[1]](#ref-1).
 
 To engineer a system that inherently learns "correctness" over time, we must abandon the concept of the supervised absolute label and build a system based entirely on **Predictive Processing** and **Active Inference**. Grounded in the Bayesian brain hypothesis, this paradigm shifts the computational imperative from minimizing a global objective function to minimizing variational free energy (or *surprisal*) [[2]](#ref-2). We must replace the digital concept of static correctness with the dynamic physical objective of minimizing "surprise" [[3]](#ref-3).
@@ -37,7 +39,11 @@ In high-dimensional, continuous state spaces, relying purely on stochastic explo
 
 To accelerate this learning cycle for a dedicated software agent, Karyon must avoid parsing token-level characters and immediately step forward into predicting architectural relationships and abstract states. Activating this biological cycle demands immense early-stage simulation time, trading the encyclopedic (but static) power of a statistical transformer for the profound long-term accuracy and sovereign logic of a graph that truly understands *why* a particular piece of code works.
 
----
+## Summary
+
+Active Inference dismantles the necessity for backpropagation and the weight transport problem. By enforcing a Pain Receptor mechanism that triggers localized neural pruning upon execution failure, the architecture converts unpredictable coding errors into direct structural plasticity. It learns continuously by minimizing expected surprise, driven initially by epistemic foraging to escape the chaotic babbling phase and systematically conquer its environment.
+
+***
 
 ### References
 

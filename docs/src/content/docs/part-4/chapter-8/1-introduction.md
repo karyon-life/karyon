@@ -8,8 +8,8 @@ Traditional AI implementations bundle reasoning and output generation into the s
 
 In this chapter, we outline the three primary domains of Karyon's motor output:
 
-*   **Linguistic Motor Cells:** The mechanism for translating topological graph states into clinical, deterministic English, bypassing the hallucination risks of autoregressive transformers through the use of rigid syntactic templates.
-*   **The Sandbox:** The sovereign, KVM-isolated execution membrane. This is where Karyon physically alters code, triggers compilers, and experiences "pain" (prediction errors) by ingesting immediate stack traces when its internal logic fails reality.
-*   **Friction & Mirror Neurons:** The socio-linguistic alignment loop. We explore how Karyon evolves from rigid, clinical outputs to fluid interaction by physically mapping and pruning graph pathways based on human conversational friction.
+1. **Linguistic Motor Cells:** The mechanism for translating topological graph states into clinical, deterministic English, bypassing the hallucination risks of autoregressive transformers through the use of rigid syntactic templates.
+2. **The Sandbox:** The sovereign, KVM-isolated execution membrane. This is where Karyon physically alters code, triggers compilers, and experiences "pain" (prediction errors) by ingesting immediate stack traces when its internal logic fails reality.
+3. **Friction & Mirror Neurons:** The socio-linguistic alignment loop. We explore how Karyon evolves from rigid, clinical outputs to fluid interaction by physically mapping and pruning graph pathways based on human conversational friction.
 
 Through these motor functions, Karyon ceases to be a passive observer and becomes an active architectural participant.

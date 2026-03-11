@@ -2,6 +2,8 @@
 title: "The Monorepo Pipeline"
 ---
 
+## Introduction
+
 ## The Imperative for a Hybrid Monorepo
 
 The architecture of Karyon is not a monolithic script; it is a hybrid organism relying on two vastly different technological ecosystems to function. Elixir (operating on the Erlang VM, or BEAM) provides the highly concurrent, fault-tolerant "cytoplasm" that orchestrates cell communication, while Rust provides the bare-metal "organelles" capable of traversing a temporal graph at maximum bandwidth without garbage collection pauses. 
@@ -63,6 +65,12 @@ The integration of native code bypasses standard execution bounds, introducing t
 When a Rust function monopolizes a primary scheduler thread for heavy algorithmic loads without yielding, the VM ceases timeslicing on that core. Incoming network traffic queues infinitely in memory, and delayed distributed heartbeat responses trigger false node-failure scenarios, culminating in catastrophic network netsplits [[14]](#ref-14), [[15]](#ref-15). 
 
 To offload intensive compute from primary bounds, Karyon designates computationally dense operations via `DirtyCpu` or `DirtyIo` scheduler flags [[16]](#ref-16). This pushes native execution to an isolated thread pool within the VM, safeguarding the primary scheduler [[10]](#ref-10). However, this architectural safety mechanism carries physical consequences: invoking a dirty scheduler forces an operating system thread context switch, resulting in a base latency overhead directly compounded by the destruction of CPU cache locality and TLB thrashing [[17]](#ref-17), [[18]](#ref-18). Consequently, executing the Karyon architecture requires mathematically modeling this ~5 microsecond context switch against the functional execution time to optimize thresholding bounds.
+
+## Summary
+
+Transitioning from biological theory to physical software architecture requires an uncompromising development environment. A hybrid monorepo orchestrates the symbiotic compilation of the Elixir Cytoplasm and Rust Organelles, utilizing zero-copy memory extraction and strict CI/CD hashing to guarantee FFI synchronization without compromising the Erlang VM's primary scheduler.
+
+***
 
 ## References
 

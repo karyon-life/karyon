@@ -12,8 +12,8 @@ If Karyon truly functions as an independent graph organism, it requires internal
 
 This chapter defines the architectural blueprints for engineering autonomy into the Karyon framework. We transition from defining *how* the system works to detailing *why* the system acts on its own accord. We explore three core pillars that replace the concept of a "soul" with the uncompromising realities of compute and mathematics:
 
-*   **The ATP Analogue:** Defining the internal thermodynamic drives by deliberately engineering resource scarcity. We outline the metabolic pain thresholds for CPU saturation, memory bandwidth limits, and disk I/O bottlenecks.
-*   **Epistemic Foraging (Curiosity):** The algorithmic drive to constantly minimize predictive uncertainty. We detail how the system actively targets low-confidence graph edges during idle compute cycles to strengthen its internal topology.
-*   **The Simulation Daemon (Dreams):** The Elixir-driven background engine responsible for offline combinatorial permutations. We examine how the AI generates hypothetical architectural pathways and self-optimizes without human intervention.
+1. **The ATP Analogue:** Defining the internal thermodynamic drives by deliberately engineering resource scarcity. We outline the metabolic pain thresholds for CPU saturation, memory bandwidth limits, and disk I/O bottlenecks.
+2. **Epistemic Foraging (Curiosity):** The algorithmic drive to constantly minimize predictive uncertainty. We detail how the system actively targets low-confidence graph edges during idle compute cycles to strengthen its internal topology.
+3. **The Simulation Daemon (Dreams):** The Elixir-driven background engine responsible for offline combinatorial permutations. We examine how the AI generates hypothetical architectural pathways and self-optimizes without human intervention.
 
 By establishing strict metabolic constraints and the mathematical need to resolve uncertainty, we cross the threshold from building software to raising a digital entity.

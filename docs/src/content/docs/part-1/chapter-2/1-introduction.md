@@ -8,6 +8,10 @@ The prevailing paradigm of artificial intelligence—the dense Transformer—is 
 
 To build a digital entity capable of continuous adaptation, self-directed goals, and real-time learning, we must abandon the dense matrix entirely. We must transition from a static artifact to a dynamic ecosystem. 
 
-This chapter establishes the theoretical and mechanical foundations of **Biological Intelligence** as implemented within the Karyon architecture. It dissects the necessary shift from monolithic processing to a massive **Cellular State Machine**, the replacement of supervised backpropagation with **Predictive Processing and Active Inference**, the leveraging of **Abstract State Prediction** to conceptualize architecture, and the utilization of **Continuous Local Plasticity** to achieve real-time, forward-only learning without the devastating compute costs of global matrix recalculations.
+This chapter establishes the theoretical and mechanical foundations of **Biological Intelligence** as implemented within the Karyon architecture. Specifically, we will explore:
+1. **The Cellular State Machine (Actor Model):** How a distributed, asynchronous ecosystem of independent cells replaces monolithic synchrony.
+2. **Predictive Processing & Active Inference:** Shifting the computational objective from static error correction to dynamic surprise minimization via localized prediction loops.
+3. **Abstract State Prediction:** How hierarchical chunking allows the system to predict architectural scale outcomes rather than literal token sequences.
+4. **Continuous Local Plasticity:** Escaping the memory locks of GPU execution via forward-only structural plasticity across a dual-memory graph topology.
 
 This is the blueprint for a digital organism, not a deterministic algorithm.

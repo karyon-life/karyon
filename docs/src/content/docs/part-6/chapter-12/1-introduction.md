@@ -8,4 +8,9 @@ A cellular graph intelligence cannot be trained in this manner. By replacing the
 
 If you expose a blank cellular AI organism immediately to chaotic, real-world data streams, it will dutifully map that chaos into its graph, cementing invalid relationships, flawed syntax, and cognitive dissonance as its core reality. To raise the organism—to mature the 500,000-cell colony into a sovereign architect capable of understanding 500 gigabytes of enterprise source code—the external environment must be highly managed. It requires a curriculum. 
 
-This chapter outlines the concrete framework for bootstrapping Karyon's internal logic. Rather than adjusting weights through loss functions, the training curriculum is the orchestration of environmental pressure: establishing absolute laws of grammar via a pristine baseline, forging learning pathways via automated CI/CD pain-receptor feedback (telemetry), and driving structural resilience through engineered adversarial constraints. This is the physiological mechanics of raising the organism.
+This chapter outlines the concrete framework for bootstrapping Karyon's internal logic, structured across four phases of environmental pressure:
+
+1. **The Baseline Diet:** Establishing the absolute laws of grammar by isolating the organism's initial sensory input to pristine, formally validated ASTs.
+2. **Execution Telemetry:** Forging learning pathways via automated CI/CD pain-receptors, utilizing deterministic compiler errors to prune invalid logic branches.
+3. **The Synthetic Oracle Curriculum (The Teacher Daemon):** Driving structural resilience through an automated adversary that forces the organism into perpetual epistemic foraging.
+4. **Abstract Intent:** Elevating the engine to an architect by structurally binding high-level human documentation to the immutable dependency graph to defend against structural drift.

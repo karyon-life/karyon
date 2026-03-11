@@ -2,6 +2,8 @@
 title: "The Synthetic Oracle Curriculum (The Teacher Daemon)"
 ---
 
+## Introduction
+
 ## The Biology of AI Stagnation and Prediction Error
 
 A cellular AI is fundamentally driven by a biological imperative to minimize structural "surprise," mathematically formalized as prediction error or variational free energy [[1]](#ref-1). In a naive implementation, an agent mandated solely to minimize prediction error encounters the "Dark Room Problem" [[2]](#ref-2). This paradox dictates that the mathematically optimal strategy to minimize surprise is to locate a highly predictable, static environment and cease all exploratory behavior. In the context of a structural software repository, an AI optimizing purely for low-confidence areas without biological constraints will eventually reach a state of stagnation. Once the organism establishes a pristine AST baseline and learns the fundamental laws of compilation through Execution Telemetry, it may stop exploring entirely, resting in a local minimum where it only executes actions it has absolute confidence in.
@@ -53,6 +55,12 @@ Deploying unconstrained adversarial curricula in structured digital environments
 Herein lies the brutal engineering reality and the vital necessity of deterministic graph structures: Karyon must actively prune incorrect hypotheses to survive. Inspired by the Theory of Code Space (ToCS) diagnostics and multi-agent conflict resolution models, Karyon rigorously manages these low-confidence edges directly prior to committing them to the immutable Rhizome data store [[12]](#ref-12) [[13]](#ref-13). 
 
 If the AI fails to generate a viable solution to the Teacher Daemon's prompt, the system triggers an immediate prediction error signal. Leveraging dedicated conflict resolution and evaluator cells, it actively amputates and prunes the failed, heterophilic pathways to protect the larger graph from corruption [[13]](#ref-13). Conversely, if the organism succeeds, the newly forged graph traversal is reinforced as a permanent, high-confidence edge. By persistently resolving these topological uncertainties, the system ensures stable and accurate reasoning long after the initial epistemic foraging trigger.
+
+## Summary
+
+To prevent Karyon from stagnating in a highly predictable local minimum, the Teacher Daemon administers the Synthetic Oracle Curriculum. By actively locating low-confidence edges within the Rhizome and formulating adversarial execution constraints, this decoupled antagonist mathematically forces the organism into perpetual epistemic foraging and continuous topological refinement.
+
+***
 
 ## References
 

@@ -2,6 +2,8 @@
 title: "Visualizing the Rhizome"
 ---
 
+## Introduction
+
 A Karyon organism operates in near-total silence. If you execute the binary, the Erlang VM boots, the 512GB memory graph is allocated across the Threadripper, the internal ZeroMQ sockets bind, and the terminal output remains blank. 
 
 There are no traditional application logs because traditional logs are destructive to biology. If 500,000 active Actor processes all attempted to write strings to `stdout` simultaneously, the sheer I/O required would cause a broadcast storm [[2]](#ref-2), lock up the L3 cache, and immediately terminate the organism. In high-density architectures, synchronous telemetry generation rapidly escalates into systemic failures, inflating tail latency and violating the isolation guarantees of the Actor model.
@@ -61,6 +63,12 @@ Attempting to display every vertex of a massive telemetry network invariably yie
 This requires balancing snapshot precision with temporal smoothness; mathematical abstraction prevents the visual mapping from chaotically rearranging with every minor perception update, preserving the developer's mental map [[16]](#ref-16). Ultimately, rendering engines compute and display these nodes within higher-order time-aware spatial layouts (e.g., HOTVis) [[18]](#ref-18). By assigning edge weights mapped to precise temporal ordering, the visualization reveals the directed, acyclic nature of information flow through the ecosystem.
 
 ---
+
+## Summary
+
+Since Karyon lacks traditional synchronous logging, understanding the organism relies on decoupled, lock-free observability suites. By distinctly separating continuous metabolic health dashboards from discrete, structurally accurate MVCC memory graph visualizers, architects can monitor temporal data flows and system homeostasis without triggering broadcast storms or halting active perception.
+
+***
 
 ### References
 

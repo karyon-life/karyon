@@ -29,4 +29,7 @@ If Cell A updates its local execution plan based on a newly forged synaptic conn
 
 ## Summary
 
-Continuous learning in the Karyon architecture is not an external training phase; it is an intrinsic, automated lifecycle. By employing localized Hebbian wiring, rigorous prediction error pruning, and background hierarchical consolidation, the system builds an increasingly optimized, abstract world model. The following sections will detail the exact mechanics of these three phases: the "Skin" approach to Hebbian wiring, the mathematics of the Pain Receptor, and the algorithmic reality of the Sleep Cycle.
+Continuous learning in the Karyon architecture is not an external training phase; it is an intrinsic, automated lifecycle. By employing localized Hebbian wiring, rigorous prediction error pruning, and background hierarchical consolidation, the system builds an increasingly optimized, abstract world model. We will explore:
+1. **Hebbian Wiring & Spatial Pooling:** How Karyon utilizes biologically inspired Hebbian learning rules to naturally wire sparse structural connections from raw streaming data, transforming chaotic bytes into traversable graph edges.
+2. **The Pain Receptor:** The integration of hardcoded, highly weighted prediction errors triggering localized synaptic pruning to quickly sever invalid logic pathways without global backpropagation.
+3. **The Sleep Cycle:** The offline background process where optimization daemons utilize Leiden community detection algorithms to perform memory consolidation, chunking disjointed episodes into higher-order conceptual Super-Nodes.

@@ -10,4 +10,7 @@ To build a sovereign, adapting organism capable of maintaining and architecting 
 
 *Karyon* is this biological transition. It replaces the dense matrix with a cellular state machine—a sprawling, concurrent ecosystem of lock-free processes (Actor Model) reading and writing to an immutable, temporal graph database (the *Rhizome*). By grounding the system in local plasticity and continuous experience consolidation rather than backpropagation and scale, Karyon shifts the AI from a brittle autocomplete engine into a resilient, continuously learning entity.
 
-This chapter diagnoses the fundamental limitations of the transformer architecture, exploring why the unyielding reliance on statistical probability, autoregression, and dense matrices represents a dead end for true computational sovereignty.
+This chapter diagnoses the fundamental limitations of the transformer architecture, exploring why the unyielding reliance on statistical probability, autoregression, and dense matrices represents a dead end for true computational sovereignty. Specifically, we will dissect:
+1. **The Statistical Dead End:** Why autoregressive models function as "causal parrots" incapable of sovereign architectural reasoning.
+2. **Catastrophic Forgetting & Hardware Economics:** The mathematical barriers to continuous learning and how the "Hardware Lottery" forced AI into rigid dense matrices.
+3. **The Predictive Coding Failure:** The thermodynamic and structural failures of token-level generation, and the necessary transition to Active Inference and Cellular State Machines.

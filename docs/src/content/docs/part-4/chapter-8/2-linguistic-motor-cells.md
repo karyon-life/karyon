@@ -2,6 +2,8 @@
 title: "Linguistic Motor Cells"
 ---
 
+## Introduction
+
 ## The Theoretical Foundation: Factless Comprehension and the Closed-World Assumption
 
 A graph database natively excels at storing facts, structure, and deterministic relationships. It does not natively output fluent sentences. If an execution cell fails to access an isolated file, the Rhizome knows exactly what transpired mathematically: `[Action: Read] -> [Target: config.yml] -> [State: Permission_Denied]`.
@@ -54,6 +56,12 @@ From an engineering perspective, this clinical output is an architectural triump
 This sets up a severe trust dichotomy. While probabilistic LLM interfaces foster a parasocial trust that leads directly to dangerous "automation complacency" in high-stakes environments [[10]](#ref-10), unoptimized deterministic readouts during systemic cascading errors place immense and unacceptable cognitive load on the operator [[11]](#ref-11). Karyon’s rigid templates form an unnatural friction barrier between the digital organism and its human counterparts. 
 
 To bridge this specific divide and manage operator cognitive load without sacrificing the absolute zero-hallucination mandate, Karyon will eventually need to break out of its hardcoded templates. This points to the necessity of hybrid Neurosymbolic Telemetry frameworks—such as Graph-First Reasoning, Post-Generation Validation, or Finite-State Machine control loops [[12]](#ref-12)—a capability explored next in the mechanics of Friction and Mirror Neurons.
+
+## Summary
+
+To maintain absolute zero-hallucination guarantees during human interaction, Karyon must decouple abstract reasoning from language generation. By utilizing Linguistic Motor Cells powered by deterministic Grammatical Framework templates, the system directly serializes its internal graph topology into clinical, strictly factual English—sacrificing conversational fluidity for mathematical truth.
+
+***
 
 ## References
 

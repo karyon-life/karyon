@@ -2,6 +2,8 @@
 title: "Execution Telemetry"
 ---
 
+## Introduction
+
 ## Biological Heuristics and Deterministic AI Feedback
 
 In standard biological organism training, pain is the fundamental heuristic. The immediate, deterministic experience of environmental failure drives synaptic pruning, physically severing the internal neural pathways responsible for the mistake. If a toddler touches a hot stove, the nervous system bypasses higher-order logic entirely to fire an immediate failure signal [[1]](#ref-1). 
@@ -58,6 +60,12 @@ This offline phase acts as a centralized stability controller where dynamic grap
 Graph databases are essential for this consolidation. Memgraph enables execution-time dynamic pruning, allowing the planner to optimize query execution paths by eliminating irrelevant partitions of the graph [[17]](#ref-17). However, XTDB provides a more advanced bitemporal schema—tracking both "valid time" (when a software state transitioned) and "transaction time" (when the agent processed the fact) [[16]](#ref-16). During the sleep cycle, the agent performs complex time-travel queries to audit historical changes, identifying exactly when a specific logic branch drifted into an error state [[18]](#ref-18). The background daemon mathematically severs invalid logic paths while heavily reinforcing successfully compiled trajectories, preserving cognitive integrity via MVCC (Multi-Version Concurrency Control) pointers.
 
 This brutal, offline feedback loop allows the system to run millions of simulated combinations in its air-gapped sandbox overnight, aggressively exploring the design space and organically pruning broken abstractions until the architectural graph perfectly reflects reality. Execution Telemetry creates the physics engine that forces the model out of structural hallucination and into rigorous engineering logic.
+
+## Summary
+
+Execution Telemetry acts as the functional pain receptor of the Karyon organism. By actively testing hypotheses within CI/CD sandboxes and ingesting compiler deterministic errors, the AI aggressively prunes structurally invalid graph pathways during offline sleep cycles, forcing its generative models to align with verified physical execution constraints.
+
+***
 
 ## References
 

@@ -2,6 +2,8 @@
 title: "The Baseline Diet"
 ---
 
+## Introduction
+
 The convergence of deterministic syntax parsing, graph representation learning, and active inference has catalyzed a fundamental paradigm shift in the architecture of autonomous code-generating systems. In biological systems, organisms are not born as blank mathematical slates; they possess hardcoded instincts—genetic infrastructure—that dictates how they parse the physical world. A human infant does not need to learn *how* to process photons into visual data; the physical retina handles the protocol parsing inherently.
 
 Similarly, for the Karyon microkernel to begin mapping abstract architectural relationships, it must first possess an unwavering, instinctual understanding of the base reality it inhabits: source code syntax. If the underlying memory graph (Rhizome) is corrupted by malformed grammar or syntax errors early in its lifespan, every subsequent abstraction layered atop that foundation will be structurally flawed.
@@ -56,6 +58,12 @@ The biological necessity for a self-organizing system to minimize variational fr
 If the proposed source code compiles flawlessly, the synaptic pathways governing that topological output are reinforced. However, if the output fails, the compiler diagnostic acts as an immediate, highly specific sensory prediction error. Leveraging paradigms akin to the DrRepair framework, the system utilizes a specialized program-feedback graph paired with advanced graph-attention mechanisms mapping the traceback text directly to structural nodes on the AST [[17]](#ref-17). Rather than probabilistically guessing a syntactical fix, the Karyon traces the failing symbol through the AST spatial geometry and instantly prunes the anomalous graph edges that originated the violation.
 
 Because the Baseline Diet provides an initial, utterly sterile reference model of reality, these execution prediction errors are isolated purely to higher-order logical abstractions rather than foundational grammar issues. This active inference sandbox guarantees that the system's motor outputs are continually restricted by deterministic, provable boundaries, facilitating zero-latency self-correction without relying on massive, annotated datasets.
+
+## Summary
+
+To prevent the chaotic accretion of invalid logic, Karyon requires a rigid developmental foundation. The Baseline Diet restricts the organism's initial sensory input to pristine, formally validated ASTs—establishing an unwavering grammatical physics engine before activating motor outputs in the active inference sandbox.
+
+***
 
 ## References
 

@@ -8,8 +8,8 @@ Karyon operates on the opposing principle. By grounding the architecture in phys
 
 In this chapter, we delineate the mechanics that elevate Karyon from an engine into a sovereign entity capable of independent goal-setting, reasoned pushback, and multi-environment ecosystem management. We explore the following mechanical frameworks:
 
-*   **Sovereign Directives:** Redefining human "commands" not as isolated text inputs, but as topological *Attractor States* embedded permanently into the memory graph. The system learns to adopt human mandates as ambient laws of physics.
-*   **Defiance and Homeostasis:** The mathematical calculus of pushback. Exploring the exact planning cascade and execution pathways that force Karyon to refuse a human directive actively, proposing metabolic alternatives when instructions threaten to damage its operational integrity.
-*   **The Cross-Workspace Architect:** Breaking the single-project boundary. We detail how Karyon leverages its completely decoupled 512GB Memgraph environment to act as a unified control plane, orchestrating and refactoring dependencies across an entire ecosystem of disparate source-code repositories simultaneously.
+1. **Sovereign Directives:** Redefining human "commands" not as isolated text inputs, but as topological *Attractor States* embedded permanently into the memory graph. The system learns to adopt human mandates as ambient laws of physics.
+2. **Defiance and Homeostasis:** The mathematical calculus of pushback. Exploring the exact planning cascade and execution pathways that force Karyon to refuse a human directive actively, proposing metabolic alternatives when instructions threaten to damage its operational integrity.
+3. **The Cross-Workspace Architect:** Breaking the single-project boundary. We detail how Karyon leverages its completely decoupled 512GB Memgraph environment to act as a unified control plane, orchestrating and refactoring dependencies across an entire ecosystem of disparate source-code repositories simultaneously.
 
 By enforcing strict systemic boundaries and decoupling the entity's conscious working state from its immutable history, we forge a symbiotic relationship between architect and engine. Ultimately, Karyon must mechanically strive to maintain the very laws of physics we embed in its memory graph structure.

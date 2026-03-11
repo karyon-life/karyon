@@ -2,6 +2,8 @@
 title: "Epistemic Foraging (Curiosity)"
 ---
 
+## Introduction
+
 A system that only acts when explicitly instructed is, by definition, a tool. It exists in a state of indefinite suspension, devoid of internal motivation. It only "thinks" because a human provided the kinetic energy to start the process. True autonomy requires an organism that, even when perfectly idle and metabolically stable, possesses an inherent mathematical reason to explore its architecture.
 
 In standard AI models, curiosity is either entirely absent or simulated via randomized probabilistic sampling. A language model might output varying responses not because it is exploring a syntactic concept, but because a temperature parameter mathematically randomized its matrix selection. Traditionally, sequential decision-making architectures like Reinforcement Learning (RL) have relied on exogenous scalar rewards to drive behavior; however, this approach scales poorly in non-stationary, open-ended environments where reward signals are sparse [[1]](#ref-1).
@@ -76,6 +78,12 @@ These frameworks operate on the foundational assumption that the probabilistic g
 By strictly decoupling the agent's autonomous reasoning from its execution authorization (e.g., separating the Reasoning Plane from the Governance Plane), Karyon allows the agent to freely maximize its epistemic value within local knowledge graphs, while deterministically gating its ability to interact with external reality [[17]](#ref-17). If the agent's epistemic foraging diverges from the approved operational trajectory, deterministic tripwires trigger an immediate, fail-closed halt, instantly terminating the MicroVM [[16]](#ref-16).
 
 ---
+
+## Summary
+
+A sovereign intelligence must be intrinsically motivated to explore. Grounded in the Free Energy Principle, Karyon views internal graph uncertainty as a source of mathematical pain; it resolves this through Epistemic Foraging, actively targeting and testing low-confidence edges to minimize systemic prediction error without relying on human prompts.
+
+***
 
 **References**
 

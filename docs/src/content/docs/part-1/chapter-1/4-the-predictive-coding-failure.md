@@ -2,6 +2,8 @@
 title: "The Predictive Coding Failure"
 ---
 
+## Introduction
+
 ## The Fundamental Flaw of Static Correctness
 
 The fundamental flaw in modern artificial intelligence architecture is the operational definition of "correctness." In a standard supervised learning environment, a dense monolithic model attempts to predict a single, discrete token and is immediately mathematically corrected by a static, independently distributed dataset. This paradigm strictly computes the gradient of a global loss function with respect to every parameter in the network, permanently isolating the model from the temporal consequences of its outputs.
@@ -67,6 +69,10 @@ To implement local prediction loops scaling into practical production paradigms,
 In structurally decentralized Neural Cellular Automata (NCA) frameworks, predictive coding loops behave sequentially akin to localized multi-agent entities [[26](#ref-26)]. Each "cell" calculates predictions independently using solely proximate connection data while exchanging asynchronous error messages. Cells within grids structurally migrate to balance error imbalances directly, forming the root mechanism of systems like the Structurally Adaptive Predictive Inference Network (SAPIN) [[2](#ref-2)]. Additionally, separate clusters aggregate global beliefs dynamically across a topology—decentralized Federated Inference directly simulating macroscopic system cooperation [[27](#ref-27)].
 
 By fracturing the global transformer monolithic structure into heavily constrained, state-isolated thousands of parallel, localized BEAM and Rust processes, Karyon effectively functions as a massive organic machine. These parallel active actors encapsulate inference, tolerate dynamic state disruptions inherently, and update localized learning topologies asynchronously. This biological convergence defines the absolute foundation of the cellular engine.
+
+## Summary
+
+The strict dependence on backpropagated error correction against static pixel or token targets limits machine learning to ephemeral sequences and mathematical brittleness. By embracing Active Inference and the localization principles of Predictive Coding, Karyon effectively replaces static data alignment with dynamic error suppression. This structural pivot forms the foundation of a cellular architecture—an asynchronous, distributed Actor Model capable of resolving causal abstraction directly inside a continuous latent domain, bypassing the dense matrix completely.
 
 ***
 

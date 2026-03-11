@@ -2,6 +2,8 @@
 title: "Declarative Genetics"
 ---
 
+## Introduction
+
 The ambition to construct a massively concurrent, biologically inspired artificial intelligence hinges critically on specialization. A single, monolithic codebase cannot adapt efficiently to the infinite variety of sensory inputs and motor tasks required for continuous learning. In biology, structural complexity is achieved not by designing thousands of distinct organism blueprints from scratch, but through a single foundational blueprint—DNA—which differentiates a universal stem cell into specialized tissues (retinas, muscle fibers, neurons) based on localized environmental cues. 
 
 The Karyon architecture meticulously mirrors this principle. To achieve fractal reproduction and system-wide scalability without crippling the codebase, Karyon employs a singular, highly resilient Actor model (the stem cell). How this stem cell behaves—what it listens to, how it processes information, and how it asserts control over its environment—is dictated entirely by **Declarative Genetics**: strict configuration schemas defining the physical boundaries and rulesets of the cell.
@@ -156,7 +158,11 @@ Instead, the background optimization daemon (the "Sleep Cycle") utilizes Reinfor
 
 This bounded approach provides crucial architectural advantages. It shifts optimization to continuous mathematical landscapes [[25]](#ref-25), safely exploring the entirety of the configuration space without generating illegal states or violating consensus handshakes [[23]](#ref-23). If an evolutionary step degrades performance, the system simply rolls back by overwriting the experimental configuration with the previous stable declarative file [[25]](#ref-25). By viewing the declarative schema as the agent's digital "DNA," parametric tuning functions as safe epigenetic regulation, continuously adapting the multi-agent system to its environment [[26]](#ref-26).
 
----
+## Summary
+
+To achieve fractal complexity without codebase bloat, Karyon shifts from traditional object-oriented inheritance to Declarative Genetics. By separating the sterile execution engine from domain-specific behavior encoded in YAML schemas, the organism safely instantiates massive swarms of differentiated Actor processes. This rigid structural boundary ensures that evolutionary pressures safely tune parametric weights without corrupting the fundamental logic of the distributed system.
+
+***
 
 ## References
 

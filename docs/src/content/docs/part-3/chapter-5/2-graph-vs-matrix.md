@@ -2,6 +2,8 @@
 title: "Graph vs Matrix"
 ---
 
+## Introduction
+
 ## The Hardware Artifact: GPU Optimization and the Dominance of Dense Matrices
 
 The presiding orthodoxy in artificial intelligence insists that intelligence must be modeled using dense matrices. This is not a biological reality; it is an artifact of hardware optimization. The phenomenon, formally recognized as the "hardware lottery" [[1]](#ref-1), describes how the trajectory of AI algorithmic design has been artificially dictated by its compatibility with available chip architectures. Specifically, the modern Graphics Processing Unit (GPU) was designed to massively parallelize dense matrix multiplications (MatMuls) [[2]](#ref-2). 
@@ -39,6 +41,12 @@ In a dense matrix, every parameter is touched, and memory capacity is fixed. In 
 Because knowledge is explicitly stored topologically via discrete pathways rather than statistical averages, every single decision path is transparently traceable. However, navigating this topology effectively requires robust mechanisms for state-holding. Vector Symbolic Architectures (VSAs) successfully represent discrete symbolic states as high-dimensional, sparse hypervectors. Integrated with attractor networks, VSAs enable continuous neural substrates to execute deterministic, exact finite state machine sequences without degrading structural weights [[11]](#ref-11). The AI formulates a "thought" by traversing physical, stateful connections in the graph, making its reasoning mechanically observable. 
 
 By transitioning from matrices to the Rhizome graph, Karyon definitively rejects the hardware lottery to embrace a dynamic, growing map mathematically capable of true continuous learning and verifiable deduction.
+
+## Summary
+
+Dense matrices represent a hardware-optimized artifact fundamentally incompatible with continuous autonomous learning, suffering from catastrophic forgetting and mechanistic opacity. By transitioning to the sparse, dynamic topology of the Rhizome graph, Karyon explicitly maps causal relationships, allowing for verifiable state-holding and localized adaptation without destroying historical weights.
+
+***
 
 ## References
 

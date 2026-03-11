@@ -2,6 +2,8 @@
 title: "Multi-Version Concurrency Control"
 ---
 
+## Introduction
+
 The theory of a lock-free, dual-layer topological Rhizome is conceptually elegant, but its physical implementation represents a brutal orchestration challenge. When thousands of concurrent biological cells (Actor Model processes running on the BEAM virtual machine) attempt to rapidly query, generate, and prune millions of edges within a shared Memgraph memory pool, the environment is ripe for catastrophic race conditions. If an active Cell reads a relational state to parse a python file, while a background optimization daemon simultaneously deletes a decaying node that the Cell relied upon, the system experiences digital cognitive dissonance.
 
 ## Race Conditions & Concurrency in Graph Databases
@@ -51,6 +53,12 @@ The BEAM Virtual Machine provides unparalleled soft real-time scheduling by exec
 Karyon circumvents this by exposing the shared memory pool via Native Implemented Functions (NIFs) utilizing safe Rust bridges (`Rustler`) [[15]](#ref-15). Because complex pointer-chasing graph traversals take vastly longer than the BEAM's strict microsecond reduction limits, these graph integrations frequently require routing executions through "Dirty Schedulers"—separate thread pools designed to prevent long-running tasks from paralyzing the BEAM's primary actor schedulers [[16]](#ref-16). 
 
 These unmanaged memory bridges pose their own engineering realities. By passing "Resource Objects"—tiny, opaque pointers referencing gigabytes of external Rust memory—into the BEAM environment, the internal garbage collector fails to register the substantial external memory weight [[17]](#ref-17). This frequently leads to severe "memory ballooning," requiring deep manual tuning of GC signals to prevent native memory exhaustion [[18]](#ref-18). In heavily virtualized or containerized deployments passing data layers via Virtio-fs backing, engineers have documented massive, aggressive host-level RAM caching that physically starves underlying host filesystems (like the ZFS ARC) from operating smoothly [[19]](#ref-19), [[20]](#ref-20).
+
+## Summary
+
+While the dual-layer graph provides mathematical elegance, its physical operation under extreme concurrency threatens severe database deadlocks. Implementing strict Multi-Version Concurrency Control (MVCC) resolves write blockages but introduces vicious garbage collection cycles and exacerbates NUMA latency overheads, demanding precise hardware constraint tuning to sustain the Elixir-Rust memory bridge.
+
+***
 
 ## References
 1. <a id="ref-1"></a>Theodorakis, G., Firth, H., Clarkson, J., Crooks, N., & Webber, J. (2025). *TuskFlow: An Efficient Graph Database for Long-Running Transactions*. Proceedings of the VLDB Endowment (PVLDB), Vol. 18(12). [https://doi.org/10.14778/3750601.3750603](https://doi.org/10.14778/3750601.3750603)

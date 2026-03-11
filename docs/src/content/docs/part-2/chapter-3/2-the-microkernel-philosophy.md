@@ -2,6 +2,8 @@
 title: "The Microkernel Philosophy"
 ---
 
+## Introduction
+
 At the heart of any sovereign, adapting organism lies a fundamental immutable instruction set—a biological nucleus. In the Karyon architecture, this nucleus takes the form of a microkernel. The presiding principle governing its design is absolute sterility: the core engine must remain devoid of any domain-specific software knowledge while maintaining supreme mechanical control over the organism. 
 
 To build an intelligence capable of unbounded topological growth and continuous local plasticity, the engine executing the logic cannot be fused with the knowledge it acquires. The monolithic design of traditional transformers conflates the processing mechanism with the data, resulting in static weights that must be entirely retargeted to learn new facts. Karyon breaks this paradigm by strictly isolating the physical execution layer from the memory and learning layers.
@@ -37,7 +39,7 @@ The primary bottleneck is not computational density, but concurrent orchestratio
 
 Furthermore, the execution engine itself must be rigorously stabilized against catastrophic thread crashes. The Karyon cytoplasm relies on the Actor-model of concurrency (inherent to the underlying Elixir/BEAM virtual machine) combined with the biological mechanism of "Software Apoptosis" [[6]](#ref-6). Rather than attempting to rescue an unhandled algorithmic failure, the system embraces a "let it crash", fail-fast paradigm. An actor process is programmed to self-destruct if it violates safety semantics or encounters logical corruption. Crucially, because the engine is perfectly sterile and decoupled from the Rhizome memory, this localized apoptosis simply destroys the compromised thread. The broader organism remains functionally secure, and the entire shared knowledge graph remains intact, uncorrupted, and instantly available to the next sterile cell spawned by the microkernel supervisor.
 
-### Summary
+## Summary
 
 The microkernel establishes the foundational boundary of the Karyon organism: a microscopic, immutable physics engine strictly separated from the sprawling, mutable memory graph it curates. By keeping the nucleus sterile, Karyon achieves true sovereign resilience and deterministic verification. The subsequent components of the anatomy—the asynchronous cytoplasm and the highly specialized organelles—rely on this brutally stabilized, fault-isolated foundation to safely interact with the external world.
 

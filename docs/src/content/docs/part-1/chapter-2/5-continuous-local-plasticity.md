@@ -2,6 +2,8 @@
 title: "Continuous Local Plasticity"
 ---
 
+## Introduction
+
 The ambition to construct a machine intelligence that learns continuously is fundamentally incompatible with the physical architecture of modern hardware and the mathematical assumptions underpinning transformer models. 
 
 Attempting to update a massive, 27-billion-parameter array of weights dynamically in an LLM during inference presents a catastrophic engineering hurdle. Standard backpropagation necessitates a forward pass to calculate loss, followed by a backward pass that mandates the storage of vast, intermediate activation spaces in GPU memory, which represents a physically implausible mechanism in biological systems and imposes a severe memory bottleneck for autonomous edge AI agents [[1]](#ref-1). Furthermore, the prevailing academic consensus indicates that when a globally optimized network is exposed to a novel data distribution, the global gradient descent minimizes the loss function indiscriminately, forcefully ejecting parameters from local minima established for prior tasks and resulting in systemic "catastrophic forgetting" [[2]](#ref-2), [[3]](#ref-3). Biological tissue, however, does not pause cognition to recalculate the weight of its entire cerebral cortex after touching a hot stove. It simply reinforces or severs that exact local synaptic connection.
@@ -34,7 +36,11 @@ Crossing a physical socket boundary inflates memory access latencies from a loca
 
 To sustainably support half a million concurrent AI cells continuously rewiring their own knowledge, Karyon must strictly operate on a unified architecture: a single-socket processor containing all 128 threads (e.g., AMD Threadripper UMA) bonded tightly to an 8-channel ECC RAM array. This ensures the execution threads never wait for data to cross a bridge, leaving multi-node NUMA architectures exclusively for asynchronous, background memory consolidation.
 
----
+## Summary
+
+Continuous local plasticity breaks the artificial constraints of gradient descent by employing epitopological learning rules safely inside a dual-memory framework. By capturing live perception inside an in-RAM Memgraph and conducting long-term structural adjustments on background XTDB storage, the architecture naturally sidesteps catastrophic forgetting. This demands an uncompromising localized hardware ecosystem—specifically, massive multi-core execution on a single socket—to prevent catastrophic NUMA degradation during graph traversals.
+
+***
 
 ### References
 1. <a id="ref-1"></a>[https://www.researchgate.net/publication/400065898_A_Review_of_Continual_Learning_in_Edge_AI](https://www.researchgate.net/publication/400065898_A_Review_of_Continual_Learning_in_Edge_AI). (n.d.). ResearchGate. Accessed March 7, 2026.

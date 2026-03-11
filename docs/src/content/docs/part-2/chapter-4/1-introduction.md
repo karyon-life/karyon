@@ -9,8 +9,8 @@ A true cellular intelligence requires a fundamental mechanism for specialization
 This chapter details the exact process by which the Karyon Microkernel is injected with domain-specific knowledge to formulate a fully realized, differentiated AI organism capable of self-preservation.
 
 We will deconstruct:
-*   **Declarative Genetics:** How rigid YAML schemas define the physical capabilities, sensory limits, and routing logic of individual cells, effectively eliminating hardcoded agent frameworks.
-*   **The Epigenetic Supervisor:** The dynamic Elixir control loop that monitors the nervous system for environmental pressure, rapidly generating vast clusters of specialized stem cells on-demand to overwhelm external constraints.
-*   **Apoptosis & Digital Torpor:** The brutal arithmetic of the Metabolic Daemon, which ensures the physical survival of the organism against absolute exhaustion by terminating active processing cells and actively ignoring sensory ingestion. 
+1. **Declarative Genetics:** How rigid YAML schemas define the physical capabilities, sensory limits, and routing logic of individual cells, effectively eliminating hardcoded agent frameworks.
+2. **The Epigenetic Supervisor:** The dynamic Elixir control loop that monitors the nervous system for environmental pressure, rapidly generating vast clusters of specialized stem cells on-demand to overwhelm external constraints.
+3. **Apoptosis & Digital Torpor:** The brutal arithmetic of the Metabolic Daemon, which ensures the physical survival of the organism against absolute exhaustion by terminating active processing cells and actively ignoring sensory ingestion. 
 
 By defining the digital genome and enforcing metabolic survival boundaries, Karyon shifts from a theoretical distributed computing environment into an autonomous, metabolically regulated intelligence framework.

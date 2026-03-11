@@ -2,6 +2,8 @@
 title: "The Nervous System"
 ---
 
+## Introduction
+
 A collection of 500,000 isolated cellular state machines is not an organism; it is merely an uncoordinated mass. The transition from independent nodes into a singular, cohesive computational intelligence requires a high-bandwidth communication protocol. It requires a biological nervous system. 
 
 In Karyon, this nervous system must transmit immediate pain signals, execute complex topological routing, and broadcast systemic directives to the entire colony without introducing asynchronous delays. To mirror biological fidelity, this signaling must adhere to an absolute and uncompromising rule: **zero latency and zero buffering.**
@@ -47,7 +49,11 @@ Mitigating these storms without abandoning the unbuffered design requires robust
 * **Partial-View Overlays:** Applying runtime-configurable topologies (e.g., HyParView overlays from the Partisan runtime) fundamentally alters the mesh requirements so no single node must track the 500,000-node continuum [[13]](#ref-13).
 * **Edge Fan-Out:** Shifting the computational fan-out burden to localized partitioners across receiving edges rather than demanding the Elixir origin node sequentially map outgoing events ensures CPU resources are preserved at scale [[12]](#ref-12).
 
----
+## Summary
+
+The biological mandate of absolute zero-buffering guarantees that Karyon's massive cellular structure maintains strict physical synchrony over delayed, batch-processed messaging. The organism achieves this continuous temporal alignment using a dual-protocol nervous system: deploying ZeroMQ for high-speed deterministic P2P synaptic connections, and NATS Core for localized, ambient endocrine broadcasts. Segregating these signaling domains is biologically essential for routing massive telemetry without provoking the computational fatalism of a systemic broadcast storm.
+
+***
 
 ### References
 

@@ -2,6 +2,8 @@
 title: "The Eyes (Deterministic Parsing)"
 ---
 
+## Introduction
+
 The most fundamental flaw in using an autoregressive neural network to parse complex structural environments—such as the 10,000 files of a software monorepo—is hallucination. Neural networks are probabilistic inference engines; they do not perceive the definitive source of truth, they predict the most statistically likely sequence of tokens that represents it. In the domain of software engineering, code hallucination manifests as a systematic distortion of conceptual organization, relational architecture, and syntactical grounding [[1]](#ref-1). When standard AI models attempt to build an internal map of an entire codebase, they frequently invent nonexistent dependencies, hallucinate function signatures, and drop exact references due to context window constraints. 
 
 For an architecture tasked with sovereign engineering, probabilistic perception of structural code is a fatal error. Recent evaluations on real-world repository benchmarks reveal that flagship models solve a mere fraction of issues without explicit structural scaffolding [[2]](#ref-2). Furthermore, error rates exhibit a distinct "context cliff," rising sharply once a codebase exceeds minimal structural thresholds [[3]](#ref-3). 
@@ -46,6 +48,12 @@ To mitigate this system stalling, Karyon abandons single-version pessimistic loc
 This allows the organism to "blink"—taking in a vast visual snapshot of the repository, parsing it concurrently, and committing the topological representation to working memory without blocking the background active inference loops. By employing advanced decoupled designs like vertex-group MVCC and adaptive delta-chains, writers append localized updates independently, guaranteeing that analytical readers never block deterministic writers [[14]](#ref-14) [[15]](#ref-15).
 
 ---
+
+## Summary
+
+To interact safely with a complex codebase, an autonomous agent must possess an absolute, deterministic map of its architecture. By utilizing Rust-backed Tree-sitter NIFs acting as "Eyes," Karyon instantaneously converts source code into an exact topological graph, avoiding the crippling hallucinations inherent to Large Language Models and ensuring the reasoning core operates on mathematical fact.
+
+***
 
 ## References
 

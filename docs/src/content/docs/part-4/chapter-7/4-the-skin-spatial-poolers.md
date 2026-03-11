@@ -2,6 +2,8 @@
 title: "The Skin (Spatial Poolers)"
 ---
 
+## Introduction
+
 Deterministic AST parsing handles known source code, and hardcoded network listeners handle known telemetry payloads. But a truly sovereign architecture cannot collapse when presented with an undocumented text protocol, an alien configuration format, or unstructured natural language. It must possess a generic sensory discovery layer that can feel out the boundaries of an unknown structure mathematically.
 
 In the Karyon architecture, this untargeted sensory organ is conceptually modeled as the "Skin." It is a raw, generic interface that converts unstructured environmental noise into structured topological graph nodes without relying on hardcoded pre-processing.
@@ -62,7 +64,13 @@ Operating with continuous unsupervised Hebbian updates exposes the architecture 
 
 To counter this "reasoning drift", modern autonomous designs deploy "validation-gated" Hebbian mechanisms. Edge strengthening is halted unless the extracted structural relationship can be explicitly validated against Karyon's known reality [[23]](#ref-23), guaranteeing that hallucinated noise from the SLM sensory layer does not permanently rewrite the sovereign memory core.
 
----
+## Summary
+
+When encountering unmapped, chaotic environments where deterministic parsing fails, Karyon deploys dynamic "Skin" cells. Utilizing ultra-quantized Small Language Models (llama.cpp) strictly pinned to specific CPU cores, these cells employ continuous Hebbian learning rules to organically detect and bind structural relationships from unstructured noise, building valid topological edges without suffocating Karyon's core execution loops.
+
+***
+
+## References
 
 1. <a id="ref-1"></a>Cui, Y., Ahmad, S., Hawkins, J. (2017). *The HTM Spatial Pooler—A Neocortical Algorithm for Online Sparse Distributed Coding*. Frontiers in Computational Neuroscience. [https://www.frontiersin.org/journals/computational-neuroscience/articles/10.3389/fncom.2017.00111/full](https://www.frontiersin.org/journals/computational-neuroscience/articles/10.3389/fncom.2017.00111/full)
 2. <a id="ref-2"></a>Mnatzaganian, J., et al. (2016). *A Mathematical Formalization of Hierarchical Temporal Memory’s Spatial Pooler*. arXiv. [https://arxiv.org/abs/1601.06116](https://arxiv.org/abs/1601.06116)

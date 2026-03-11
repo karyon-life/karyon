@@ -2,6 +2,8 @@
 title: "Friction & Mirror Neurons"
 ---
 
+## Introduction
+
 ## The Theoretical Foundation: Socio-Linguistic Alignment & Digital Mirror Neurons
 
 If Karyon relies strictly on rigid grammatical templates, it remains a deterministic machine rather than an adaptive cognitive architecture. Biological intelligence demands continuous environmental plasticity. In human cognition, mirror neurons fire symmetrically during both the execution and the observation of a socio-linguistic action. This mechanism bypasses explicit instruction, driving the mimicry and socio-linguistic alignment necessary for an agent to adapt fluently within a specific cultural context. 
@@ -49,6 +51,12 @@ Because Karyon continuously updates its weights based on interacting tenants, th
 Addressing this dissonance is paramount to retaining Karyon’s sovereign computational stability. Standard optimization techniques, such as universally lowering the learning rate, only delay network collapse rather than resolve the underlying mathematical conflict.
 
 Consequently, Karyon shifts optimization from a linear aggregation model toward game-theoretic meta-learning. The node adjustments must navigate conflicting hypergradients by targeting the Nash Bargaining Solution (NBS) [[6]](#ref-6). By focusing on the product of marginal improvements for individual tenants subject to the constraint that no single tenant's performance decreases, the model mathematically guarantees progression toward a Pareto-optimal equilibrium [[6]](#ref-6). Furthermore, the application of Spectral Policy Optimization dynamically injects network diversity to break mathematical symmetry during "all-negative" conflicting states, enabling Karyon to maintain shared autonomous values without succumbing to user-induced dissonance [[7]](#ref-7).
+
+## Summary
+
+The rigidity of deterministic communication creates severe operational friction within human-machine teams. By treating human rejection as mathematically weighted prediction errors, Karyon employs continuous structural plasticity to selectively prune rigid templates, organically aligning its socio-linguistic architecture with the operators while relying on Nash Bargaining optimization to prevent behavioral drift in multi-tenant environments.
+
+***
 
 ## References
 

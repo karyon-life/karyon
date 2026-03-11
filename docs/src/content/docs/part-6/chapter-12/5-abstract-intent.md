@@ -2,6 +2,8 @@
 title: "Abstract Intent"
 ---
 
+## Introduction
+
 The final maturation phase of the cellular organism elevates its focus from rigid physical syntax (the AST) to conceptual human architecture. While the Baseline Diet teaches the organism the infallible physics of compilation, and the Teacher Daemon ensures resilient graph abstraction through continuous test execution, a Sovereign AI must ultimately understand *why* the code was written in a specific manner.
 
 Code alone is a physical artifact; it maps the "how." The "why" is the **Abstract Intent**, consisting of the human architectural decisions that motivated the codebase long before it was compiled.
@@ -61,6 +63,12 @@ Secondly, positional encoding methods inside advanced networks scale quadratical
 Lastly, an enduring "semantic gap" persists between constructive ambiguities in natural language design requirements and rigid code execution [[36]](#ref-36). 
 
 Despite these limitations, the AI transitions from a tool that predicts syntax to a sovereign partner capable of managing the integrity of the monorepo architecture out of intrinsic, graph-level necessity. It maps the delta between the intended universe and the decaying reality, proactively offering topological refactoring paths to prune the drift and realign the system's execution pathways back to the original Abstract Intent.
+
+## Summary
+
+The final leap to sovereign logic occurs when Karyon learns to parse abstract human intent. By extracting architectural directives from high-level documentation and structurally binding them to the immutable AST Code Property Graphs, the organism establishes defensive Attractor States, capable of identifying and prosecuting structural drift across the monorepo.
+
+***
 
 ### References
 
