@@ -4,6 +4,8 @@ title: "Execution Telemetry"
 
 ## Introduction
 
+Learning is fundamentally a process of trial and error, guided by survival-based feedback. For Karyon, this feedback manifests as execution telemetry—a precise digital signal that informs the system whether its architectural hypotheses are functionally sound or mathematically flawed.
+
 ## Biological Heuristics and Deterministic AI Feedback
 
 In standard biological organism training, pain is the fundamental heuristic. The immediate, deterministic experience of environmental failure drives synaptic pruning, physically severing the internal neural pathways responsible for the mistake. If a toddler touches a hot stove, the nervous system bypasses higher-order logic entirely to fire an immediate failure signal [[1]](#ref-1). 

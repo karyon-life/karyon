@@ -4,6 +4,8 @@ title: "The Synthetic Oracle Curriculum (The Teacher Daemon)"
 
 ## Introduction
 
+For an autonomous system to remain effective, it must never settle into a state of passive complacency. To move beyond local minima and achieve genuine expertise, Karyon employs an internal curriculum that mathematically forces the organism to confront and resolve structural uncertainties through adversarial pressure.
+
 ## The Biology of AI Stagnation and Prediction Error
 
 A cellular AI is fundamentally driven by a biological imperative to minimize structural "surprise," mathematically formalized as prediction error or variational free energy [[1]](#ref-1). In a naive implementation, an agent mandated solely to minimize prediction error encounters the "Dark Room Problem" [[2]](#ref-2). This paradox dictates that the mathematically optimal strategy to minimize surprise is to locate a highly predictable, static environment and cease all exploratory behavior. In the context of a structural software repository, an AI optimizing purely for low-confidence areas without biological constraints will eventually reach a state of stagnation. Once the organism establishes a pristine AST baseline and learns the fundamental laws of compilation through Execution Telemetry, it may stop exploring entirely, resting in a local minimum where it only executes actions it has absolute confidence in.

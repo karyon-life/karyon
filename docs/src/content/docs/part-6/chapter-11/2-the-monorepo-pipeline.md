@@ -4,6 +4,8 @@ title: "The Monorepo Pipeline"
 
 ## Introduction
 
+To coordinate the diverse technological layers of the Karyon architecture, we must move beyond fragmented repository management. A unified build and development pipeline is essential for ensuring that the concurrent orchestration of the BEAM and the raw performance of native Rust remain perfectly synchronized.
+
 ## The Imperative for a Hybrid Monorepo
 
 The architecture of Karyon is not a monolithic script; it is a hybrid organism relying on two vastly different technological ecosystems to function. Elixir (operating on the Erlang VM, or BEAM) provides the highly concurrent, fault-tolerant "cytoplasm" that orchestrates cell communication, while Rust provides the bare-metal "organelles" capable of traversing a temporal graph at maximum bandwidth without garbage collection pauses. 

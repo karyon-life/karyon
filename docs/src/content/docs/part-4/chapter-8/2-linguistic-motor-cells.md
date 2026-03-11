@@ -4,6 +4,8 @@ title: "Linguistic Motor Cells"
 
 ## Introduction
 
+For a sovereign intelligence to be useful, it must possess the ability to communicate its internal state and intended actions to its human operators. This requires a bridge between the rigid, mathematical world of graph topologies and the fluid, often ambiguous domain of natural language.
+
 ## The Theoretical Foundation: Factless Comprehension and the Closed-World Assumption
 
 A graph database natively excels at storing facts, structure, and deterministic relationships. It does not natively output fluent sentences. If an execution cell fails to access an isolated file, the Rhizome knows exactly what transpired mathematically: `[Action: Read] -> [Target: config.yml] -> [State: Permission_Denied]`.

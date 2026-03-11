@@ -4,6 +4,8 @@ title: "Rust NIFs (Organelles)"
 
 ## Introduction
 
+The Karyon architecture is built upon a fundamental tension between the need for biological fault tolerance and the requirement for raw computational velocity. To resolve this, the system must bridge the gap between interpreted isolation and native performance.
+
 ## The Computational Dilemma
 
 While the Elixir cytoplasm orchestrates the biological lifecycle of the Karyon organism with unmatched fault tolerance, it possesses a fatal technical weakness: it is computationally slow. The Erlang Virtual Machine (BEAM) was engineered for highly concurrent, I/O-bound networking tasks via the Actor model, where execution is divided into isolated, lightweight processes that communicate exclusively through asynchronous message passing [[1]](#ref-1). However, this architectural design is fundamentally hostile to CPU-bound, memory-intensive computations. Because BEAM data structures are strictly immutable, modifying large datasets requires allocating and copying vast swaths of memory on the process heap, acting as a severe performance bottleneck [[2]](#ref-2). 

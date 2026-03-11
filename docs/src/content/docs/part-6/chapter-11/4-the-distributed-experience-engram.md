@@ -48,7 +48,7 @@ True maturity in a cellular architecture enables horizontal knowledge scaling. B
 
 ***
 
-#### Works Cited
+## References
 
 1. <a id="ref-1"></a>Fundamental Capabilities of Large Language Models and their Applications in Domain Scenarios: A Survey - ACL Anthology, accessed March 8, 2026, [https://aclanthology.org/2024.acl-long.599.pdf](https://aclanthology.org/2024.acl-long.599.pdf)
 2. <a id="ref-2"></a>Aeon: High-Performance Neuro-Symbolic Memory Management for Long-Horizon LLM Agents - ResearchGate, accessed March 8, 2026, [https://www.researchgate.net/publication/400003336_Aeon_High-Performance_Neuro-Symbolic_Memory_Management_for_Long-Horizon_LLM_Agents](https://www.researchgate.net/publication/400003336_Aeon_High-Performance_Neuro-Symbolic_Memory_Management_for_Long-Horizon_LLM_Agents)

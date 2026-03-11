@@ -4,6 +4,8 @@ title: "Friction & Mirror Neurons"
 
 ## Introduction
 
+Communication is not merely the transmission of facts; it is a social process of alignment and mutual understanding. To truly integrate into a human engineering team, Karyon must move beyond rigid templates and develop the capacity to mirror and adapt to the linguistic and structural nuances of its collaborators.
+
 ## The Theoretical Foundation: Socio-Linguistic Alignment & Digital Mirror Neurons
 
 If Karyon relies strictly on rigid grammatical templates, it remains a deterministic machine rather than an adaptive cognitive architecture. Biological intelligence demands continuous environmental plasticity. In human cognition, mirror neurons fire symmetrically during both the execution and the observation of a socio-linguistic action. This mechanism bypasses explicit instruction, driving the mimicry and socio-linguistic alignment necessary for an agent to adapt fluently within a specific cultural context. 

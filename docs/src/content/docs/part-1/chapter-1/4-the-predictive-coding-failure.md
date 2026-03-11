@@ -4,6 +4,8 @@ title: "The Predictive Coding Failure"
 
 ## Introduction
 
+The current landscape of artificial intelligence is dominated by a pursuit of "correctness" that is structurally decoupled from environmental reality. To understand why Karyon departs from the transformer paradigm, we must first analyze the brittle foundations of static error correction.
+
 ## The Fundamental Flaw of Static Correctness
 
 The fundamental flaw in modern artificial intelligence architecture is the operational definition of "correctness." In a standard supervised learning environment, a dense monolithic model attempts to predict a single, discrete token and is immediately mathematically corrected by a static, independently distributed dataset. This paradigm strictly computes the gradient of a global loss function with respect to every parameter in the network, permanently isolating the model from the temporal consequences of its outputs.

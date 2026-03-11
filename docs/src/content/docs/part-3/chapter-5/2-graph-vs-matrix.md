@@ -4,6 +4,8 @@ title: "Graph vs Matrix"
 
 ## Introduction
 
+Modern artificial intelligence is built upon a profound structural contradiction. While the goal is to replicate the fluid, associative intelligence of biological organisms, the underlying mathematical engines are constrained by the rigid silicon reality of the hardware they inhabit.
+
 ## The Hardware Artifact: GPU Optimization and the Dominance of Dense Matrices
 
 The presiding orthodoxy in artificial intelligence insists that intelligence must be modeled using dense matrices. This is not a biological reality; it is an artifact of hardware optimization. The phenomenon, formally recognized as the "hardware lottery" [[1]](#ref-1), describes how the trajectory of AI algorithmic design has been artificially dictated by its compatibility with available chip architectures. Specifically, the modern Graphics Processing Unit (GPU) was designed to massively parallelize dense matrix multiplications (MatMuls) [[2]](#ref-2). 
