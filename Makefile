@@ -19,6 +19,7 @@ deps:
 
 build:
 	cd app/rhizome/native/rhizome_nif && cargo build --release
+	cd app/sensory/native/sensory_nif && cargo build --release
 	cd app && mix compile
 
 up:
@@ -36,3 +37,4 @@ run-server: up
 clean:
 	cd app && mix clean
 	cd app/rhizome/native/rhizome_nif && cargo clean
+	cd app/sensory/native/sensory_nif && cargo clean
