@@ -6,7 +6,7 @@ defmodule Rhizome.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Memory layer supervisors will go here
+      Rhizome.Optimizer
     ]
 
     opts = [strategy: :one_for_one, name: Rhizome.Supervisor]
