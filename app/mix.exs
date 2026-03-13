@@ -12,6 +12,8 @@ defmodule App.MixProject do
   end
 
   defp deps do
-    []
+    [
+      {:stream_data, "~> 1.0", only: :test}
+    ]
   end
 end
