@@ -1,0 +1,15 @@
+# Karyon Stem Cell Declarative Schema
+# This DNA represents the boundaries of a purely generic computational cell.
+# The microkernel is sterile; all associative capability comes from this schema.
+
+cell_type: stem_cell
+capabilities:
+  - perception
+  - memory_read
+  - zero_mq_routing
+synapses:
+  chumak_bind_topic: "sensory_inputs"
+  hwm_limit: 1 # Strictly capped for active inference backpressure
+limits:
+  max_run_queue_wait_ms: 5 # Triggers Apoptosis if exceeded
+  memory_ceiling_mb: 256
