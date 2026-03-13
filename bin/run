@@ -28,6 +28,9 @@ if [[ "$1" == "--server" ]]; then
     MODE="server"
 fi
 
+# Ensure thread affinity to prevent NUMA node traversal (Phase 2 constraint)
+export ERL_AFLAGS="+sbt tnnps"
+
 # Start the application
 if [[ "$MODE" == "server" ]]; then
     echo "==> Application starting in non-interactive (server) mode..."
