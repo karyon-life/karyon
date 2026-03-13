@@ -1,0 +1,38 @@
+#!/bin/bash
+set -e
+
+# Karyon Run Script
+# Boostraps and starts the Elixir application
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_DIR="$PROJECT_ROOT/app"
+
+echo "==> Starting Karyon Organism..."
+
+cd "$APP_DIR"
+
+# Check for Elixir
+if ! command -v elixir &> /dev/null; then
+    echo "Error: Elixir not found. Please install Elixir 1.15+."
+    exit 1
+fi
+
+# Fetch and compile dependencies
+echo "==> Fetching and compiling dependencies..."
+mix deps.get
+mix compile
+
+# Parse arguments
+MODE="interactive"
+if [[ "$1" == "--server" ]]; then
+    MODE="server"
+fi
+
+# Start the application
+if [[ "$MODE" == "server" ]]; then
+    echo "==> Application starting in non-interactive (server) mode..."
+    mix run --no-halt
+else
+    echo "==> Application starting. Dropping into IEx..."
+    iex -S mix
+fi
