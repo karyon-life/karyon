@@ -1,6 +1,6 @@
 # Karyon AI Application Platform - Development Guidelines (GEMINI.md)
 
-This file serves as the definitive reference context for any AI models assisting in the development, maintenance, or scaling of the **Karyon AI Application Platform**. It synthesizes the theoretical imperatives established in `docs/public/book.md` and the structural constraints defined in `SPEC.md`.
+This file serves as the definitive reference context for any AI models assisting in the development, maintenance, or scaling of the **Karyon AI Application Platform**. It synthesizes the theoretical imperatives established in `docs/public/book.md` and the structural constraints defined in `SPEC.md`.  For context about the goals of the project see the initial kickoff conversation in `chat.xml`.
 
 ## 1. Core Paradigm: The Biomimetic Cellular AI
 Karyon explicitly abandons the standard monolithic, autoregressive, and stateless deep learning paradigms (e.g., standard Transformers, single-pass RAG). Instead, it implements a **structurally discrete, biomimetic multi-agent ecosystem**. Development on Karyon requires adhering to the principle of "Biological Intelligence"—emphasizing concurrent, self-organizing, localized cells over centralized dense matrix computations.
