@@ -13,3 +13,4 @@ tree-sitter = "0.20.10"
 tree-sitter-json = "0.20.2"
 neo4rs = "0.7.0"
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
+lazy_static = "1.4.0"

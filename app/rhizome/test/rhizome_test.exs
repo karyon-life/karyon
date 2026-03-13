@@ -11,6 +11,6 @@ defmodule RhizomeTest do
     
     # In a full test environment, we would query Memgraph directly to ensure the node
     # exists, but for MVP Scope, we ensure the NIF returns :ok without crashing.
-    assert Rhizome.Nif.parse_and_store(json_script) == :ok
+    assert {:ok, _msg} = Rhizome.Nif.parse_and_store(json_script)
   end
 end
