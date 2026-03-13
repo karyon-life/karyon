@@ -12,31 +12,43 @@ Karyon is a structurally discrete, biomimetic multi-agent ecosystem. It explicit
 
 For more details, see [SPEC.md](SPEC.md) and [docs/public/book.md](docs/public/book.md).
 
-## Prerequisites
+## Getting Started
+
+The easiest way to run the Karyon organism is using `make`. This ensures all backing services are started before the Elixir Nucleus initializes.
+
+### Prerequisites
 
 *   **Elixir** 1.15+
 *   **Erlang/OTP** 26+
-*   **Rust** (for NIFs)
-*   **Memgraph / XTDB** (for the Rhizome)
+*   **Docker & Docker Compose** (for backing services)
+*   **Rust** (for future NIF organelles)
 
-## Getting Started
+### Quick Start
 
-To run the application in an interactive Elixir shell (IEx):
-
-```bash
-./bin/run
-```
-
-To run the application in non-interactive (server) mode:
+To bootstrap dependencies, start backing services, and drop into an interactive Elixir shell (IEx):
 
 ```bash
-./bin/run --server
+make run
 ```
 
-This will:
-1.  Check for necessary dependencies.
-2.  Compile the Elixir and Rust components.
-3.  Start the umbrella application using `mix run --no-halt`.
+To run in non-interactive (server) mode:
+
+```bash
+make run-server
+```
+
+Individual components can also be managed:
+*   `make up`: Start backing services (Memgraph, XTDB)
+*   `make down`: Stop backing services
+*   `make build`: Compile the application
+*   `make deps`: Fetch dependencies
+
+## Performance and Metabolic Efficiency
+
+Karyon is designed with "Hardware Sympathy" to maximize metabolic efficiency.
+
+1.  **Native Nucleus**: The Elixir application runs natively on the host machine via `bin/run`. This ensures the BEAM scheduler has direct access to CPU topologies and thread affinity (`ERL_AFLAGS="+sbt tnnps"`), avoiding the overhead and jitter of containerized networking and process scheduling.
+2.  **Containerized Rhizome**: Backing services (Memgraph, XTDB) are containerized for development consistency. In high-performance production environments, these may be moved to bare-metal or NUMA-aware instances as defined in [SPEC.md](SPEC.md).
 
 ## Development
 
