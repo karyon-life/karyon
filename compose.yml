@@ -8,6 +8,9 @@ services:
     environment:
       - MEMGRAPH_TELEMETRY_ENABLED=false
     command: ["--log-level=WARNING"]
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+      - memgraph_logs:/var/log/memgraph
 
   xtdb:
     image: juxt/xtdb-in-a-box:latest
@@ -16,3 +19,10 @@ services:
       - "3000:3000"
     environment:
       - XTDB_ENABLE_HTTP_SERVER=true
+    volumes:
+      - xtdb_data:/var/lib/xtdb
+
+volumes:
+  memgraph_data:
+  memgraph_logs:
+  xtdb_data:
