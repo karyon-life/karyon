@@ -5,10 +5,10 @@ defmodule NervousSystem.MixProject do
     [
       app: :nervous_system,
       version: "0.1.0",
-      build_path: "../../_build",
-      config_path: "../../config/config.exs",
-      deps_path: "../../deps",
-      lockfile: "../../mix.lock",
+      build_path: "../_build",
+      config_path: "../config/config.exs",
+      deps_path: "../deps",
+      lockfile: "../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps()
@@ -18,7 +18,7 @@ defmodule NervousSystem.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :telemetry],
       mod: {NervousSystem.Application, []}
     ]
   end
@@ -27,7 +27,8 @@ defmodule NervousSystem.MixProject do
   defp deps do
     [
       {:chumak, "~> 1.4"},
-      {:tortoise, "~> 0.10.0"}
+      {:tortoise, "~> 0.10.0"},
+      {:telemetry, "~> 1.0"}
     ]
   end
 end

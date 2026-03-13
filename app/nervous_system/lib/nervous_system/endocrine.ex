@@ -8,9 +8,11 @@ defmodule NervousSystem.Endocrine do
   Connects to the global NATS network.
   """
   def start_connection(client_id, url \\ "nats://localhost:4222") do
+    # Note: Tortoise is an MQTT client. Using it for NATS as per specs.
+    # We use a standard MQTT TCP transport for now.
     Tortoise.Connection.start_link(
       client_id: client_id,
-      server: url,
+      server: {Tortoise.Transport.Tcp, host: "localhost", port: 1883},
       handler: {Tortoise.Handler.Logger, []}
     )
   end
