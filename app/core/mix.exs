@@ -5,10 +5,10 @@ defmodule Core.MixProject do
     [
       app: :core,
       version: "0.1.0",
-      build_path: "../../_build",
-      config_path: "../../config/config.exs",
-      deps_path: "../../deps",
-      lockfile: "../../mix.lock",
+      build_path: "../_build",
+      config_path: "../config/config.exs",
+      deps_path: "../deps",
+      lockfile: "../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps()
@@ -27,6 +27,7 @@ defmodule Core.MixProject do
   defp deps do
     [
       # process grouping relies on the built-in :pg module from Erlang.
+      {:yaml_elixir, "~> 2.9"}
     ]
   end
 end

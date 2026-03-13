@@ -16,6 +16,24 @@ defmodule Core.EpigeneticSupervisor do
   end
 
   @doc """
+  Spawns a new cell by injecting a declarative YAML configuration into the sterile core.
+  """
+  def spawn_cell(dna_file_path \\ "config/genetics/base_stem_cell.yml") do
+    full_path = Path.join(File.cwd!(), dna_file_path)
+    
+    # Let it crash if YAML is invalid (Epigenetic rejection)
+    dna_spec = Core.YamlParser.transcribe!(full_path)
+    
+    child_spec = %{
+      id: Core.StemCell,
+      start: {Core.StemCell, :start_link, [dna_spec]},
+      restart: :temporary # Under chaos conditions, we do not violently resurrect failed cells automatically
+    }
+
+    DynamicSupervisor.start_child(__MODULE__, child_spec)
+  end
+
+  @doc """
   Triggers localized Apoptosis (Programmed Cell Death).
   """
   def apoptosis(pid) do

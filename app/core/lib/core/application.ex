@@ -10,7 +10,8 @@ defmodule Core.Application do
 
     # 2. Define our Supervision Tree
     children = [
-      Core.EpigeneticSupervisor
+      Core.EpigeneticSupervisor,
+      Core.MetabolicDaemon
     ]
 
     # Use one_for_one strategy. Let it crash constraint.
