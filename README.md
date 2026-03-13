@@ -23,6 +23,13 @@ The easiest way to run the Karyon organism is using `make`. This ensures all bac
 *   **Docker & Docker Compose** (for backing services)
 *   **Rust** (for future NIF organelles)
 
+## Operations & Documentation
+
+- [Genetic Blueprint Guide](file:///home/adrian/Projects/nexical/karyon/docs/OPERATIONS/GENETICS.md) — How to author cellular DNA.
+- [Metabolic Operations Playbook](file:///home/adrian/Projects/nexical/karyon/docs/OPERATIONS/METABOLICS.md) — Monitoring, health, and apoptosis debugging.
+- [Developer & NIF Safety](file:///home/adrian/Projects/nexical/karyon/docs/DEVELOPER/NIF_SAFETY.md) — FFI architecture and native extension guide.
+- [Project Walkthrough](file:///home/adrian/.gemini/antigravity/brain/66d06a40-b9b4-4d78-8e5d-47e5f6398975/walkthrough.md) — Technical implementation summary.
+
 ### Quick Start
 
 To bootstrap dependencies, start backing services, and drop into an interactive Elixir shell (IEx):
