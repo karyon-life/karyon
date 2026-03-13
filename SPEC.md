@@ -101,3 +101,53 @@ Karyon provides true data sovereignty for enterprise environments by completely 
 Karyon shares acquired intelligence not through statistical model weights, but via distributable, topological experience graphs.
 - **Exporting Experienced Graphs:** Background extraction daemons serialize mature architectural knowledge regions from the XTDB temporal graph into highly compressed `.engram` packages (e.g., `python_experience_v1.engram`). 
 - **Sovereign Implantation:** These engrams contain zero core execution logic and no telemetry data—only abstracted architectural topology. They can be safely injected into a blank, air-gapped Karyon instance, instantly passing on structural mastery without requiring cloud connectivity or exposing raw training source code.
+
+## Engineering Standards & Protocols
+
+To guarantee structural consistency and modular high-quality development, all applications extending the Karyon architecture must adhere to the following explicit engineering constraints. 
+
+### 1. Concrete API Boundaries & Data Contracts
+The Karyon physics engine requires unambiguous communication contracts.
+- **The Rustler FFI Boundary:** 
+  - Graph pointers and payload structs passed between Elixir and Rust must strictly use `#[repr(C)]` memory layouts.
+  - Rust NIFs must never panic. All bounds-checking failures, parsing errors, or missing nodes must return an explicit `{:error, reason}` Erlang tuple.
+  - Any Rust traversal or string manipulation logic that exceeds `1ms` of CPU time must be explicitly wrapped in `SchedulerFlags::DirtyCpu`. Any disk-bound IO (like writing an XTDB delta block) must be explicitly flagged with `SchedulerFlags::DirtyIo`.
+- **Nervous System Serialization:** 
+  - ZeroMQ (Peripheral) and NATS (Central) payloads cannot be arbitrary strings. Every signal (e.g., `PredictionError`, `MetabolicSpike`) must adhere to a strict typed schema via **Protocol Buffers** or rigorously typed JSON schema validation to guarantee 500k-cell interoperability.
+
+### 2. Standardized Project & Monorepo Structure
+Any Karyon application must isolate its sterile logic from its DNA and data states physically on disk.
+The monorepo structure is unyielding:
+- `app/mix.exs`: Umbrella root manifest.
+- `apps/core/lib/`: Exclusively Elixir Cytoplasm logic (routing, process trees).
+- `apps/rhizome/native/`: Exclusively Rust Organelles (`Cargo.toml`, Memory/Graph NIFs).
+- `priv/dna/`: Immutable YAML genetic schemas defining cell types.
+- `~/.karyon/`: The external, stateful Living Entity (never checked into version control).
+
+### 3. Declarative Schema Definitions (DNA)
+Cellular roles are prohibited from being statically compiled. They must be rendered dynamically via YAML `DNA` schemas.
+A base `[Cell_Type].yml` schema must rigidly define:
+- `subscriptions:` (Which NATS/ZeroMQ topics the process listens to).
+- `allowed_actions:` (Which external APIs or physical boundaries the cell may interact with).
+- `ast_parser:` (Which specific `Tree-sitter` Rust NIF is utilized to observe its environment).
+An `[Objective].yml` schema must rigidly define high-weight topological Attractor States that trigger planning cell navigation.
+
+### 4. Deterministic Testing & CI/CD Mandates
+Testing a biological, asynchronous, bitemporal state machine requires specialized CI gates prior to merging code into `main`.
+- **Property-Based Testing:** Elixir implementations must use `stream_data` or `PropEr` to generate millions of randomized, out-of-order ZeroMQ message permutations to verify internal graph transaction ordering guarantees.
+- **Memory Profiling:** Ensure `Valgrind` or equivalent LLVM memory sanitizers are used within the rustler test suites to mathematically verify that the opaque `Resource Objects` safely deallocate without leaking memory during the Erlang Garbage Collection sweep.
+- **Chaos Engineering (Apoptosis Validation):** Automated CI pipelines must sporadically execute `Process.exit(pid, :kill)` against 10% of active BEAM cells under load to mathematically prove the OTP Supervision trees dynamically reconstruct the topological mapping without dead-locking.
+
+### 5. Explicit "Metabolic Pain" Thresholds
+Karyon applications must define their homeostasis baselines. The Default Threadripper thresholds for the Metabolic Daemon are:
+- **CPU Starvation:** Trigger `Apoptosis` of low-utility speculative cells immediately if the Erlang scheduler run queue wait time sequentially exceeds `5ms`.
+- **L3 Cache Constriction:** Drop non-essential ZeroMQ listeners if native L3 cache misses spike `> X%` beyond the established baseline, indicating that `Memgraph` thread-pointers are suffocating the CPU cache-lines.
+- **IOPS Backpressure:** If Virtio-fs or NVMe XTDB archive writes exceed `X` IOPS (or cause transaction locks > 10ms), switch the organism into `Digital Torpor`, ignoring ambient NATS telemetry to preserve core intelligence.
+
+### 6. Sandbox Security Profiles
+All Motor cell mutation processes that generate patches or compile tests must execute in disposable AWS Firecracker micro-VMs.
+- **MicroVM Hard Limits:**
+  - Maximum 2 vCPUs allowed per ephemeral sandbox.
+  - Strict 512MB RAM limitation per sandbox to force memory-efficient compilation tests.
+- **Network Air-Gap:** Sandbox `eth0` network namespaces must drop all outbound connections. The compilation sandbox has zero internet access.
+- **I/O Bridge:** Interactions exist strictly over a local `Virtio-fs` socket mount limited to target workspace directories (e.g., `/mnt/workspace/`) to prevent host-os corruption.
