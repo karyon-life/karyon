@@ -19,7 +19,7 @@ deps:
 
 build:
 	# Placeholder for Rust compilation in Phase 3
-	# cd app/apps/rhizome/native && cargo build --release
+	# cd app/rhizome/native && cargo build --release
 	cd app && mix compile
 
 up:
@@ -36,4 +36,4 @@ run-server: up
 
 clean:
 	cd app && mix clean
-	# cd app/apps/rhizome/native && cargo clean
+	# cd app/rhizome/native && cargo clean
