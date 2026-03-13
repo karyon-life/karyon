@@ -1,0 +1,18 @@
+
+services:
+  memgraph:
+    image: memgraph/memgraph:latest
+    container_name: karyon_memgraph
+    ports:
+      - "7687:7687"
+    environment:
+      - MEMGRAPH_TELEMETRY_ENABLED=false
+    command: ["--log-level=WARNING"]
+
+  xtdb:
+    image: juxt/xtdb-in-a-box:latest
+    container_name: karyon_xtdb
+    ports:
+      - "3000:3000"
+    environment:
+      - XTDB_ENABLE_HTTP_SERVER=true
