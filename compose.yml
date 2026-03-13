@@ -13,12 +13,10 @@ services:
       - memgraph_logs:/var/log/memgraph
 
   xtdb:
-    image: juxt/xtdb-in-a-box:latest
+    image: ghcr.io/xtdb/xtdb:latest
     container_name: karyon_xtdb
     ports:
       - "3000:3000"
-    environment:
-      - XTDB_ENABLE_HTTP_SERVER=true
     volumes:
       - xtdb_data:/var/lib/xtdb
 
