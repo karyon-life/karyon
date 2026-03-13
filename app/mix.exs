@@ -4,7 +4,7 @@ defmodule App.MixProject do
   def project do
     [
       apps_path: ".",
-      apps: [:core, :nervous_system, :rhizome, :sandbox],
+      apps: [:core, :nervous_system, :rhizome, :sandbox, :sensory],
       version: "0.1.0",
       start_permanent: Mix.env() == :prod,
       deps: deps()
