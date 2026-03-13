@@ -55,13 +55,26 @@ defmodule Core.MetabolicDaemon do
   end
 
   defp check_l3_cache_constriction do
-    # Simulate dropping ambient NATS telemetry if memory limits suffocate.
-    # We drop `tortoise` peripheral broadcasts dynamically to favor core survival.
+    # Sample logic: simulate dropping ambient NATS telemetry if memory limits suffocate.
+    # In a real system, we'd use a NIF to read CPU performance counters (perf_event_open).
+    
+    # Mock: 1% chance of a "transient L3 spike" for simulation purposes
+    if :rand.uniform(100) == 1 do
+      Logger.warning("[MetabolicDaemon] L3 Cache Constriction detected. Shedding peripheral telemetry.")
+      # In Phase 5+, we'd actually signal NervousSystem.Endocrine to dampen NATS traffic
+    end
     :ok
   end
 
   defp check_digital_torpor do
-    # Simulate shedding speculative cells if IO limits are blocked on XTDB/Graph.
+    # Sample logic: shed speculative cells if IO limits are blocked on XTDB/Graph.
+    # In a real system, we'd monitor XTDB commit latency or Virtio-blk wait times.
+    
+    # Mock: trigger torpor if the scheduler is heavily loaded (as a proxy for IO wait)
+    {total_run_queue, _} = :erlang.statistics(:run_queue_lengths)
+    if total_run_queue > 20 do
+      Logger.info("[MetabolicDaemon] Digital Torpor engaged. Suspending low-priority IO cycles.")
+    end
     :ok
   end
 end
