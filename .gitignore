@@ -1,29 +1,28 @@
-# dependencies
-node_modules/
+# Elixir
+/app/_build/
+/app/deps/
+/app/.elixir_ls/
+*.ez
+erl_crash.dump
 
-# logs
+# Rust (NIFs)
+**/native/**/target/
+
+# Node (JS)
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# pnpm
-.pnpm-store
+node_modules/
+dist/
+build/
+.output/
+.astro/
+astro.config.mjs.timestamp-* 
+docs/public/*.md
 
 # Environment variables
 .env
 .env.production
 .env.local
-
-# Build output
-dist/
-build/
-.output/
-docs/public/*.md
-
-# Astro
-.astro/
-astro.config.mjs.timestamp-*
+config/*.secret.exs
 
 # IDEs and Editors
 .idea/
