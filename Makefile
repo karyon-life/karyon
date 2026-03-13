@@ -28,6 +28,13 @@ up:
 down:
 	docker compose down
 
+test:
+	cd app && mix test
+
+test-native:
+	cd app/rhizome/native/rhizome_nif && cargo test
+	cd app/sensory/native/sensory_nif && cargo test
+
 run: up
 	./bin/run
 
