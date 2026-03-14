@@ -12,4 +12,5 @@ defmodule Rhizome.Native do
   def memgraph_query(_query), do: :erlang.nif_error(:nif_not_loaded)
   def xtdb_submit(_id, _data), do: :erlang.nif_error(:nif_not_loaded)
   def optimize_graph(), do: :erlang.nif_error(:nif_not_loaded)
+  def weaken_edge(_id), do: :erlang.nif_error(:nif_not_loaded)
 end

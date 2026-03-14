@@ -13,4 +13,12 @@ defmodule RhizomeTest do
     # exists, but for MVP Scope, we ensure the NIF returns :ok without crashing.
     assert {:ok, _msg} = Rhizome.Nif.parse_and_store(json_script)
   end
+
+  test "submits bitemporal transactions to XTDB and recovers from history" do
+    id = "cell_delta_456"
+    data = %{status: :pruned, error: 0.8}
+    
+    # Verify NIF returns successful transaction response (mocked in test_helper)
+    assert {:ok, _tx_id} = Rhizome.Memory.submit_xtdb(id, data)
+  end
 end

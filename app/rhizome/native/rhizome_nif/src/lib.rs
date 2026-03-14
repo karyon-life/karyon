@@ -14,6 +14,7 @@ rustler::init!(
         memgraph::memgraph_query,
         xtdb::xtdb_submit,
         optimizer::optimize_graph,
+        memgraph::weaken_edge,
     ],
     load = load
 );
