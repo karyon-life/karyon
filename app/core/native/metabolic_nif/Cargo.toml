@@ -8,7 +8,7 @@ name = "metabolic_nif"
 crate-type = ["cdylib"]
 
 [dependencies]
-rustler = "0.34.0"
+rustler = "0.37"
 libc = "0.2"
 perf-event = "0.4"
 lazy_static = "1.4"

@@ -21,17 +21,17 @@ pub fn read_l3_misses() -> NifResult<u64> {
 
     if counter_lock.is_none() {
         // Initialize the hardware counter for L3 cache misses
-        let counter = Builder::new()
+        let mut counter = Builder::new()
             .kind(Hardware::CACHE_MISSES)
             .build()
-            .map_err(|_| rustler::Error::Term)?;
+            .map_err(|_| rustler::Error::Atom("perf_event_error"))?;
         
-        counter.enable().map_err(|_| rustler::Error::Term)?;
+        counter.enable().map_err(|_| rustler::Error::Atom("perf_event_enable_error"))?;
         *counter_lock = Some(counter);
     }
 
     let counter = counter_lock.as_mut().unwrap();
-    let count = counter.read().map_err(|_| rustler::Error::Term)?;
+    let count = counter.read().map_err(|_| rustler::Error::Atom("perf_event_read_error"))?;
     
     // We return the delta or absolute? For metabolic daemon, absolute is fine for thresholding 
     // or we can reset. Let's return absolute for now.
@@ -41,7 +41,7 @@ pub fn read_l3_misses() -> NifResult<u64> {
 #[rustler::nif]
 pub fn read_iops() -> NifResult<u64> {
     // Read from /proc/diskstats
-    let file = File::open("/proc/diskstats").map_err(|_| rustler::Error::Term)?;
+    let file = File::open("/proc/diskstats").map_err(|_| rustler::Error::Atom("diskstats_error"))?;
     let reader = BufReader::new(file);
     
     let mut total_io: u64 = 0;
