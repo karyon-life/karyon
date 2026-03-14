@@ -1,4 +1,5 @@
 mod resource;
+mod client;
 mod memgraph;
 mod xtdb;
 mod optimizer;
@@ -20,6 +21,7 @@ rustler::init!(
 );
 
 fn load(env: Env, _info: Term) -> bool {
-    rustler::resource!(GraphResource, env);
+    // Register the GraphResource for use with ResourceArc
+    let _ = rustler::resource!(GraphResource, env);
     true
 }

@@ -1,12 +1,14 @@
 defmodule Rhizome.Native do
-  @moduledoc """
-  Low-level FFI bridge to the Rust Organelles.
-  """
-  use Rustler,
-    otp_app: :rhizome,
-    crate: "rhizome_nif"
+  use Rustler, otp_app: :rhizome, crate: :rhizome_nif
 
-  # NIFs
+  @moduledoc """
+  Rust Native Implemented Functions (NIF) for Phase 0 MVP.
+  Provides strict, dirty-io bound offloading of syntax tree parsing and Memgraph ingestion.
+  """
+
+  @doc """
+  Parses a script using tree-sitter and immediately writes the AST to Memgraph.
+  """
   def create_pointer(_id), do: :erlang.nif_error(:nif_not_loaded)
   def get_pointer_id(_resource), do: :erlang.nif_error(:nif_not_loaded)
   def memgraph_query(_query), do: :erlang.nif_error(:nif_not_loaded)

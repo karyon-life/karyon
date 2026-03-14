@@ -1,35 +1,7 @@
-use neo4rs::*;
-use std::sync::Arc;
-use tokio::runtime::Runtime;
-use tokio::sync::Mutex;
+use crate::client::{CLIENT, RUNTIME, MemgraphClient};
 use rustler::NifResult;
+use std::sync::Arc;
 
-lazy_static::lazy_static! {
-    static ref RUNTIME: Runtime = Runtime::new().unwrap();
-    static ref CLIENT: Mutex<Option<Arc<MemgraphClient>>> = Mutex::new(None);
-}
-
-pub struct MemgraphClient {
-    graph: Graph,
-}
-
-impl MemgraphClient {
-    pub async fn new(uri: &str, user: &str, pass: &str) -> Result<Self, Error> {
-        let config = ConfigBuilder::default()
-            .uri(uri)
-            .user(user)
-            .password(pass)
-            .build()
-            .unwrap();
-        let graph = Graph::new(config).await?;
-        Ok(Self { graph })
-    }
-
-    pub async fn execute_query(&self, query: &str) -> Result<(), Error> {
-        self.graph.run(query!(query)).await?;
-        Ok(())
-    }
-}
 
 #[rustler::nif(schedule = "DirtyIo")]
 pub fn memgraph_query(query: String) -> NifResult<String> {

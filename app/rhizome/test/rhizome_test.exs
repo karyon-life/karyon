@@ -11,7 +11,7 @@ defmodule RhizomeTest do
     
     # In a full test environment, we would query Memgraph directly to ensure the node
     # exists, but for MVP Scope, we ensure the NIF returns :ok without crashing.
-    assert {:ok, _msg} = Rhizome.Nif.parse_and_store(json_script)
+    assert {:ok, _msg} = Rhizome.Native.xtdb_submit("test", json_script)
   end
 
   test "submits bitemporal transactions to XTDB and recovers from history" do

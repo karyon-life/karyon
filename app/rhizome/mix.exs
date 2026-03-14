@@ -11,11 +11,18 @@ defmodule Rhizome.MixProject do
       lockfile: "../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      compilers: Mix.compilers(),
+      rustler_crates: [
+        rhizome_nif: [
+          path: "native/rhizome_nif",
+          mode: (if Mix.env() == :prod, do: :release, else: :debug),
+          crate: :rhizome_nif
+        ]
+      ],
       deps: deps()
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger],
@@ -23,10 +30,9 @@ defmodule Rhizome.MixProject do
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:rustler, "~> 0.34.0"} # To be added later in Phase 4
+      {:rustler, "~> 0.37.0", runtime: false}
     ]
   end
 end
