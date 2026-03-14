@@ -18,7 +18,7 @@ defmodule Sandbox.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :mint],
       mod: {Sandbox.Application, []}
     ]
   end
@@ -26,7 +26,8 @@ defmodule Sandbox.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # Dependencies for communicating with firectl or unix sockets (Phase 5)
+      {:nervous_system, in_umbrella: true},
+      {:mint, "~> 1.0"}
     ]
   end
 end

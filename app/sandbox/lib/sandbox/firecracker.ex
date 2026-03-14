@@ -39,6 +39,40 @@ defmodule Sandbox.Firecracker do
     put_request(socket_path, "/drives/#{drive_id}", body)
   end
 
+  @doc """
+  Configures a network interface.
+  """
+  def set_network_interface(socket_path, iface_id, host_dev_name) do
+    Logger.info("[Sandbox.Firecracker] Setting network interface #{iface_id}: #{host_dev_name}")
+    body = %{
+      iface_id: iface_id,
+      host_dev_name: host_dev_name,
+      allow_mmds_requests: false
+    }
+    put_request(socket_path, "/network-interfaces/#{iface_id}", body)
+  end
+
+  @doc """
+  Sets the machine configuration (vCPU count and memory size).
+  """
+  def set_machine_config(socket_path, vcpu_count, mem_size_mib) do
+    Logger.info("[Sandbox.Firecracker] Setting machine config: #{vcpu_count} vCPUs, #{mem_size_mib} MiB RAM")
+    body = %{
+      vcpu_count: vcpu_count,
+      mem_size_mib: mem_size_mib,
+      smt: false
+    }
+    put_request(socket_path, "/machine-config", body)
+  end
+
+  @doc """
+  Starts the microVM.
+  """
+  def start_vm(socket_path) do
+    Logger.info("[Sandbox.Firecracker] Starting VM")
+    put_request(socket_path, "/actions", %{action_type: "InstanceStart"})
+  end
+
   defp put_request(socket_path, path, body) do
     # Use Mint for HTTP over Unix Domain Sockets
     case Mint.HTTP.connect(:http, {:local, socket_path}, 0) do
