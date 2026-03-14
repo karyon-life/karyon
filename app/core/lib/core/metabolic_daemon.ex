@@ -7,10 +7,10 @@ defmodule Core.MetabolicDaemon do
   require Logger
 
   @poll_interval_ms 1000
-  @max_run_queue_wait_ms 5
 
-  def start_link(_) do
-    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  def start_link(opts \\ []) do
+    {name, opts} = Keyword.pop(opts, :name, __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: name)
   end
 
   @impl true

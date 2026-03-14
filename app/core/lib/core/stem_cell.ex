@@ -43,12 +43,14 @@ defmodule Core.StemCell do
       end
 
     # Phase 1: Self-subscribe to the Pain Receptor as an "Eye" for the organism
-    {:ok, nociception_syn_pid} = NervousSystem.Synapse.start_link(type: :sub, bind: "tcp://127.0.0.1:5555", action: :connect)
+    nociception_port = Application.get_env(:nervous_system, :nociception_port, 5555)
+    {:ok, nociception_syn_pid} = NervousSystem.Synapse.start_link(type: :sub, bind: "tcp://127.0.0.1:#{nociception_port}", action: :connect)
 
     state = %{
       dna_spec: dna_spec,
       synapses: [nociception_syn_pid | synapses], 
-      expectations: %{}, # Map of id -> expectation_data
+      expectations: %{}, # Map of id -> %{goal: term, precision: float}
+      beliefs: %{},      # Map of id -> float (0.0 to 1.0)
       status: :active
     }
 
@@ -61,9 +63,9 @@ defmodule Core.StemCell do
   end
 
   @impl true
-  def handle_call({:form_expectation, id, goal}, _from, state) do
-    Logger.info("[StemCell] Forming expectation: #{inspect(goal)}")
-    new_expectations = Map.put(state.expectations, id, goal)
+  def handle_call({:form_expectation, id, goal, precision}, _from, state) do
+    Logger.info("[StemCell] Forming expectation: #{inspect(goal)} with precision #{precision}")
+    new_expectations = Map.put(state.expectations, id, %{goal: goal, precision: precision})
     {:reply, :ok, %{state | expectations: new_expectations}}
   end
 
@@ -71,24 +73,37 @@ defmodule Core.StemCell do
   def handle_info({:synapse_recv, _pid, payload}, state) do
     case Jason.decode(payload) do
       {:ok, %{"type" => "nociception", "metadata" => meta}} ->
-        Logger.warning("[StemCell] Received Nociception Signal! Calculating Prediction Error.")
-        # Calculate Prediction Error: Contrast environment failure against our active expectations
-        prediction_error = calculate_prediction_error(state.expectations, meta)
+        Logger.warning("[StemCell] Received Nociception Signal! Calculating Variational Free Energy.")
         
-        if prediction_error > 0.5 do
-          Logger.error("[StemCell] Critical Prediction Error: #{prediction_error}. Pruning expectations.")
-          # Pruning logic would be here (Phase 4 integration with Rhizome)
+        # Calculate Variational Free Energy (F)
+        # In this simplified model, F = sum(precision * (expectation - reality)^2)
+        vfe = calculate_variational_free_energy(state.expectations, meta)
+        
+        if vfe > 0.5 do
+          Logger.error("[StemCell] High Variational Free Energy: #{vfe}. Triggering structural pruning.")
+          # Pruning logic: remove failed branches in the Rhizome
+          prune_rhizome_pathways(state.expectations)
         end
         
-        {:noreply, %{state | expectations: %{}}}
+        {:noreply, %{state | expectations: %{}, beliefs: Map.put(state.beliefs, :last_vfe, vfe)}}
       _ ->
         {:noreply, state}
     end
   end
 
-  defp calculate_prediction_error(expectations, _metadata) do
-    # Simple heuristic for MVP: if we have any active expectations and we receive pain, 
-    # the error is 1.0.
-    if map_size(expectations) > 0, do: 1.0, else: 0.0
+  defp calculate_variational_free_energy(expectations, _metadata) do
+    # VFE = Sum of (precision * squared_prediction_error)
+    # If we have expectations and receive a pain signal, error is high.
+    Enum.reduce(expectations, 0.0, fn {_id, %{precision: p}}, acc ->
+      acc + (p * 1.0) # Error is 1.0 on nociception
+    end)
+  end
+
+  defp prune_rhizome_pathways(expectations) do
+    # Phase 4 Integration: Communicate with Rhizome.Native to weaken graph edges
+    Enum.each(expectations, fn {id, _} ->
+      Logger.info("[StemCell] Requesting Rhizome pruning for: #{id}")
+      Rhizome.Native.weaken_edge(id)
+    end)
   end
 end

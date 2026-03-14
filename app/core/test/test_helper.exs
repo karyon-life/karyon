@@ -6,4 +6,5 @@ end
 
 defmodule Rhizome.Native do
   def xtdb_submit(_id, _data), do: {:ok, "tx_123"}
+  def weaken_edge(_id), do: {:ok, "pruned"}
 end

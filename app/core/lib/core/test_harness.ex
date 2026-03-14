@@ -29,9 +29,50 @@ defmodule Core.TestHarness do
   end
 
   @doc """
+  Runs a 'Nociception Cascade' scenario.
+  Verify that an error in Sensory leads to a StemCell VFE response and a Rhizome pruning operation.
+  """
+  def simulate_nociception_cascade(dna_path \\ "config/genetics/base_stem_cell.yml") do
+    Logger.info("[Harness] Starting Nociception Cascade Scenario")
+    
+    dna_full_path = if Path.type(dna_path) == :relative do
+      Path.expand("../../#{dna_path}", __DIR__)
+    else
+      dna_path
+    end
+
+    # 1. Spawn a StemCell
+    {:ok, cell_pid} = Core.EpigeneticSupervisor.spawn_cell(dna_full_path)
+    
+    # 2. Form an expectation with high precision
+    :ok = GenServer.call(cell_pid, {:form_expectation, "edge_789", "Stability", 0.9})
+    
+    # 3. Simulate Pain signal arrival (Nociception)
+    send(cell_pid, {:synapse_recv, self(), Jason.encode!(%{
+      type: "nociception",
+      metadata: %{reason: "simulated_structural_failure"}
+    })})
+    
+    # 4. Wait for processing (Inference + Pruning)
+    Process.sleep(200)
+    
+    # 5. Verify the VFE was recorded in beliefs
+    state = :sys.get_state(cell_pid)
+    vfe = Map.get(state.beliefs, :last_vfe, 0.0)
+    
+    Logger.info("[Harness] Scenario Result - VFE: #{vfe}")
+    
+    if vfe > 0.5 do
+      {:ok, %{vfe: vfe, status: :pruned}}
+    else
+      {:error, %{vfe: vfe, status: :stagnant}}
+    end
+  end
+
+  @doc """
   Injects a sensory pulse into the organism and validates the resulting inference state.
   """
-  def simulate_perception(organism, lang, code) do
+  def simulate_perception(_organism, lang, code) do
     Logger.info("[Harness] Injecting Perception: #{lang}")
     
     # 1. Parse code into AST graph

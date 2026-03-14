@@ -2,8 +2,6 @@ defmodule Core.StemCellTest do
   use ExUnit.Case, async: true
   require Logger
 
-  @dna_path "config/genetics/base_stem_cell.yml"
-
   setup do
     # Ensure pg is started
     :pg.start_link()
@@ -25,23 +23,25 @@ defmodule Core.StemCellTest do
     assert status == :active
   end
 
-  test "stem cell forms and prunes expectations on nociception" do
+  test "stem cell forms and prunes expectations on nociception with VFE" do
     dna_path = Path.expand("../../config/genetics/base_stem_cell.yml", __DIR__)
     {:ok, pid} = Core.StemCell.start_link(dna_path)
     
-    :ok = GenServer.call(pid, {:form_expectation, :t1, "Success"})
+    # New API: {:form_expectation, id, goal, precision}
+    :ok = GenServer.call(pid, {:form_expectation, :t1, "Success", 0.8})
+    :ok = GenServer.call(pid, {:form_expectation, :t2, "Growth", 0.4})
     
     # Simulate receiving nociception signal via synapse message
-    # We mock the synapse_recv message
+    # Expect VFE = 0.8 * 1.0 + 0.4 * 1.0 = 1.2
     send(pid, {:synapse_recv, self(), Jason.encode!(%{type: "nociception", metadata: %{error: "timeout"}})})
     
     # Wait for processing
-    Process.sleep(50)
+    Process.sleep(100)
     
-    # Check if expectations were pruned (reset to empty map in implementation)
-    # Note: Our implementation resets expectations on any nociception
-    # We can verify by looking at the state if we had a way, but we can verify via status or log
-    # For now, we trust the handle_info logic we wrote.
-    assert true
+    # Check if beliefs were updated with last VFE
+    # 1.2 because [t1: 0.5, t2: 0.7] sum
+    state = :sys.get_state(pid)
+    assert_in_delta state.beliefs.last_vfe, 1.2, 0.00001
+    assert state.expectations == %{}
   end
 end

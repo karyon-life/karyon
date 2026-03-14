@@ -2,7 +2,12 @@ defmodule CoreTest do
   use ExUnit.Case
 
   test "metabolic daemon monitors CPU run queues" do
-    assert Process.whereis(Core.MetabolicDaemon) != nil
+    # Allow some time for setup and retry a few times in case of race with other tests
+    is_running = 
+      Enum.find_value(1..10, fn _ ->
+        if Process.whereis(Core.MetabolicDaemon), do: true, else: (Process.sleep(100); false)
+      end)
+    assert is_running == true
   end
 
   test "epigenetic rejection: invalid YAML crashes the spawn process" do
