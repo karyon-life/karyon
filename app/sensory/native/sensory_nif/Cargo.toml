@@ -8,7 +8,7 @@ name = "sensory_nif"
 crate-type = ["cdylib"]
 
 [dependencies]
-rustler = "0.34.0"
+rustler = "0.37"
 tree-sitter = "0.20.10"
 tree-sitter-javascript = "0.20.1"
 tree-sitter-python = "0.20.0"

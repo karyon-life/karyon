@@ -11,6 +11,14 @@ defmodule Sensory.MixProject do
       lockfile: "../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      compilers: Mix.compilers(),
+      rustler_crates: [
+        sensory_nif: [
+          path: "native/sensory_nif",
+          mode: (if Mix.env() == :prod, do: :release, else: :debug),
+          crate: :sensory_nif
+        ]
+      ],
       deps: deps()
     ]
   end
@@ -24,7 +32,7 @@ defmodule Sensory.MixProject do
 
   defp deps do
     [
-      {:rustler, "~> 0.34.0"}
+      {:rustler, "~> 0.37.0", runtime: false}
     ]
   end
 end
