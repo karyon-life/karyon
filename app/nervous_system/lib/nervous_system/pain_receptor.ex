@@ -14,7 +14,8 @@ defmodule NervousSystem.PainReceptor do
   @impl true
   def init(state) do
     # Initialize a PUB synapse for broadcasting pain/nociception signals
-    {:ok, synapse_pid} = NervousSystem.Synapse.start_link(type: :pub, bind: "tcp://127.0.0.1:5555")
+    nociception_port = Application.get_env(:nervous_system, :nociception_port, 5555)
+    {:ok, synapse_pid} = NervousSystem.Synapse.start_link(type: :pub, bind: "tcp://127.0.0.1:#{nociception_port}")
 
     # Attach to standard OTP crash events using Telemetry.
     :telemetry.attach(

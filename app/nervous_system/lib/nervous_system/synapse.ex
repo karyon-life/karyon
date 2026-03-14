@@ -13,10 +13,10 @@ defmodule NervousSystem.Synapse do
     GenServer.start_link(__MODULE__, opts)
   end
 
-  def send_signal(pid, payload, retries \\ 50) do
+  def send_signal(pid, payload, retries \\ 10) do
     case GenServer.call(pid, {:send, payload}) do
       {:error, :no_connected_peers} when retries > 0 ->
-        Process.sleep(100)
+        Process.sleep(50)
         send_signal(pid, payload, retries - 1)
       res -> res
     end
@@ -37,18 +37,31 @@ defmodule NervousSystem.Synapse do
 
     # Simple parsing logic
     [protocol, rest] = String.split(bind_addr, "://")
-    [host, port_str] = String.split(rest, ":")
-    port = String.to_integer(port_str)
+    
+    # Handle inproc which might not have a host:port structure
+    {host, port} = 
+      case String.split(rest, ":") do
+        [h, p] ->
+          case Integer.parse(p) do
+            {integer, ""} -> {h, integer}
+            _ -> {h, p} # Keep as string
+          end
+        [only_path] -> 
+          {only_path, 0}
+      end
 
     action = Keyword.get(opts, :action, :bind)
 
     case action do
       :bind ->
-        case robust_bind(socket_pid, String.to_atom(protocol), host, port) do
-          {:ok, bound_port_or_pid} ->
-            Logger.info("[Synapse] Bound to #{protocol}://#{host}:#{inspect(bound_port_or_pid)}")
+        # If port is 0, find a free one first because chumak.bind returns a PID instead of port
+        port_to_bind = if port == 0, do: get_free_port(), else: port
+        
+        case robust_bind(socket_pid, String.to_atom(protocol), host, port_to_bind) do
+          {:ok, _res} ->
+            Logger.info("[Synapse] Bound to #{protocol}://#{host}:#{port_to_bind}")
             if type in [:sub, :pull], do: start_receiver(socket_pid)
-            {:ok, %{socket: socket_pid, port: bound_port_or_pid, type: type, owner: owner}}
+            {:ok, %{socket: socket_pid, port: port_to_bind, type: type, owner: owner, protocol: protocol}}
           {:error, reason} -> {:stop, reason}
         end
       :connect ->
@@ -56,18 +69,25 @@ defmodule NervousSystem.Synapse do
           {:ok, _conn_pid} ->
             Logger.info("[Synapse] Connected to #{protocol}://#{host}:#{port}")
             if type in [:sub, :pull], do: start_receiver(socket_pid)
-            {:ok, %{socket: socket_pid, port: port, type: type, owner: owner}}
+            {:ok, %{socket: socket_pid, port: port, type: type, owner: owner, protocol: protocol}}
           {:error, reason} -> {:stop, reason}
         end
     end
+  end
+
+  defp get_free_port do
+    {:ok, socket} = :gen_tcp.listen(0, [])
+    {:ok, port} = :inet.port(socket)
+    :gen_tcp.close(socket)
+    port
   end
 
   defp robust_bind(socket, protocol, host, port, retries \\ 20) do
     case :chumak.bind(socket, protocol, ~c"#{host}", port) do
       {:ok, res} -> {:ok, res}
       {:error, :eaddrinuse} when retries > 0 ->
-        # If we hit collision, try a different random port if was 0, or just retry if fixed
-        new_port = if port == 0, do: 0, else: port + :rand.uniform(100)
+        # If we hit collision, try a different random port
+        new_port = port + :rand.uniform(100)
         Process.sleep(50)
         robust_bind(socket, protocol, host, new_port, retries - 1)
       {:error, reason} -> {:error, reason}
@@ -91,7 +111,6 @@ defmodule NervousSystem.Synapse do
     end
   end
 
-  @impl true
   def handle_inner_send(socket, payload) do
      :chumak.send(socket, payload)
   end

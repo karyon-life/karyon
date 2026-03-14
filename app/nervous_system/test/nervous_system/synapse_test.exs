@@ -2,15 +2,18 @@ defmodule NervousSystem.SynapseTest do
   use ExUnit.Case, async: false
 
   test "synapse can send and receive signals (PUSH/PULL)" do
-    # Use a unique randomized port for the test
-    port = 20000 + :rand.uniform(1000)
-    {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:#{port}", owner: self())
+    addr = "tcp://127.0.0.1:0"
+    {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: addr, owner: self())
+    %{port: port} = :sys.get_state(pull_pid)
+
+    # Allow listener to stabilize
+    Process.sleep(50)
 
     # Start a PUSH synapse (sender)
-    {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}")
+    {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}", action: :connect)
     
     # Allow ZMQ handshake
-    Process.sleep(50)
+    Process.sleep(200)
 
     # Send a signal
     payload = "test_signal"
@@ -25,10 +28,10 @@ defmodule NervousSystem.SynapseTest do
   end
 
   test "synapse enforces zero buffering (HWM=1)" do
-    port = 22000 + :rand.uniform(1000)
-    {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:#{port}", owner: self())
+    {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:0", owner: self())
+    %{port: port} = :sys.get_state(pull_pid)
 
-    {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}")
+    {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}", action: :connect)
 
     # Send first message - should be OK (buffered in outgoing or delivered)
     :ok = NervousSystem.Synapse.send_signal(push_pid, "msg1")
