@@ -1,13 +1,16 @@
 use neo4rs::*;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
+use tokio::sync::Mutex;
+use rustler::NifResult;
 
 lazy_static::lazy_static! {
     static ref RUNTIME: Runtime = Runtime::new().unwrap();
+    static ref CLIENT: Mutex<Option<Arc<MemgraphClient>>> = Mutex::new(None);
 }
 
 pub struct MemgraphClient {
-    graph: Arc<Graph>,
+    graph: Graph,
 }
 
 impl MemgraphClient {
@@ -18,7 +21,7 @@ impl MemgraphClient {
             .password(pass)
             .build()
             .unwrap();
-        let graph = Arc::new(Graph::new(config).await?);
+        let graph = Graph::new(config).await?;
         Ok(Self { graph })
     }
 
@@ -29,7 +32,22 @@ impl MemgraphClient {
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-pub fn memgraph_query(query: String) -> String {
-    // Blocking execution for the DirtyIo scheduler
-    format!("Mock result for query: {}", query)
+pub fn memgraph_query(query: String) -> NifResult<String> {
+    RUNTIME.block_on(async {
+        let mut client_lock = CLIENT.lock().await;
+        
+        if client_lock.is_none() {
+            // Default connection params for MVP; in production these would come from config
+            match MemgraphClient::new("bolt://127.0.0.1:7687", "memgraph", "").await {
+                Ok(c) => *client_lock = Some(Arc::new(c)),
+                Err(e) => return Ok(format!("Connection Error: {}", e)),
+            }
+        }
+
+        let client = client_lock.as_ref().unwrap().clone();
+        match client.execute_query(&query).await {
+            Ok(_) => Ok("Query executed successfully".to_string()),
+            Err(e) => Ok(format!("Query Error: {}", e)),
+        }
+    })
 }
