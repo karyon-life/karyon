@@ -116,6 +116,11 @@ defmodule NervousSystem.Synapse do
   end
 
   @impl true
+  def handle_call(:get_port, _from, state) do
+    {:reply, {:ok, state.port}, state}
+  end
+
+  @impl true
   def handle_call({:send, payload}, _from, state) do
     case :chumak.send(state.socket, payload) do
       :ok -> {:reply, :ok, state}
