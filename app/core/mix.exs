@@ -11,6 +11,13 @@ defmodule Core.MixProject do
       lockfile: "../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      compilers: [:rustler] ++ Mix.compilers(),
+      rustler_crates: [
+        metabolic_nif: [
+          path: "native/metabolic_nif",
+          mode: (if Mix.env() == :prod, do: :release, else: :debug)
+        ]
+      ],
       deps: deps()
     ]
   end
@@ -27,7 +34,8 @@ defmodule Core.MixProject do
   defp deps do
     [
       # process grouping relies on the built-in :pg module from Erlang.
-      {:yaml_elixir, "~> 2.9"}
+      {:yaml_elixir, "~> 2.9"},
+      {:rustler, "~> 0.34.0", runtime: false}
     ]
   end
 end

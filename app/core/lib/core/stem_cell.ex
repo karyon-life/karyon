@@ -38,9 +38,13 @@ defmodule Core.StemCell do
           end)
       end
 
+    # Phase 1: Self-subscribe to the Pain Receptor as an "Eye" for the organism
+    {:ok, nociception_syn_pid} = NervousSystem.Synapse.start_link(type: :sub, bind: "tcp://127.0.0.1:5555")
+
     state = %{
       dna_spec: dna_spec,
-      synapses: synapses, 
+      synapses: [nociception_syn_pid | synapses], 
+      expectations: %{}, # Map of id -> expectation_data
       status: :active
     }
 
@@ -52,6 +56,35 @@ defmodule Core.StemCell do
     {:reply, state.status, state}
   end
 
-  # Phase 2 constraint: Apoptosis enforcement happens by the caller sending forceful exits
-  # or returning standard OTP errors if logic panics.
+  @impl true
+  def handle_call({:form_expectation, id, goal}, _from, state) do
+    Logger.info("[StemCell] Forming expectation: #{inspect(goal)}")
+    new_expectations = Map.put(state.expectations, id, goal)
+    {:reply, :ok, %{state | expectations: new_expectations}}
+  end
+
+  @impl true
+  def handle_info({:synapse_recv, _pid, payload}, state) do
+    case Jason.decode(payload) do
+      {:ok, %{"type" => "nociception", "metadata" => meta}} ->
+        Logger.warning("[StemCell] Received Nociception Signal! Calculating Prediction Error.")
+        # Calculate Prediction Error: Contrast environment failure against our active expectations
+        prediction_error = calculate_prediction_error(state.expectations, meta)
+        
+        if prediction_error > 0.5 do
+          Logger.error("[StemCell] Critical Prediction Error: #{prediction_error}. Pruning expectations.")
+          # Pruning logic would be here (Phase 4 integration with Rhizome)
+        end
+        
+        {:noreply, %{state | expectations: %{}}}
+      _ ->
+        {:noreply, state}
+    end
+  end
+
+  defp calculate_prediction_error(expectations, _metadata) do
+    # Simple heuristic for MVP: if we have any active expectations and we receive pain, 
+    # the error is 1.0.
+    if map_size(expectations) > 0, do: 1.0, else: 0.0
+  end
 end
