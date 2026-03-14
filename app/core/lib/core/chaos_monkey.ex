@@ -1,48 +1,41 @@
 defmodule Core.ChaosMonkey do
   @moduledoc """
-  The Chaos Monkey. Responsibile for inducing programmed cell death (Apoptosis)
-  randomly to verify the resilience of the OTP supervision tree and the 
-  regenerative capabilities of the EpigeneticSupervisor.
+  Simulation daemon that injects failure into the organism to test resilience.
+  Periodic random killing of Stem Cells to exercise OTP Supervision trees.
   """
   use GenServer
   require Logger
 
-  @interval_ms 5000
-
-  def start_link(_) do
-    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @impl true
-  def init(state) do
-    Logger.info("[ChaosMonkey] Unleashed. Inducing periodic cellular disruption.")
-    schedule_disruption()
-    {:ok, state}
+  def init(opts) do
+    interval = Keyword.get(opts, :interval, 5000)
+    schedule_next_death(interval)
+    {:ok, %{interval: interval}}
   end
 
   @impl true
-  def handle_info(:disrupt, state) do
-    induce_apoptosis()
-    schedule_disruption()
+  def handle_info(:inject_failure, state) do
+    Logger.warning("[ChaosMonkey] Selecting random cell for apoptosis...")
+    
+    # Get all active stem cells from pg
+    case :pg.get_members(:stem_cell) do
+      [] -> 
+        Logger.info("[ChaosMonkey] No cells found to kill. Environment is sterile.")
+      pids ->
+        target = Enum.random(pids)
+        Logger.error("[ChaosMonkey] Inducing sudden cell death on #{inspect(target)}")
+        Process.exit(target, :kill)
+    end
+
+    schedule_next_death(state.interval)
     {:noreply, state}
   end
 
-  defp schedule_disruption do
-    Process.send_after(self(), :disrupt, @interval_ms)
-  end
-
-  defp induce_apoptosis do
-    # 1. Gather all active StemCells from :pg
-    cells = :pg.get_members(:stem_cell)
-    
-    # 2. Kill roughly 10%
-    to_kill = Enum.take_random(cells, ceil(Enum.count(cells) * 0.1))
-
-    unless Enum.empty?(to_kill) do
-      Logger.warning("[ChaosMonkey] Terminating #{Enum.count(to_kill)} cells for apoptosis proving.")
-      Enum.each(to_kill, fn pid -> 
-        Process.exit(pid, :kill)
-      end)
-    end
+  defp schedule_next_death(interval) do
+    Process.send_after(self(), :inject_failure, interval)
   end
 end

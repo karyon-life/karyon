@@ -11,7 +11,7 @@ defmodule Core.MixProject do
       lockfile: "../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
-      compilers: [:rustler] ++ Mix.compilers(),
+      compilers: (if Mix.env() == :test, do: [], else: [:rustler]) ++ Mix.compilers(),
       rustler_crates: [
         metabolic_nif: [
           path: "native/metabolic_nif",

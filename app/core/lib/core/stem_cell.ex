@@ -22,7 +22,11 @@ defmodule Core.StemCell do
     dna_spec = Core.YamlParser.transcribe!(full_path)
 
     # Phase 1/2 Integration: Decentralized Process Discovery via Erlang :pg
-    group_topic = Map.get(dna_spec, "cell_type", :undifferentiated)
+    group_topic = 
+      case Map.get(dna_spec, "cell_type", :undifferentiated) do
+        topic when is_binary(topic) -> String.to_atom(topic)
+        topic -> topic
+      end
     :pg.join(group_topic, self())
 
     # Phase 2 Integration: Synaptic Zero-Buffer connections
@@ -39,7 +43,7 @@ defmodule Core.StemCell do
       end
 
     # Phase 1: Self-subscribe to the Pain Receptor as an "Eye" for the organism
-    {:ok, nociception_syn_pid} = NervousSystem.Synapse.start_link(type: :sub, bind: "tcp://127.0.0.1:5555")
+    {:ok, nociception_syn_pid} = NervousSystem.Synapse.start_link(type: :sub, bind: "tcp://127.0.0.1:5555", action: :connect)
 
     state = %{
       dna_spec: dna_spec,

@@ -1,0 +1,5 @@
+cell_type: "stem_cell"
+capabilities: []
+synapses:
+  - type: "push"
+    bind: "tcp://127.0.0.1:0"
