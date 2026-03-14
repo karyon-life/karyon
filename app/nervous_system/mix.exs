@@ -28,7 +28,9 @@ defmodule NervousSystem.MixProject do
     [
       {:chumak, "~> 1.4"},
       {:tortoise, "~> 0.10.0"},
-      {:telemetry, "~> 1.0"}
+      {:telemetry, "~> 1.0"},
+      {:jason, "~> 1.4"},
+      {:stream_data, "~> 1.0", only: :test}
     ]
   end
 end
