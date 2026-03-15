@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::resource::{GraphPointer, GraphResource};
+    use rhizome_nif::resource::{GraphPointer, GraphResource};
     use rustler::ResourceArc;
     use std::sync::RwLock;
 

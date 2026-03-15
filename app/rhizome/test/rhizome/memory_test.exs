@@ -12,6 +12,6 @@ defmodule Rhizome.MemoryTest do
   test "native query execution formatting" do
     # Verify the NIF bridge exists and can be called
     # (Results will depend on whether Memgraph is running, but NIF should load)
-    assert is_binary(Rhizome.Native.memgraph_query("MATCH (n) RETURN n LIMIT 1"))
+    assert {:ok, _} = Rhizome.Native.memgraph_query("MATCH (n) RETURN n LIMIT 1")
   end
 end

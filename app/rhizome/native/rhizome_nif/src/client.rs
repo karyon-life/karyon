@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 lazy_static::lazy_static! {
     pub static ref RUNTIME: Runtime = Runtime::new().unwrap();
     pub static ref CLIENT: Mutex<Option<Arc<MemgraphClient>>> = Mutex::new(None);
+    pub static ref XTDB_REQ_CLIENT: reqwest::Client = reqwest::Client::new();
 }
 
 pub struct MemgraphClient {
@@ -14,7 +15,13 @@ pub struct MemgraphClient {
 
 impl MemgraphClient {
     pub async fn new(uri: &str, user: &str, pass: &str) -> Result<Self, Error> {
-        let graph = Graph::new(uri, user, pass).await?;
+        let config = ConfigBuilder::new()
+            .uri(uri)
+            .user(user)
+            .password(pass)
+            .db("memgraph") // Explicitly use 'memgraph' database
+            .build()?;
+        let graph = Graph::connect(config).await?;
         Ok(Self { graph })
     }
 
@@ -25,7 +32,6 @@ impl MemgraphClient {
 }
 
 pub struct XtdbClient {
-    pub client: reqwest::Client,
     pub url: String,
 }
 
@@ -38,10 +44,7 @@ pub struct XtdbPayload {
 
 impl XtdbClient {
     pub fn new(url: String) -> Self {
-        Self {
-            client: reqwest::Client::new(),
-            url,
-        }
+        Self { url }
     }
 
     pub async fn submit_tx(&self, id: String, data: serde_json::Value) -> Result<String, reqwest::Error> {
@@ -50,8 +53,19 @@ impl XtdbClient {
             "tx-ops": [["put", payload]]
         });
 
-        let res = self.client.post(format!("{}/_xtdb/submit-tx", self.url))
+        let res = XTDB_REQ_CLIENT.post(format!("{}/tx", self.url))
             .json(&body)
+            .send()
+            .await?;
+        
+        Ok(res.text().await?)
+    }
+
+    pub async fn query(&self, query: serde_json::Value) -> Result<String, reqwest::Error> {
+        let res = XTDB_REQ_CLIENT.post(format!("{}/query", self.url))
+            .json(&query)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
             .send()
             .await?;
         

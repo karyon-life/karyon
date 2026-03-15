@@ -5,7 +5,7 @@ edition = "2021"
 
 [lib]
 name = "rhizome_nif"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 rustler = "0.37"

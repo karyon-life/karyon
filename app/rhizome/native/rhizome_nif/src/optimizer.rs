@@ -1,24 +1,34 @@
 use crate::client::{CLIENT, RUNTIME};
-use petgraph::graph::DiGraph;
+use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::algo::tarjan_scc;
 use neo4rs::*;
 use std::collections::HashMap;
-
 use rustler::NifResult;
 
+mod atoms {
+    rustler::atoms! {
+        ok,
+        error,
+    }
+}
+
+pub fn identify_communities(graph: &DiGraph<u64, ()>) -> Vec<Vec<NodeIndex>> {
+    tarjan_scc(graph)
+}
+
 #[rustler::nif(schedule = "DirtyCpu")]
-pub fn optimize_graph() -> NifResult<String> {
+pub fn optimize_graph() -> NifResult<(rustler::Atom, String)> {
     Ok(RUNTIME.block_on(async {
         let client_lock = CLIENT.lock().await;
         if client_lock.is_none() {
-            return "Error: Memgraph client not initialized".to_string();
+            return (atoms::error(), "Error: Memgraph client not initialized".to_string());
         }
         let client = client_lock.as_ref().unwrap();
 
         // 1. Fetch all nodes and edges from Memgraph
         let mut result = match client.graph.execute(query("MATCH (n)-[r]->(m) RETURN id(n) as start, id(m) as end")).await {
             Ok(r) => r,
-            Err(e) => return format!("Query Error: {}", e),
+            Err(e) => return (atoms::error(), format!("Query Error: {}", e)),
         };
 
         let mut graph = DiGraph::<u64, ()>::new();
@@ -34,20 +44,41 @@ pub fn optimize_graph() -> NifResult<String> {
         }
 
         if graph.node_count() == 0 {
-            return "Sleep Cycle: No graph data found to consolidate.".to_string();
+            return (atoms::ok(), "Sleep Cycle: No graph data found to consolidate.".to_string());
         }
 
-        // 2. Run Strongly Connected Components (Tarjan's) as a proxy for Louvain communities 
-        // to identify tightly coupled nodes in the directed graph.
-        let scc = tarjan_scc(&graph);
+        // 2. Identify communities
+        let scc = identify_communities(&graph);
         let community_count = scc.len();
         
-        // 3. Synthesis logic: For each large community, identify "Super-Nodes" 
-        // and write these back as new nodes in XTDB.
-        let mut synthesized = 0;
-        let xtdb = crate::client::XtdbClient::new("http://127.0.0.1:3000".to_string());
-
-        let _ = xtdb; // silence unused
-        "Debug: Optimizer NIF Loaded".to_string()
+        (atoms::ok(), format!("Optimization complete: identified {} communities", community_count))
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_identify_communities_loop() {
+        let mut graph = DiGraph::<u64, ()>::new();
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+        graph.add_edge(n1, n2, ());
+        graph.add_edge(n2, n1, ()); // Cycle
+
+        let communities = identify_communities(&graph);
+        assert_eq!(communities.len(), 1);
+        assert_eq!(communities[0].len(), 2);
+    }
+
+    #[test]
+    fn test_identify_communities_disjoint() {
+        let mut graph = DiGraph::<u64, ()>::new();
+        graph.add_node(1);
+        graph.add_node(2);
+
+        let communities = identify_communities(&graph);
+        assert_eq!(communities.len(), 2);
+    }
 }
