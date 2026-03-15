@@ -41,4 +41,6 @@ coverage/
 .cache/
 *.log
 *.txt
+*.zip
+
 
