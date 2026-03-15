@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package karyon.nervous_system;
+
+message MetabolicSpike {
+  string metric_type = 1;
+  double value = 2;
+  double threshold = 3;
+  int64 timestamp = 4;
+  string severity = 5;
+}

@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package karyon.nervous_system;
+
+message PredictionError {
+  string type = 1;
+  string message = 2;
+  int64 timestamp = 3;
+  map<string, string> metadata = 4;
+  string cell_id = 5;
+}

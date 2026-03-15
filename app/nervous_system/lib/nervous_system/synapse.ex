@@ -10,6 +10,7 @@ defmodule NervousSystem.Synapse do
   Starts a Synaptic connection GenServer.
   """
   def start_link(opts \\ []) do
+    opts = Keyword.put_new(opts, :owner, self())
     GenServer.start_link(__MODULE__, opts)
   end
 
@@ -26,7 +27,7 @@ defmodule NervousSystem.Synapse do
   def init(opts) do
     type = Keyword.get(opts, :type, :push)
     bind_addr = Keyword.get(opts, :bind, "tcp://127.0.0.1:0")
-    owner = Keyword.get(opts, :owner, self())
+    owner = Keyword.get(opts, :owner)
 
     {:ok, socket_pid} = :chumak.socket(type)
     Process.link(socket_pid)

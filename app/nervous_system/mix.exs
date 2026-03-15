@@ -27,7 +27,8 @@ defmodule NervousSystem.MixProject do
   defp deps do
     [
       {:chumak, "~> 1.4"},
-      {:tortoise, "~> 0.10.0"},
+      {:gnat, "~> 1.6"},
+      {:protox, "~> 1.7"},
       {:telemetry, "~> 1.0"},
       {:jason, "~> 1.4"},
       {:stream_data, "~> 1.0", only: :test}

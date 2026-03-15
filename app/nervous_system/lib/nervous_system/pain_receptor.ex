@@ -35,18 +35,18 @@ defmodule NervousSystem.PainReceptor do
     # A crash has occurred. We must signal nociception.
     Logger.error("[PainReceptor] Structural error intercepted! Preparing active inference nociception signal.")
 
-    # Convert metadata to a structured JSON payload
-    payload = %{
+    # Create a structured Protobuf-compatible message
+    msg = NervousSystem.Protos.PredictionError.new(
       type: "nociception",
-      timestamp: DateTime.utc_now(),
-      metadata: sanitize_metadata(metadata)
-    }
+      message: "Structural error intercepted",
+      timestamp: System.system_time(:second),
+      metadata: sanitize_metadata(metadata),
+      cell_id: "pain-receptor"
+    )
 
-    case Jason.encode(payload) do
-      {:ok, json} ->
+    case NervousSystem.Protos.PredictionError.encode(msg) do
+      json ->
         NervousSystem.Synapse.send_signal(synapse_pid, json)
-      {:error, reason} ->
-        Logger.error("[PainReceptor] Failed to serialize pain signal: #{inspect(reason)}")
     end
   end
 

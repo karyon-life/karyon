@@ -16,12 +16,13 @@ defmodule NervousSystem.EndocrineTest do
     
     # If we are in a pure test env, we might want to mock Tortoise.
     # For now, let's just assert the call returns a PID or an error.
+    Process.flag(:trap_exit, true)
     res = NervousSystem.Endocrine.start_connection(client_id, "nats://127.0.0.1:4222")
     assert match?({:ok, _}, res) or match?({:error, _}, res)
     
-    if match?({:ok, _pid}, res) do
-      {:ok, pid} = res
-      GenServer.stop(pid)
+    case res do
+      {:ok, pid} -> GenServer.stop(pid)
+      _ -> :ok
     end
   end
 end
