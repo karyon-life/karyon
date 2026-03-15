@@ -75,7 +75,7 @@ defmodule Sandbox.Firecracker do
 
   defp put_request(socket_path, path, body) do
     # Use Mint for HTTP over Unix Domain Sockets
-    case Mint.HTTP.connect(:http, {:local, socket_path}, 0) do
+    case Mint.HTTP.connect(:http, {:local, socket_path}, 0, hostname: "localhost") do
       {:ok, conn} ->
         json_body = Jason.encode!(body)
         headers = [{"content-type", "application/json"}]
@@ -83,7 +83,7 @@ defmodule Sandbox.Firecracker do
         case Mint.HTTP.request(conn, "PUT", path, headers, json_body) do
           {:ok, conn, request_ref} ->
             receive_response(conn, request_ref)
-          {:error, conn, reason} ->
+          {:error, _conn, reason} ->
             {:error, reason}
         end
       {:error, reason} ->

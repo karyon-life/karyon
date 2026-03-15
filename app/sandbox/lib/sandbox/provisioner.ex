@@ -8,7 +8,7 @@ defmodule Sandbox.Provisioner do
   @doc """
   Provisions an isolated microVM for a specific execution plan.
   """
-  def provision_vm(plan_path) do
+  def provision_vm(_plan_path) do
     vm_id = "vm-#{:erlang.unique_integer([:positive])}"
     socket_path = "/tmp/firecracker-#{vm_id}.socket"
     
