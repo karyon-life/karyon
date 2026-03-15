@@ -4,6 +4,7 @@ defmodule Core.EpigeneticSupervisor do
   (spawning and apoptosis) of Karyon Stem Cells via a DynamicSupervisor.
   """
   use DynamicSupervisor
+  require Logger
 
   def start_link(init_arg) do
     DynamicSupervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
@@ -17,15 +18,30 @@ defmodule Core.EpigeneticSupervisor do
 
   @doc """
   Spawns a new cell by injecting a declarative YAML configuration into the sterile core.
+  Checks current metabolic pressure before spawning.
   """
   def spawn_cell(dna_file_path \\ "config/genetics/base_stem_cell.yml") do
-    child_spec = %{
-      id: Core.StemCell,
-      start: {Core.StemCell, :start_link, [dna_file_path]},
-      restart: :temporary # Under chaos conditions, we do not violently resurrect failed cells automatically
-    }
+    # Logic to refuse spawning if system is under high metabolic pressure
+    case get_metabolic_pressure() do
+      :high ->
+        Logger.error("[EpigeneticSupervisor] METABOLIC STARVATION: Refusing to spawn new cell.")
+        {:error, :metabolic_starvation}
+      _ ->
+        child_spec = %{
+          id: Core.StemCell,
+          start: {Core.StemCell, :start_link, [dna_file_path]},
+          restart: :temporary
+        }
+        DynamicSupervisor.start_child(__MODULE__, child_spec)
+    end
+  end
 
-    DynamicSupervisor.start_child(__MODULE__, child_spec)
+  defp get_metabolic_pressure do
+    # Query the MetabolicDaemon or ETS for current pressure
+    case GenServer.whereis(Core.MetabolicDaemon) do
+      nil -> :low
+      pid -> GenServer.call(pid, :get_pressure)
+    end
   end
 
   @doc """

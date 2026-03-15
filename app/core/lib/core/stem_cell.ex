@@ -72,6 +72,11 @@ defmodule Core.StemCell do
   end
 
   @impl true
+  def handle_call(:get_synapse_count, _from, state) do
+    {:reply, length(state.synapses), state}
+  end
+
+  @impl true
   def handle_call({:execute, action, _params}, _from, state) do
     allowed_actions = Map.get(state.dna_spec, "allowed_actions", [])
     if action in allowed_actions do
@@ -93,15 +98,35 @@ defmodule Core.StemCell do
 
   @impl true
   def handle_info({:msg, _topic, payload}, state) do
-    # Handle NATS Metabolic Spikes
-    decoded = NervousSystem.Protos.MetabolicSpike.decode(payload)
-    Logger.info("[StemCell] Received metabolic spike: #{inspect(decoded)}")
-    case decoded do
+    # Handle NATS Metabolic Spikes (Endocrine system)
+    case NervousSystem.Protos.MetabolicSpike.decode(payload) do
       {:ok, %{"severity" => "high"}} ->
-        Logger.warning("[StemCell] High Metabolic Stress detected. Entering Digital Torpor.")
-        {:noreply, %{state | atp_metabolism: 0.1, status: :torpor}}
+        Logger.error("[StemCell] CRITICAL Metabolic Stress. Shedding synapses and entering Digital Torpor.")
+        
+        # Phase 5: Digital Torpor - Shed all non-essential synapses to reclaim cycles
+        # We keep the pain receptor (index 0) but drop others
+        essential = hd(state.synapses)
+        others = tl(state.synapses)
+        
+        Enum.each(others, fn pid -> 
+          if Process.alive?(pid), do: GenServer.stop(pid)
+        end)
+
+        {:noreply, %{state | atp_metabolism: 0.1, status: :torpor, synapses: [essential]}}
+
       {:ok, %{"severity" => "medium"}} ->
-        {:noreply, %{state | atp_metabolism: 0.5}}
+        # Speculative cells (no allowed actions) undergo apoptosis to save the colony
+        if Enum.empty?(Map.get(state.dna_spec, "allowed_actions", [])) do
+          Logger.warning("[StemCell] Medium Stress: Speculative Cell undergoing programmed apoptosis.")
+          {:stop, :metabolic_pruning, state}
+        else
+          Logger.warning("[StemCell] Medium Metabolic Stress detected. Reducing activity.")
+          {:noreply, %{state | atp_metabolism: 0.5}}
+        end
+
+      {:ok, %{"severity" => "low"}} ->
+        {:noreply, %{state | atp_metabolism: 0.8}}
+
       _ ->
         {:noreply, state}
     end

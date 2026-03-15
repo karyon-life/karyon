@@ -14,36 +14,46 @@ defmodule Core.MetabolicDaemon do
   end
 
   @impl true
-  def init(state) do
+  def init(_opts) do
     Logger.info("[MetabolicDaemon] Heartbeat initialized. Monitoring ERTS schedulers.")
     schedule_poll()
-    {:ok, state}
+    {:ok, %{pressure: :low}}
+  end
+
+  @impl true
+  def handle_call(:get_pressure, _from, state) do
+    {:reply, state.pressure, state}
   end
 
   @impl true
   def handle_info(:poll_metrics, state) do
-    check_cpu_starvation()
+    pressure = calculate_system_pressure()
+    
+    check_cpu_starvation(pressure)
     check_l3_cache_constriction()
     check_digital_torpor()
     check_numa_violation()
 
     schedule_poll()
-    {:noreply, state}
+    {:noreply, %{state | pressure: pressure}}
   end
 
-  defp schedule_poll do
-    Process.send_after(self(), :poll_metrics, @poll_interval_ms)
-  end
-
-  defp check_cpu_starvation do
-    # Sample Erlang scheduler run queue over time.
+  defp calculate_system_pressure do
     run_queue_len = :erlang.statistics(:run_queue)
-    
-    if run_queue_len > 10 do
+    cond do
+      run_queue_len > 20 -> :high
+      run_queue_len > 10 -> :medium
+      true -> :low
+    end
+  end
+
+  defp check_cpu_starvation(pressure) do
+    if pressure in [:medium, :high] do
+      run_queue_len = :erlang.statistics(:run_queue)
       Logger.warning("[MetabolicDaemon] High Run Queue Detected: #{run_queue_len}. Triggering partial Apoptosis.")
       
-      # Broadcast metabolic spike via Endocrine system
-      broadcast_spike("cpu", run_queue_len, 10.0, "high")
+      severity = if pressure == :high, do: "high", else: "medium"
+      broadcast_spike("cpu", run_queue_len, 10.0, severity)
       
       induce_apoptosis(:generic)
     end
@@ -127,5 +137,9 @@ defmodule Core.MetabolicDaemon do
            _ -> :ok
         end
     end
+  end
+
+  defp schedule_poll do
+    Process.send_after(self(), :poll_metrics, @poll_interval_ms)
   end
 end

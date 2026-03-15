@@ -76,4 +76,33 @@ defmodule Core.MetabolicStressTest do
     Process.sleep(200)
     assert GenServer.call(cell, :get_status) == :torpor
   end
+
+  test "EpigeneticSupervisor refuses to spawn cells under high metabolic pressure" do
+    # Start MetabolicDaemon with high pressure mock
+    # Since we can't easily mock calculate_system_pressure, we'll manually set the state if we can,
+    # or just use the handle_call/cast if available.
+    
+    # Alternatively, we can just test the supervisor logic by ensuring it calls the daemon.
+    # Let's start a fake daemon that returns :high
+    defmodule FakeDaemon do
+      use GenServer
+      def start_link(_), do: GenServer.start_link(__MODULE__, :ok, name: Core.MetabolicDaemon)
+      def init(_), do: {:ok, :high}
+      def handle_call(:get_pressure, _from, state), do: {:reply, state, state}
+    end
+
+    # Stop real daemon if running
+    case GenServer.whereis(Core.MetabolicDaemon) do
+      nil -> :ok
+      pid -> 
+        Process.unlink(pid)
+        GenServer.stop(pid)
+    end
+
+    {:ok, _fake} = FakeDaemon.start_link([])
+
+    # Try to spawn
+    dna_path = "/home/adrian/Projects/nexical/karyon/priv/dna/orchestrator_cell.yml"
+    assert {:error, :metabolic_starvation} == EpigeneticSupervisor.spawn_cell(dna_path)
+  end
 end
