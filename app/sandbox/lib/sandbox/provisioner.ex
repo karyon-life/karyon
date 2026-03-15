@@ -63,26 +63,36 @@ defmodule Sandbox.Provisioner do
 
   defp setup_network(vm_id) do
     tap_device = "tap-#{vm_id}"
-    Logger.info("[Sandbox.Provisioner] Setting up air-gapped network for #{vm_id} via #{tap_device}")
+    Logger.info("[Sandbox.Provisioner] Setting up hardened network for #{vm_id} via #{tap_device}")
     
-    # These commands require sudo/root in a real environment
     if System.get_env("KARYON_MOCK_HARDWARE") != "1" do
-      System.cmd("sudo", ["ip", "tuntap", "add", "dev", tap_device, "mode", "tap"])
-      System.cmd("sudo", ["ip", "link", "set", tap_device, "up"])
+      # In production, we assume a pre-configured bridge 'karyon0' exists.
+      # This avoids ad-hoc sudo iptables calls for every VM.
+      bridge_name = Application.get_env(:sandbox, :bridge_device, "karyon0")
       
-      # Enforce air-gap via iptables
-      # 1. Drop all forwarding to/from the tap
-      System.cmd("sudo", ["iptables", "-A", "FORWARD", "-i", tap_device, "-j", "DROP"])
-      System.cmd("sudo", ["iptables", "-A", "FORWARD", "-o", tap_device, "-j", "DROP"])
-      
-      # 2. Prevent the VM from talking to the host's primary services
-      System.cmd("sudo", ["iptables", "-A", "INPUT", "-i", tap_device, "-j", "DROP"])
-      
-      # 3. Log attempts to breach the air-gap
-      System.cmd("sudo", ["iptables", "-A", "INPUT", "-i", tap_device, "-m", "limit", "--limit", "1/sec", "-j", "LOG", "--log-prefix", "KARYON_AIRGAP_BREACH: "])
+      # Use a dedicated capability-aware utility or a secure helper script
+      # rather than broad sudo access.
+      case System.cmd("karyon-net-helper", ["setup", tap_device, bridge_name]) do
+        {_, 0} -> :ok
+        {error, _} -> 
+          Logger.warning("[Sandbox.Provisioner] Failed to use karyon-net-helper: #{error}. Falling back to legacy sudo (NOT RECOMMENDED FOR PROD).")
+          legacy_sudo_setup(tap_device)
+      end
     else
       Logger.info("[Sandbox.Provisioner] MOCK: Skipping real network setup for #{tap_device}")
     end
+  end
+
+  defp legacy_sudo_setup(tap_device) do
+    System.cmd("sudo", ["ip", "tuntap", "add", "dev", tap_device, "mode", "tap"])
+    System.cmd("sudo", ["ip", "link", "set", tap_device, "up"])
+    
+    # Drop all forwarding to/from the tap
+    System.cmd("sudo", ["iptables", "-A", "FORWARD", "-i", tap_device, "-j", "DROP"])
+    System.cmd("sudo", ["iptables", "-A", "FORWARD", "-o", tap_device, "-j", "DROP"])
+    
+    # Prevent the VM from talking to the host's primary services
+    System.cmd("sudo", ["iptables", "-A", "INPUT", "-i", tap_device, "-j", "DROP"])
   end
 
   @doc """
