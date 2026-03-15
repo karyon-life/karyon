@@ -1,0 +1,12 @@
+cell_type: "orchestrator"
+allowed_actions:
+  - "spawn"
+  - "prune"
+  - "consolidate"
+subscriptions:
+  - "metabolic.spike"
+  - "nociception"
+utility_threshold: 0.9
+memory_retention: "permanent"
+supervision_strategy: "one_for_one"
+atp_reserve: 0.5

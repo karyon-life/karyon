@@ -1,0 +1,14 @@
+cell_type: "motor"
+allowed_actions:
+  - "mutate"
+  - "compile"
+  - "test"
+synapses:
+  - type: "push"
+    bind: "tcp://127.0.0.1:0"
+subscriptions:
+  - "metabolic.spike"
+  - "goal.attractor"
+ast_parser: "python"
+utility_threshold: 0.6
+memory_retention: "long_term"

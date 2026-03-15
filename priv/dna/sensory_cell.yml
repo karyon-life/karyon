@@ -1,0 +1,13 @@
+cell_type: "sensory"
+allowed_actions:
+  - "read"
+  - "ingest"
+synapses:
+  - type: "pub"
+    bind: "tcp://127.0.0.1:5556"
+subscriptions:
+  - "metabolic.spike"
+ast_parser: "tree-sitter"
+utility_threshold: 0.8
+memory_retention: "short_term"
+sampling_rate_ms: 100
