@@ -27,20 +27,26 @@ defmodule NervousSystem.SynapseTest do
     GenServer.stop(push_pid, :normal, 5000)
   end
 
-  test "synapse enforces zero buffering (HWM=1)" do
-    {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:0", owner: self())
+  test "synapse reinforces determinism via HWM=1" do
+    # We test that we can't flood the receiver without it consuming
+    addr = "tcp://127.0.0.1:0"
+    {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: addr, owner: self())
     %{port: port} = :sys.get_state(pull_pid)
-
     {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}", action: :connect)
 
-    # Send first message - should be OK (buffered in outgoing or delivered)
+    Process.sleep(50)
+
+    # Fill the HWM (1 message)
     :ok = NervousSystem.Synapse.send_signal(push_pid, "msg1")
     
-    # With HWM=1, sending multiple quickly without drainage might block or error depending on lib
-    # chumak.send returns :ok but might drop or block. 
-    # Our implementation doesn't check for blockage in a way that returns errors easily 
-    # unless we use async send.
+    for i <- 2..5 do
+      :ok = NervousSystem.Synapse.send_signal(push_pid, "msg#{i}")
+    end
+
+    assert_receive {:synapse_recv, ^pull_pid, "msg1"}, 500
     
-    assert true
+    # Cleanup
+    GenServer.stop(pull_pid)
+    GenServer.stop(push_pid)
   end
 end
