@@ -8,4 +8,5 @@ defmodule Sensory.Native do
 
   def parse_code(_lang, _code), do: :erlang.nif_error(:nif_not_loaded)
   def parse_to_graph(_lang, _code), do: :erlang.nif_error(:nif_not_loaded)
+  def ingest_to_memgraph(_lang, _code), do: :erlang.nif_error(:nif_not_loaded)
 end
