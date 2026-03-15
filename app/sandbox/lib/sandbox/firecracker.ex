@@ -82,7 +82,7 @@ defmodule Sandbox.Firecracker do
   end
 
   defp put_request(socket_path, path, body) do
-    if System.get_env("KARYON_MOCK_HARDWARE") == "1" do
+    if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
       Logger.debug("[Sandbox.Firecracker] MOCK: PUT #{path} to #{socket_path}")
       :ok
     else

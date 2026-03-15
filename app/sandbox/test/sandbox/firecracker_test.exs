@@ -7,7 +7,8 @@ defmodule Sandbox.FirecrackerTest do
   test "init_vmm attempts to connect to socket" do
     # This should fail with ENOENT or similar if the socket doesn't exist
     # but we can verify the function returns the expected error from Mint
-    assert {:error, _} = Sandbox.Firecracker.init_vmm("/tmp/non_existent.socket")
+    expected = if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"], do: :ok, else: {:error, :socket_not_found}
+    assert expected == Sandbox.Firecracker.init_vmm("/tmp/non_existent.socket")
   end
 
   test "set_drive expansion and body formatting" do
