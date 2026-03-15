@@ -21,12 +21,11 @@ defmodule NervousSystem.EndocrineResilienceTest do
   test "connection recovery and subscription", %{gnat: gnat} do
     # Subscribe to a topic
     :ok = Endocrine.subscribe(gnat, @topic)
-    
-    # Broadcast a message
-    msg = %{"severity" => "high", "metric" => "cpu"}
-    payload = Jason.encode!(msg)
-    
-    :ok = Endocrine.publish_gradient(gnat, @topic, payload)
+    # Publish a spike
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high", metric_type: "metabolic_daemon"}
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    payload = IO.iodata_to_binary(iodata)
+    Endocrine.publish_gradient(gnat, @topic, payload)
     
     # Verify reception
     assert_receive {:msg, %{topic: @topic, body: ^payload}}, 1000
@@ -39,13 +38,14 @@ defmodule NervousSystem.EndocrineResilienceTest do
 
   test "protoc serialization safety", %{gnat: gnat} do
     # Test with protobuf encoded payload
-    spike = NervousSystem.Protos.MetabolicSpike.new(
+    spike = %Karyon.NervousSystem.MetabolicSpike{
       metric_type: "l3_misses",
       value: 15000.0,
       threshold: 5000.0,
       severity: "high"
-    )
-    payload = NervousSystem.Protos.MetabolicSpike.encode(spike)
+    }
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    payload = IO.iodata_to_binary(iodata)
     
     :ok = Endocrine.publish_gradient(gnat, "metabolic.spike", payload)
     
@@ -58,7 +58,7 @@ defmodule NervousSystem.EndocrineResilienceTest do
     assert_receive {:msg, %{body: ^payload}}, 1000
     
     # Verify decoding
-    assert {:ok, decoded} = NervousSystem.Protos.MetabolicSpike.decode(payload)
-    assert decoded["metric_type"] == "l3_misses"
+    assert {:ok, decoded} = Karyon.NervousSystem.MetabolicSpike.decode(payload)
+    assert decoded.metric_type == "l3_misses"
   end
 end

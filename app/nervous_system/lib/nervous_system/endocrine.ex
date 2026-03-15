@@ -26,7 +26,10 @@ defmodule NervousSystem.Endocrine do
   Subscribes the current process to an endocrine gradient topic.
   """
   def subscribe(gnat, topic) do
-    Gnat.sub(gnat, self(), topic)
+    case Gnat.sub(gnat, self(), topic) do
+      {:ok, _id} -> :ok
+      err -> err
+    end
   end
 
   @doc """

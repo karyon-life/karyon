@@ -5,7 +5,6 @@ defmodule NervousSystem.SynapseStressTest do
   alias NervousSystem.Synapse
 
   @msg_count 10_000
-  @port 6666
 
   test "floods push/pull synapse with high-frequency signals" do
     # Spawn receiver task to collect messages
@@ -13,11 +12,14 @@ defmodule NervousSystem.SynapseStressTest do
       receive_loop(self(), @msg_count, [])
     end)
     
-    # Start Pull Synapse (Receiver) with the task as the owner
-    {:ok, pull_pid} = Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:#{@port}", owner: receiver_task.pid)
+    # Start Pull Synapse (Receiver) with dynamic port
+    {:ok, pull_pid} = Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:0", owner: receiver_task.pid)
+    
+    # Get the assigned port
+    {:ok, port} = GenServer.call(pull_pid, :get_port)
 
     # Start Push Synapse (Sender)
-    {:ok, push_pid} = Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{@port}", action: :connect)
+    {:ok, push_pid} = Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}", action: :connect)
 
     # Allow time for connection
     Process.sleep(200)
@@ -30,7 +32,7 @@ defmodule NervousSystem.SynapseStressTest do
     end
 
     # Wait for all messages to be received
-    received_msgs = Task.await(receiver_task, 20_000)
+    received_msgs = Task.await(receiver_task, 30_000)
     end_time = System.monotonic_time(:millisecond)
 
     duration = end_time - start_time

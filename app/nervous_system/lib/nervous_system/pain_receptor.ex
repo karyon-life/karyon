@@ -35,18 +35,24 @@ defmodule NervousSystem.PainReceptor do
     # A crash has occurred. We must signal nociception.
     Logger.error("[PainReceptor] Structural error intercepted! Preparing active inference nociception signal.")
 
-    # Create a structured Protobuf-compatible message
-    msg = NervousSystem.Protos.PredictionError.new(
+    # Create a structured Protobuf message
+    msg = %Karyon.NervousSystem.PredictionError{
       type: "nociception",
       message: "Structural error intercepted",
       timestamp: System.system_time(:second),
       metadata: sanitize_metadata(metadata),
       cell_id: "pain-receptor"
-    )
+    }
 
-    case NervousSystem.Protos.PredictionError.encode(msg) do
-      json ->
-        NervousSystem.Synapse.send_signal(synapse_pid, json)
+    if Process.alive?(synapse_pid) do
+      case Karyon.NervousSystem.PredictionError.encode(msg) do
+        {:ok, binary} ->
+          NervousSystem.Synapse.send_signal(synapse_pid, binary)
+        {:error, reason} ->
+          Logger.error("[PainReceptor] Failed to encode pain signal: #{inspect(reason)}")
+      end
+    else
+      Logger.warning("[PainReceptor] Attempted to send pain signal but Synapse process is dead.")
     end
   end
 
@@ -64,8 +70,11 @@ defmodule NervousSystem.PainReceptor do
   end
 
   defp sanitize_metadata(metadata) do
-    # Metadata often contains PIDs and other non-serializable terms.
-    # For MVP, we'll convert everything to strings.
-    Map.new(metadata, fn {k, v} -> {k, inspect(v)} end)
+    # Proto maps require string keys and string values.
+    Map.new(metadata, fn {k, v} -> {serialize_term(k), serialize_term(v)} end)
   end
+
+  defp serialize_term(term) when is_atom(term), do: Atom.to_string(term)
+  defp serialize_term(term) when is_binary(term), do: term
+  defp serialize_term(term), do: inspect(term)
 end
