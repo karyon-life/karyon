@@ -45,13 +45,23 @@ defmodule Core.StemCell do
     nociception_port = Application.get_env(:nervous_system, :nociception_port, 5555)
     {:ok, nociception_syn_pid} = NervousSystem.Synapse.start_link(type: :sub, bind: "tcp://127.0.0.1:#{nociception_port}", action: :connect)
 
+    # Subscribe to metabolic spikes via NATS (Endocrine system)
+    endocrine_topic = "metabolic.spike"
+    
     state = %{
       dna_spec: dna_spec,
       synapses: [nociception_syn_pid | synapses], 
       expectations: %{}, # Map of id -> %{goal: term, precision: float}
       beliefs: %{},      # Map of id -> float (0.0 to 1.0)
-      status: :active
+      status: :active,
+      atp_metabolism: 1.0 # Current metabolic health (1.0 = optimal)
     }
+
+    # Register for endocrine signals if NATS is up
+    case GenServer.whereis(:endocrine_gnat) do
+      nil -> :ok
+      pid -> NervousSystem.Endocrine.subscribe(pid, endocrine_topic)
+    end
 
     {:ok, state}
   end
@@ -62,10 +72,39 @@ defmodule Core.StemCell do
   end
 
   @impl true
+  def handle_call({:execute, action, _params}, _from, state) do
+    allowed_actions = Map.get(state.dna_spec, "allowed_actions", [])
+    if action in allowed_actions do
+      Logger.info("[StemCell] Executing allowed action: #{action}")
+      # Actual action execution logic would go here
+      {:reply, {:ok, :executed}, state}
+    else
+      Logger.error("[StemCell] ACTION DENIED: #{action} not in DNA allowed_actions.")
+      {:reply, {:error, :unauthorized}, state}
+    end
+  end
+
+  @impl true
   def handle_call({:form_expectation, id, goal, precision}, _from, state) do
     Logger.info("[StemCell] Forming expectation: #{inspect(goal)} with precision #{precision}")
     new_expectations = Map.put(state.expectations, id, %{goal: goal, precision: precision})
     {:reply, :ok, %{state | expectations: new_expectations}}
+  end
+
+  @impl true
+  def handle_info({:msg, _topic, payload}, state) do
+    # Handle NATS Metabolic Spikes
+    decoded = NervousSystem.Protos.MetabolicSpike.decode(payload)
+    Logger.info("[StemCell] Received metabolic spike: #{inspect(decoded)}")
+    case decoded do
+      {:ok, %{"severity" => "high"}} ->
+        Logger.warning("[StemCell] High Metabolic Stress detected. Entering Digital Torpor.")
+        {:noreply, %{state | atp_metabolism: 0.1, status: :torpor}}
+      {:ok, %{"severity" => "medium"}} ->
+        {:noreply, %{state | atp_metabolism: 0.5}}
+      _ ->
+        {:noreply, state}
+    end
   end
 
   @impl true
@@ -78,8 +117,10 @@ defmodule Core.StemCell do
         # In this simplified model, F = sum(precision * (expectation - reality)^2)
         vfe = calculate_variational_free_energy(state.expectations, meta)
         
-        if vfe > 0.5 do
-          Logger.error("[StemCell] High Variational Free Energy: #{vfe}. Triggering structural pruning.")
+        utility_threshold = Map.get(state.dna_spec, "utility_threshold", 0.5)
+
+        if vfe > utility_threshold do
+          Logger.error("[StemCell] VFE #{vfe} exceeds threshold #{utility_threshold}. Triggering structural pruning.")
           # Pruning logic: remove failed branches in the Rhizome
           prune_rhizome_pathways(state.expectations)
         end
@@ -87,6 +128,17 @@ defmodule Core.StemCell do
         {:noreply, %{state | expectations: %{}, beliefs: Map.put(state.beliefs, :last_vfe, vfe)}}
       _ ->
         {:noreply, state}
+    end
+  end
+
+  @doc """
+  Senses the "gradient" of available cells for a specific role/topic.
+  Returns a random PID from the Process Group, mimicking stigmergy-based discovery.
+  """
+  def sense_gradient(role) do
+    case :pg.get_members(role) do
+      [] -> {:error, :no_gradient_detected}
+      members -> {:ok, Enum.random(members)}
     end
   end
 

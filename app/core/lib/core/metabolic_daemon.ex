@@ -41,7 +41,28 @@ defmodule Core.MetabolicDaemon do
     
     if run_queue_len > 10 do
       Logger.warning("[MetabolicDaemon] High Run Queue Detected: #{run_queue_len}. Triggering partial Apoptosis.")
+      
+      # Broadcast metabolic spike via Endocrine system
+      broadcast_spike("cpu", run_queue_len, 10.0, "high")
+      
       induce_apoptosis(:generic)
+    end
+  end
+
+  defp broadcast_spike(type, value, threshold, severity) do
+    msg = NervousSystem.Protos.MetabolicSpike.new(
+      metric_type: type,
+      value: value * 1.0,
+      threshold: threshold * 1.0,
+      timestamp: System.system_time(:second),
+      severity: severity
+    )
+    
+    # We'll use a globally registered endocrine gnat connection if available, 
+    # or start a transient one for now. In production this PID would be injected.
+    case GenServer.whereis(:endocrine_gnat) do
+      nil -> :ok
+      pid -> NervousSystem.Endocrine.publish_gradient(pid, "metabolic.spike", NervousSystem.Protos.MetabolicSpike.encode(msg))
     end
   end
 
@@ -79,17 +100,32 @@ defmodule Core.MetabolicDaemon do
 
   defp induce_apoptosis(target_type) do
     # Ask the EpigeneticSupervisor to terminate cells of a specific type (graduated apoptosis)
-    children = DynamicSupervisor.which_children(Core.EpigeneticSupervisor)
-    
-    # Simple graduation: kill motor cells if requested, otherwise generic
-    target_pid = 
-      Enum.find_value(children, fn {_, pid, _, _} ->
-        if is_pid(pid), do: pid, else: nil
-      end)
+    # Target specific cell types using :pg groups
+    group = 
+      case target_type do
+        :motor -> :motor
+        :sensory -> :sensory
+        :orchestrator -> :orchestrator
+        _ -> :undifferentiated
+      end
 
-    if target_pid do
-      Logger.warning("[MetabolicDaemon] Executing Apoptosis on #{target_type} cell: #{inspect(target_pid)}")
-      Core.EpigeneticSupervisor.apoptosis(target_pid)
+    members = :pg.get_members(group)
+    
+    # Prune the first member found in the group
+    case members do
+      [target_pid | _] ->
+        Logger.warning("[MetabolicDaemon] Executing Targeted Apoptosis on #{target_type} cell: #{inspect(target_pid)}")
+        Core.EpigeneticSupervisor.apoptosis(target_pid)
+      [] ->
+        # fallback to dynamic supervisor children if group is empty
+        Logger.info("[MetabolicDaemon] No cells found in group #{group}. Scanning DynamicSupervisor.")
+        children = DynamicSupervisor.which_children(Core.EpigeneticSupervisor)
+        case Enum.find(children, fn {_, pid, _, _} -> is_pid(pid) end) do
+           {_, pid, _, _} -> 
+             Logger.warning("[MetabolicDaemon] Executing Fallback Apoptosis on cell: #{inspect(pid)}")
+             Core.EpigeneticSupervisor.apoptosis(pid)
+           _ -> :ok
+        end
     end
   end
 end
