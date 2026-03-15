@@ -32,7 +32,7 @@ pub fn memgraph_query(query: String) -> NifResult<(rustler::Atom, String)> {
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-pub fn weaken_edge(id: String) -> NifResult<(rustler::Atom, String)> {
+pub fn weaken_edge(resource: rustler::ResourceArc<crate::resource::GraphResource>) -> NifResult<(rustler::Atom, String)> {
     RUNTIME.block_on(async {
         let mut client_lock = CLIENT.lock().await;
         
@@ -44,10 +44,16 @@ pub fn weaken_edge(id: String) -> NifResult<(rustler::Atom, String)> {
         }
 
         let client = client_lock.as_ref().unwrap().clone();
+        
+        let node_id = {
+            let pointer = resource.pointer.read().unwrap();
+            pointer.node_id
+        };
+
         // Cypher query to weaken the edge. For now, we'll just delete the edge to represent absolute pruning.
-        let query = format!("MATCH ()-[r]->() WHERE id(r) = {} DELETE r", id);
+        let query = format!("MATCH ()-[r]->() WHERE id(r) = {} DELETE r", node_id);
         match client.execute_query(&query).await {
-            Ok(_) => Ok((atoms::ok(), format!("Edge {} pruned successfully", id))),
+            Ok(_) => Ok((atoms::ok(), format!("Edge {} pruned successfully", node_id))),
             Err(e) => Ok((atoms::error(), format!("Pruning Error: {}", e))),
         }
     })
