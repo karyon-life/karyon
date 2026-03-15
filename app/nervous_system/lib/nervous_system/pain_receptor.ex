@@ -50,6 +50,19 @@ defmodule NervousSystem.PainReceptor do
     end
   end
 
+  @doc """
+  Manually triggers a nociception signal (e.g., from Sandbox Console).
+  """
+  def trigger_nociception(metadata) do
+    GenServer.cast(__MODULE__, {:trigger_nociception, metadata})
+  end
+
+  @impl true
+  def handle_cast({:trigger_nociception, metadata}, state) do
+    handle_pain_signal(nil, nil, metadata, %{synapse: state.synapse})
+    {:noreply, state}
+  end
+
   defp sanitize_metadata(metadata) do
     # Metadata often contains PIDs and other non-serializable terms.
     # For MVP, we'll convert everything to strings.
