@@ -73,21 +73,39 @@ defmodule Sandbox.Firecracker do
     put_request(socket_path, "/actions", %{action_type: "InstanceStart"})
   end
 
+  @doc """
+  Sets the MMDS metadata for the VM.
+  """
+  def set_metadata(socket_path, metadata) do
+    Logger.info("[Sandbox.Firecracker] Setting MMDS metadata")
+    put_request(socket_path, "/mmds", metadata)
+  end
+
   defp put_request(socket_path, path, body) do
-    # Use Mint for HTTP over Unix Domain Sockets
-    case Mint.HTTP.connect(:http, {:local, socket_path}, 0, hostname: "localhost") do
-      {:ok, conn} ->
-        json_body = Jason.encode!(body)
-        headers = [{"content-type", "application/json"}]
-        
-        case Mint.HTTP.request(conn, "PUT", path, headers, json_body) do
-          {:ok, conn, request_ref} ->
-            receive_response(conn, request_ref)
-          {:error, _conn, reason} ->
+    if System.get_env("KARYON_MOCK_HARDWARE") == "1" do
+      Logger.debug("[Sandbox.Firecracker] MOCK: PUT #{path} to #{socket_path}")
+      :ok
+    else
+      # Use Mint for HTTP over Unix Domain Sockets
+      # Ensure socket path exists before connecting
+      if File.exists?(socket_path) do
+        case Mint.HTTP.connect(:http, {:local, socket_path}, 0, hostname: "localhost") do
+          {:ok, conn} ->
+            json_body = Jason.encode!(body)
+            headers = [{"content-type", "application/json"}]
+            
+            case Mint.HTTP.request(conn, "PUT", path, headers, json_body) do
+              {:ok, conn, request_ref} ->
+                receive_response(conn, request_ref)
+              {:error, _conn, reason} ->
+                {:error, reason}
+            end
+          {:error, reason} ->
             {:error, reason}
         end
-      {:error, reason} ->
-        {:error, reason}
+      else
+        {:error, :socket_not_found}
+      end
     end
   end
 
@@ -95,19 +113,22 @@ defmodule Sandbox.Firecracker do
     receive do
       {:tcp, _, _} = msg ->
         case Mint.HTTP.stream(conn, msg) do
-          {:ok, _conn, responses} ->
-            # Simple wrapper: just return :ok if status is 2xx
-            if Enum.any?(responses, fn
-              {:status, ^request_ref, status} when status in 200..299 -> true
-              _ -> false
-            end), do: :ok, else: {:error, :bad_status}
-          _ ->
-            {:error, :stream_fail}
+          {:ok, conn, responses} ->
+            handle_responses(conn, request_ref, responses)
+          {:error, _conn, reason, _responses} ->
+            {:error, reason}
         end
-      _ ->
-        {:error, :timeout}
     after
       5000 -> {:error, :timeout}
     end
+  end
+
+  defp handle_responses(_conn, request_ref, responses) do
+    Enum.find_value(responses, fn
+      {:status, ^request_ref, status} when status in 200..299 -> :ok
+      {:status, ^request_ref, status} -> {:error, {:status, status}}
+      {:error, ^request_ref, reason} -> {:error, reason}
+      _ -> nil
+    end) || {:error, :no_status_received}
   end
 end

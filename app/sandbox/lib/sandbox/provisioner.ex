@@ -24,7 +24,9 @@ defmodule Sandbox.Provisioner do
     # Note: In a real production run, firecracker process would be spawned here.
     # For MVP verification, we assume the binary is manageable.
     
-    with :ok <- Sandbox.Firecracker.init_vmm(socket_path),
+    with {:ok, _vmm_pid} <- Sandbox.VmmSupervisor.start_vmm(vm_id, socket_path),
+         :ok <- wait_for_socket(socket_path),
+         :ok <- Sandbox.Firecracker.init_vmm(socket_path),
          :ok <- Sandbox.Firecracker.set_machine_config(socket_path, vcpus, mem_size_mib),
          :ok <- Sandbox.Firecracker.set_network_interface(socket_path, "eth0", tap_device),
          # :ok <- Sandbox.Firecracker.set_boot_source(socket_path, "vmlinux", "console=ttyS0 reboot=k panic=1 pci=off"),
@@ -39,9 +41,23 @@ defmodule Sandbox.Provisioner do
     else
       {:error, reason} -> 
         Logger.error("[Sandbox.Provisioner] Failed to provision VM: #{inspect(reason)}")
+        Sandbox.VmmSupervisor.cleanup_resources(vm_id, socket_path)
         {:error, reason}
       error ->
         {:error, error}
+    end
+  end
+
+  defp wait_for_socket(path, attempts \\ 10) do
+    if File.exists?(path) do
+      :ok
+    else
+      if attempts > 0 do
+        Process.sleep(100)
+        wait_for_socket(path, attempts - 1)
+      else
+        {:error, :vmm_socket_not_ready}
+      end
     end
   end
 

@@ -31,10 +31,17 @@ defmodule Sandbox.Console do
     # Wait for pipe to exist
     case File.exists?(pipe_path) do
       true ->
-        File.stream!(pipe_path)
-        |> Enum.each(fn line ->
-          NervousSystem.Synapse.send_signal(synapse, "LOG:#{line}")
-        end)
+        try do
+          File.stream!(pipe_path)
+          |> Enum.each(fn line ->
+            NervousSystem.Synapse.send_signal(synapse, "LOG:#{line}")
+          end)
+        rescue
+          e ->
+            Logger.error("[Sandbox.Console] Error streaming pipe: #{inspect(e)}")
+            Process.sleep(1000)
+            pipe_loop(pipe_path, synapse)
+        end
       false ->
         Process.sleep(100)
         pipe_loop(pipe_path, synapse)

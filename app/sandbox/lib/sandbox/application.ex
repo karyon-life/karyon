@@ -6,7 +6,7 @@ defmodule Sandbox.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Firecracker orchestration pooling will go here
+      {Sandbox.VmmSupervisor, []}
     ]
 
     opts = [strategy: :one_for_one, name: Sandbox.Supervisor]
