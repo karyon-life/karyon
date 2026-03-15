@@ -53,4 +53,24 @@ defmodule NervousSystem.SynapsePropertyTest do
       GenServer.stop(push_pid, :normal, 5000)
     end
   end
+
+  @tag :property
+  property "Synapse correctly handles arbitrary binary payloads including oversized messages" do
+    check all payload <- binary(min_length: 1, max_length: 5000) do
+      port = 60000 + :rand.uniform(5000)
+      addr = "tcp://127.0.0.1:#{port}"
+      
+      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: addr, owner: self(), action: :bind)
+      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: addr, action: :connect)
+
+      Process.sleep(20)
+
+      :ok = NervousSystem.Synapse.send_signal(push_pid, payload)
+
+      assert_receive {:synapse_recv, ^pull_pid, ^payload}, 1000
+
+      GenServer.stop(push_pid)
+      GenServer.stop(pull_pid)
+    end
+  end
 end
