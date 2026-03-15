@@ -87,9 +87,14 @@ pub fn optimize_graph() -> NifResult<(rustler::Atom, String)> {
                 let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
                 let super_node_id = format!("sn_{}_{}", now, i);
                 
-                // Create SuperNode
-                let _ = client.graph.execute(query("CREATE (s:SuperNode {id: $id, type: 'COMMUNITY'})")
-                    .param("id", super_node_id.clone())).await;
+                // Calculate confidence based on cluster density/size
+                // Simplified: confidence = log2(size) / 10.0 (capped at 1.0)
+                let confidence = ((community.len() as f64).log2() / 10.0).min(1.0);
+
+                // Create SuperNode with confidence
+                let _ = client.graph.execute(query("CREATE (s:SuperNode {id: $id, type: 'COMMUNITY', confidence: $conf})")
+                    .param("id", super_node_id.clone())
+                    .param("conf", confidence)).await;
 
                 for internal_id in community {
                     if let Some(external_id) = internal_id_to_external.get(internal_id) {

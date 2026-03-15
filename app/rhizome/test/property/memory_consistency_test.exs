@@ -23,7 +23,7 @@ defmodule Rhizome.Property.MemoryConsistencyTest do
       Rhizome.Native.memgraph_query("MATCH (n) DETACH DELETE n")
 
       # 2. Parallel writes
-      results = 
+      _results = 
         data_points
         |> Task.async_stream(fn %{"id" => id, "value" => val} ->
           # Submit to XTDB
@@ -35,7 +35,7 @@ defmodule Rhizome.Property.MemoryConsistencyTest do
         |> Enum.to_list()
 
       # 3. Verify total nodes in Memgraph
-      unique_ids = data_points |> Enum.map(& &1["id"]) |> Enum.uniq() |> length()
+      _unique_ids = data_points |> Enum.map(& &1["id"]) |> Enum.uniq() |> length()
       {:ok, _} = Rhizome.Native.memgraph_query("MATCH (n:TestNode) RETURN count(n) as count")
       
       # 4. Cleanup
