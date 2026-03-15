@@ -20,6 +20,13 @@ services:
     volumes:
       - xtdb_data:/var/lib/xtdb
 
+  nats:
+    image: nats:latest
+    container_name: karyon_nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
 volumes:
   memgraph_data:
   memgraph_logs:
