@@ -32,7 +32,8 @@ defmodule Rhizome.MixProject do
 
   defp deps do
     [
-      {:rustler, "~> 0.37.0", runtime: false}
+      {:rustler, "~> 0.37.0", runtime: false},
+      {:stream_data, "~> 1.0", only: [:test]}
     ]
   end
 end
