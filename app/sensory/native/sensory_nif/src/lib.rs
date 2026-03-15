@@ -11,6 +11,19 @@ lazy_static::lazy_static! {
     pub static ref CLIENT: Mutex<Option<Arc<MemgraphClient>>> = Mutex::new(None);
 }
 
+/// Cache-aligned memory structure to prevent NUMA traversal issues.
+#[repr(C)]
+#[repr(align(64))]
+pub struct GraphPointer {
+    pub node_id: u64,
+    pub generation: u32,
+    pub flags: u32,
+}
+
+pub struct GraphResource {
+    pub pointer: std::sync::RwLock<GraphPointer>,
+}
+
 pub struct MemgraphClient {
     pub graph: Graph,
 }
@@ -152,14 +165,14 @@ fn serialize_node(node: Node, source: &str) -> Value {
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-pub fn ingest_to_memgraph(lang_name: String, code: String) -> NifResult<(rustler::Atom, String)> {
+pub fn ingest_to_memgraph(lang_name: String, code: String) -> NifResult<(rustler::Atom, rustler::ResourceArc<GraphResource>)> {
     RUNTIME.block_on(async {
         let mut client_lock = CLIENT.lock().await;
         
         if client_lock.is_none() {
             match MemgraphClient::new("bolt://127.0.0.1:7687", "memgraph", "").await {
                 Ok(c) => *client_lock = Some(Arc::new(c)),
-                Err(e) => return Ok((atoms::error(), format!("Connection Error: {}", e))),
+                Err(e) => return Err(rustler::Error::Term(Box::new(format!("Connection Error: {}", e)))),
             }
         }
 
@@ -169,7 +182,7 @@ pub fn ingest_to_memgraph(lang_name: String, code: String) -> NifResult<(rustler
             "javascript" => tree_sitter_javascript::language(),
             "python" => tree_sitter_python::language(),
             "c" => tree_sitter_c::language(),
-            _ => return Ok((atoms::error(), "Unsupported language".to_string())),
+            _ => return Err(rustler::Error::Term(Box::new("Unsupported language"))),
         };
 
         let mut parser = Parser::new();
@@ -177,22 +190,32 @@ pub fn ingest_to_memgraph(lang_name: String, code: String) -> NifResult<(rustler
 
         let tree = parser.parse(&code, None).unwrap();
         let root_node = tree.root_node();
+        let root_id = root_node.id() as u64;
 
         // Start a transaction for the entire ingestion
         let mut txn = match client.graph.start_txn().await {
             Ok(t) => t,
-            Err(e) => return Ok((atoms::error(), format!("Transaction Error: {}", e))),
+            Err(e) => return Err(rustler::Error::Term(Box::new(format!("Transaction Error: {}", e)))),
         };
 
         let mut node_count = 0;
         if let Err(e) = ingest_node(&mut txn, root_node, &code, &mut node_count).await {
             let _ = txn.rollback().await;
-            return Ok((atoms::error(), format!("Ingestion Error: {}", e)));
+            return Err(rustler::Error::Term(Box::new(format!("Ingestion Error: {}", e))));
         }
 
         match txn.commit().await {
-            Ok(_) => Ok((atoms::ok(), format!("Ingested {} nodes", node_count))),
-            Err(e) => Ok((atoms::error(), format!("Commit Error: {}", e))),
+            Ok(_) => {
+                let resource = rustler::ResourceArc::new(GraphResource {
+                    pointer: std::sync::RwLock::new(GraphPointer {
+                        node_id: root_id,
+                        generation: 1,
+                        flags: 0,
+                    }),
+                });
+                Ok((atoms::ok(), resource))
+            },
+            Err(e) => Err(rustler::Error::Term(Box::new(format!("Commit Error: {}", e)))),
         }
     })
 }
@@ -236,7 +259,12 @@ async fn ingest_node(txn: &mut Txn, node: Node<'_>, source: &str, count: &mut u3
     Ok(())
 }
 
-rustler::init!("Elixir.Sensory.Native", [parse_code, parse_to_graph, ingest_to_memgraph]);
+fn load(env: Env, _info: Term) -> bool {
+    rustler::resource!(GraphResource, env);
+    true
+}
+
+rustler::init!("Elixir.Sensory.Native", [parse_code, parse_to_graph, ingest_to_memgraph], load = load);
 
 #[cfg(test)]
 mod tests {
