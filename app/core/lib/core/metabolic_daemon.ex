@@ -41,9 +41,15 @@ defmodule Core.MetabolicDaemon do
   def handle_info(:calibrate, state) do
     Logger.info("[MetabolicDaemon] Calibrating metabolic baselines...")
     
-    {:ok, l3} = Core.Native.read_l3_misses()
+    res_l3 = Core.Native.read_l3_misses()
+    Logger.info("[MetabolicDaemon] Native L3 result: #{inspect(res_l3)}")
+    {:ok, l3} = res_l3
+    
     rq = :erlang.statistics(:run_queue)
-    {:ok, iops} = Core.Native.read_iops()
+    
+    res_iops = Core.Native.read_iops()
+    Logger.info("[MetabolicDaemon] Native IOPS result: #{inspect(res_iops)}")
+    {:ok, iops} = res_iops
 
     baselines = %{
       l3_misses: l3,

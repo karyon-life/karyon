@@ -45,7 +45,7 @@ defmodule Core.ApoptosisChaosTest do
 
   test "metabolic-driven pruning of speculative swarms" do
     # 1. Spawn a large swarm of speculative cells (no actions)
-    dna_path = Path.expand("../../priv/dna/speculative_cell.yml", __DIR__)
+    dna_path = Path.expand("../../../priv/dna/speculative_cell.yml", __DIR__)
     # For CI, we use a smaller count but enough to verify logic
     count = 50
     

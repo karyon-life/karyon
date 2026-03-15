@@ -10,6 +10,13 @@ lazy_static! {
     static ref COUNTER: Mutex<Option<perf_event::Counter>> = Mutex::new(None);
 }
 
+mod atoms {
+    rustler::atoms! {
+        ok,
+        error,
+    }
+}
+
 pub fn parse_diskstats<R: BufRead>(reader: R) -> u64 {
     let mut total_io: u64 = 0;
     for line in reader.lines() {
@@ -27,6 +34,11 @@ pub fn parse_diskstats<R: BufRead>(reader: R) -> u64 {
 }
 
 pub fn read_iops_impl() -> NifResult<u64> {
+    if std::env::var("KARYON_FAIL_NATIVE").is_ok() {
+        println!("NIF: KARYON_FAIL_NATIVE is set!");
+        return Err(rustler::Error::Atom("simulated_failure"));
+    }
+
     if std::env::var("KARYON_MOCK_HARDWARE").is_ok() {
         return Ok(42);
     }
@@ -37,11 +49,19 @@ pub fn read_iops_impl() -> NifResult<u64> {
 }
 
 #[rustler::nif]
-pub fn read_iops() -> NifResult<u64> {
-    read_iops_impl()
+pub fn read_iops() -> (rustler::Atom, u64) {
+    match read_iops_impl() {
+        Ok(v) => (atoms::ok(), v),
+        Err(_) => (atoms::error(), 0),
+    }
 }
 
 pub fn read_l3_misses_impl() -> NifResult<u64> {
+    if std::env::var("KARYON_FAIL_NATIVE").is_ok() {
+        println!("NIF: KARYON_FAIL_NATIVE is set!");
+        return Err(rustler::Error::Atom("simulated_failure"));
+    }
+
     // CI/CD Mock Mode
     if std::env::var("KARYON_MOCK_HARDWARE").is_ok() {
         return Ok(1337);
@@ -67,15 +87,18 @@ pub fn read_l3_misses_impl() -> NifResult<u64> {
 }
 
 #[rustler::nif]
-pub fn read_l3_misses() -> NifResult<u64> {
-    read_l3_misses_impl()
+pub fn read_l3_misses() -> (rustler::Atom, u64) {
+    match read_l3_misses_impl() {
+        Ok(v) => (atoms::ok(), v),
+        Err(_) => (atoms::error(), 0),
+    }
 }
 
 #[rustler::nif]
-pub fn read_numa_node() -> NifResult<i32> {
+pub fn read_numa_node() -> (rustler::Atom, i32) {
     let cpu = unsafe { libc::sched_getcpu() };
     if cpu < 0 {
-        return Ok(-1);
+        return (atoms::ok(), -1);
     }
 
     // Scan /sys/devices/system/cpu/cpu{cpu}/ node*
@@ -86,20 +109,20 @@ pub fn read_numa_node() -> NifResult<i32> {
                 let name = entry.file_name().into_string().unwrap_or_default();
                 if name.starts_with("node") {
                     if let Ok(node_id) = name.trim_start_matches("node").parse::<i32>() {
-                        return Ok(node_id);
+                        return (atoms::ok(), node_id);
                     }
                 }
             }
         }
     }
 
-    Ok(0) // Default to node 0 if we can't find it (UMA)
+    (atoms::ok(), 0) // Default to node 0 if we can't find it (UMA)
 }
 
 #[rustler::nif]
-pub fn read_cpu_index() -> NifResult<i32> {
+pub fn read_cpu_index() -> (rustler::Atom, i32) {
     unsafe {
-        Ok(libc::sched_getcpu())
+        (atoms::ok(), libc::sched_getcpu())
     }
 }
 

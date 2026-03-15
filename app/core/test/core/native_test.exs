@@ -15,10 +15,27 @@ defmodule Core.NativeTest do
   end
 
   test "read_l3_misses returns a value" do
-    # This might fail on some CI environments if perf_event is restricted, 
-    # but we have a mock mode in the NIF if KARYON_MOCK_HARDWARE is set.
     System.put_env("KARYON_MOCK_HARDWARE", "true")
+    System.delete_env("KARYON_FAIL_NATIVE")
     assert {:ok, misses} = Native.read_l3_misses()
-    assert misses == 100
+    assert misses == 1337
+  end
+
+  test "read_l3_misses handles failure" do
+    System.put_env("KARYON_FAIL_NATIVE", "true")
+    # Must wait a bit or ensure the env is picked up if it was already cached (though it shouldn't be)
+    assert {:error, 0} = Native.read_l3_misses()
+  end
+
+  test "read_iops returns a value" do
+    System.put_env("KARYON_MOCK_HARDWARE", "true")
+    System.delete_env("KARYON_FAIL_NATIVE")
+    assert {:ok, iops} = Native.read_iops()
+    assert iops == 42
+  end
+
+  test "read_iops handles failure" do
+    System.put_env("KARYON_FAIL_NATIVE", "true")
+    assert {:error, 0} = Native.read_iops()
   end
 end

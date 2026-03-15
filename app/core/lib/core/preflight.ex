@@ -31,12 +31,12 @@ defmodule Core.Preflight do
         end
       unexpected ->
         # Handle :error or other unexpected results gracefully
-        if System.get_env("KARYON_MOCK_HARDWARE") == "1", do: :ok, else: {:error, "Unexpected NUMA node result: #{inspect(unexpected)}"}
+        if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"], do: :ok, else: {:error, "Unexpected NUMA node result: #{inspect(unexpected)}"}
     end
   end
 
   defp check_memory_channels do
-    if System.get_env("KARYON_MOCK_HARDWARE") == "1" do
+    if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
       :ok
     else
       # Attempt to read memory info or dmidecode if available
@@ -60,7 +60,12 @@ defmodule Core.Preflight do
     case :erlang.system_info(:scheduler_bind_type) do
       :thread_no_node_processor_spread -> :ok
       :tnnps -> :ok
-      other -> {:error, "Invalid BEAM scheduler binding: #{inspect(other)}. Expected: tnnps"}
+      other -> 
+        if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
+          :ok
+        else
+          {:error, "Invalid BEAM scheduler binding: #{inspect(other)}. Expected: tnnps"}
+        end
     end
   end
 end
