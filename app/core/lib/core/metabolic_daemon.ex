@@ -81,8 +81,15 @@ defmodule Core.MetabolicDaemon do
     check_numa_violation()
 
     schedule_poll()
+    
+    :telemetry.execute([:karyon, :metabolism, :poll], %{pressure: pressure_to_num(pressure)}, %{pressure: pressure})
+    
     {:noreply, %{state | pressure: pressure}}
   end
+
+  defp pressure_to_num(:low), do: 0
+  defp pressure_to_num(:medium), do: 1
+  defp pressure_to_num(:high), do: 2
 
   defp calculate_system_pressure(state) do
     run_queue_len = :erlang.statistics(:run_queue)

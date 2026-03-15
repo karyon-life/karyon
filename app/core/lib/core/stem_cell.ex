@@ -14,6 +14,10 @@ defmodule Core.StemCell do
     GenServer.start_link(__MODULE__, dna_path)
   end
 
+  def start(dna_path) do
+    GenServer.start(__MODULE__, dna_path)
+  end
+
   @impl true
   def init(dna_path) do
     Logger.info("Genesis: Stem Cell Booting from #{dna_path}")
