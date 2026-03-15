@@ -41,15 +41,25 @@ defmodule Core.MetabolicDaemon do
   def handle_info(:calibrate, state) do
     Logger.info("[MetabolicDaemon] Calibrating metabolic baselines...")
     
-    res_l3 = Core.Native.read_l3_misses()
-    Logger.info("[MetabolicDaemon] Native L3 result: #{inspect(res_l3)}")
-    {:ok, l3} = res_l3
+    {l3, iops} = 
+      if System.get_env("KARYON_MOCK_HARDWARE") == "1" do
+        {1337, 42}
+      else
+        l3_val = 
+          case Core.Native.read_l3_misses() do
+            {:ok, val} -> val
+            _ -> 0
+          end
+        
+        iops_val = 
+          case Core.Native.read_iops() do
+            {:ok, val} -> val
+            _ -> 0
+          end
+        {l3_val, iops_val}
+      end
     
     rq = :erlang.statistics(:run_queue)
-    
-    res_iops = Core.Native.read_iops()
-    Logger.info("[MetabolicDaemon] Native IOPS result: #{inspect(res_iops)}")
-    {:ok, iops} = res_iops
 
     baselines = %{
       l3_misses: l3,
@@ -98,19 +108,25 @@ defmodule Core.MetabolicDaemon do
   end
 
   defp broadcast_spike(type, value, threshold, severity) do
-    msg = NervousSystem.Protos.MetabolicSpike.new(
+    msg = %Karyon.NervousSystem.MetabolicSpike{
       metric_type: type,
       value: value * 1.0,
       threshold: threshold * 1.0,
       timestamp: System.system_time(:second),
       severity: severity
-    )
+    }
     
     # We'll use a globally registered endocrine gnat connection if available, 
     # or start a transient one for now. In production this PID would be injected.
     case GenServer.whereis(:endocrine_gnat) do
       nil -> :ok
-      pid -> NervousSystem.Endocrine.publish_gradient(pid, "metabolic.spike", NervousSystem.Protos.MetabolicSpike.encode(msg))
+      pid -> 
+        case Karyon.NervousSystem.MetabolicSpike.encode(msg) do
+          {:ok, binary} ->
+            NervousSystem.Endocrine.publish_gradient(pid, "metabolic.spike", binary)
+          {:error, reason} ->
+            Logger.error("[MetabolicDaemon] Failed to encode spike: #{inspect(reason)}")
+        end
     end
   end
 

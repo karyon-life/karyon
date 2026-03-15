@@ -48,11 +48,19 @@ defmodule Core.StemCell do
     # Subscribe to metabolic spikes via NATS (Endocrine system)
     endocrine_topic = "metabolic.spike"
     
+    # Phase 6: Bitemporal State Hydration (XTDB Recovery)
+    # We use the dna_path as a stable identifier for this cell's "lineage"
+    recovered_beliefs = 
+      case Rhizome.Native.xtdb_query("MATCH (s {id: '#{dna_path}'}) RETURN s.beliefs") do
+        {:ok, [[beliefs]]} -> beliefs
+        _ -> %{}
+      end
+
     state = %{
       dna_spec: dna_spec,
       synapses: [nociception_syn_pid | synapses], 
       expectations: %{}, # Map of id -> %{goal: term, precision: float}
-      beliefs: %{},      # Map of id -> float (0.0 to 1.0)
+      beliefs: recovered_beliefs,      # Hydrated from XTDB
       status: :active,
       atp_metabolism: 1.0 # Current metabolic health (1.0 = optimal)
     }
@@ -76,6 +84,8 @@ defmodule Core.StemCell do
       case dispatch_motor_action(state.dna_spec, action, params) do
         {:ok, result} -> {:reply, {:ok, result}, state}
         {:error, reason} -> {:reply, {:error, reason}, state}
+        # Catch-all for dynamic dispatch safety
+        other -> {:reply, {:ok, other}, state}
       end
     else
       Logger.error("[StemCell] ACTION DENIED: #{action} not in DNA allowed_actions.")
@@ -117,10 +127,11 @@ defmodule Core.StemCell do
   end
 
   @impl true
-  def handle_info({:msg, _topic, payload}, state) do
+  def handle_info({:msg, _topic, iodata}, state) do
+    payload = IO.iodata_to_binary(iodata)
     # Handle NATS Metabolic Spikes (Endocrine system)
-    case NervousSystem.Protos.MetabolicSpike.decode(payload) do
-      {:ok, %{"severity" => "high"}} ->
+    case Karyon.NervousSystem.MetabolicSpike.decode(payload) do
+      {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "high"}} ->
         Logger.error("[StemCell] CRITICAL Metabolic Stress. Shedding synapses and entering Digital Torpor.")
         
         # Phase 5: Digital Torpor - Shed all non-essential synapses to reclaim cycles
@@ -134,7 +145,7 @@ defmodule Core.StemCell do
 
         {:noreply, %{state | atp_metabolism: 0.1, status: :torpor, synapses: [essential]}}
 
-      {:ok, %{"severity" => "medium"}} ->
+      {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "medium"}} ->
         # Speculative cells (no allowed actions) undergo apoptosis to save the colony
         if Enum.empty?(Map.get(state.dna_spec, "allowed_actions", [])) do
           Logger.warning("[StemCell] Medium Stress: Speculative Cell undergoing programmed apoptosis.")
@@ -144,7 +155,7 @@ defmodule Core.StemCell do
           {:noreply, %{state | atp_metabolism: 0.5}}
         end
 
-      {:ok, %{"severity" => "low"}} ->
+      {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "low"}} ->
         {:noreply, %{state | atp_metabolism: 0.8}}
 
       _ ->
@@ -153,13 +164,13 @@ defmodule Core.StemCell do
   end
 
   @impl true
-  def handle_info({:synapse_recv, _pid, payload}, state) do
-    case Jason.decode(payload) do
-      {:ok, %{"type" => "nociception", "metadata" => meta}} ->
+  def handle_info({:synapse_recv, _pid, iodata}, state) do
+    payload = IO.iodata_to_binary(iodata)
+    case Karyon.NervousSystem.PredictionError.decode(payload) do
+      {:ok, %Karyon.NervousSystem.PredictionError{type: "nociception", metadata: meta}} ->
         Logger.warning("[StemCell] Received Nociception Signal! Calculating Variational Free Energy.")
         
         # Calculate Variational Free Energy (F)
-        # In this simplified model, F = sum(precision * (expectation - reality)^2)
         vfe = calculate_variational_free_energy(state.expectations, meta)
         
         utility_threshold = Map.get(state.dna_spec, "utility_threshold", 0.5)

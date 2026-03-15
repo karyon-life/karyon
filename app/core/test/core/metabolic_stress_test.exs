@@ -82,10 +82,11 @@ defmodule Core.MetabolicStressTest do
     {:ok, cell} = StemCell.start_link(dna_path)
     
     # Simulate NATS message
-    spike = NervousSystem.Protos.MetabolicSpike.new(severity: "high")
-    payload = NervousSystem.Protos.MetabolicSpike.encode(spike)
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    payload = IO.iodata_to_binary(iodata)
     
-    send(cell, {:msg, "metabolic.spike", payload})
+    send(cell, {:msg, %{topic: "metabolic.spike", body: payload}})
     
     Process.sleep(200)
     assert GenServer.call(cell, :get_status) == :torpor

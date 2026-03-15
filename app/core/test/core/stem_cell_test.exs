@@ -28,8 +28,8 @@ defmodule Core.StemCellTest do
     ref = Process.monitor(pid)
 
     # Simulate medium stress spike
-    spike = NervousSystem.Protos.MetabolicSpike.new(severity: "medium")
-    payload = NervousSystem.Protos.MetabolicSpike.encode(spike)
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "medium"}
+    {:ok, payload} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     send(pid, {:msg, "metabolic.spike", payload})
 
     assert_receive {:DOWN, ^ref, :process, ^pid, :metabolic_pruning}, 1000
@@ -55,8 +55,8 @@ defmodule Core.StemCellTest do
     assert 3 == GenServer.call(pid, :get_synapse_count)
     
     # Simulate high stress spike
-    spike = NervousSystem.Protos.MetabolicSpike.new(severity: "high")
-    payload = NervousSystem.Protos.MetabolicSpike.encode(spike)
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    {:ok, payload} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     send(pid, {:msg, "metabolic.spike", payload})
 
     Process.sleep(200)
@@ -80,10 +80,11 @@ defmodule Core.StemCellTest do
     :ok = GenServer.call(pid, {:form_expectation, 1001, :low_vfe, 0.8})
     
     # Simulate nociception
-    payload = Jason.encode!(%{
-      "type" => "nociception",
-      "metadata" => %{"error" => "high_latency"}
-    })
+    noc_msg = %Karyon.NervousSystem.PredictionError{
+      type: "nociception",
+      metadata: %{"error" => "high_latency"}
+    }
+    {:ok, payload} = Karyon.NervousSystem.PredictionError.encode(noc_msg)
     
     send(pid, {:synapse_recv, self(), payload})
     

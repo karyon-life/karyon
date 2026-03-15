@@ -59,12 +59,13 @@ defmodule Core.ApoptosisChaosTest do
 
     # 2. Inject :medium metabolic pressure
     # Speculative cells should undergo apoptosis
-    spike = NervousSystem.Protos.MetabolicSpike.new(severity: "medium")
-    payload = NervousSystem.Protos.MetabolicSpike.encode(spike)
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "medium"}
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    payload = IO.iodata_to_binary(iodata)
     
-    # Broadcast to all cells via the endocrine टॉपिक
+    # Broadcast to all cells via the endocrine topic
     # In this test we send it directly to simulate a broadcast
-    Enum.each(cells, fn pid -> send(pid, {:msg, "metabolic.spike", payload}) end)
+    Enum.each(cells, fn pid -> send(pid, {:msg, %{topic: "metabolic.spike", body: payload}}) end)
     
     # 3. Wait for pruning
     Process.sleep(500)

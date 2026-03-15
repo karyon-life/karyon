@@ -21,10 +21,12 @@ defmodule Core.StemCellMigrationTest do
     # 2. Simulate a painful reality (nociception)
     # We send a nociception msg manually to the process
     # The StemCell subscribes to a PUB synapse in init, but we can send it a direct :synapse_recv for testing
-    msg = Jason.encode!(%{
-      "type" => "nociception",
-      "metadata" => %{"error" => "compilation_failed"}
-    })
+    msg_struct = %Karyon.NervousSystem.PredictionError{
+      type: "nociception",
+      metadata: %{"error" => "compilation_failed"}
+    }
+    {:ok, iodata} = Karyon.NervousSystem.PredictionError.encode(msg_struct)
+    msg = IO.iodata_to_binary(iodata)
     
     send(pid, {:synapse_recv, self(), msg})
     
@@ -39,10 +41,11 @@ defmodule Core.StemCellMigrationTest do
 
   test "cell enters Digital Torpor under high metabolic stress", %{cell: pid} do
     # Create high severity metabolic spike
-    spike = NervousSystem.Protos.MetabolicSpike.new(severity: "high")
-    payload = NervousSystem.Protos.MetabolicSpike.encode(spike)
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    payload = IO.iodata_to_binary(iodata)
     
-    send(pid, {:msg, "metabolic.spike", payload})
+    send(pid, {:msg, %{topic: "metabolic.spike", body: payload}})
     
     Process.sleep(100)
     assert GenServer.call(pid, :get_status) == :torpor
@@ -57,10 +60,11 @@ defmodule Core.StemCellMigrationTest do
     
     ref = Process.monitor(pid)
     
-    spike = NervousSystem.Protos.MetabolicSpike.new(severity: "medium")
-    payload = NervousSystem.Protos.MetabolicSpike.encode(spike)
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "medium"}
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    payload = IO.iodata_to_binary(iodata)
     
-    send(pid, {:msg, "metabolic.spike", payload})
+    send(pid, {:msg, %{topic: "metabolic.spike", body: payload}})
     
     assert_receive {:DOWN, ^ref, :process, ^pid, :metabolic_pruning}, 500
   end
