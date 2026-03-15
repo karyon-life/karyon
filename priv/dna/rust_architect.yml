@@ -1,0 +1,10 @@
+cell_type: "sensory"
+allowed_actions:
+  - "observe_syntax"
+  - "map_dependencies"
+ast_parser: "rust_treesitter"
+motor_executor: "none"
+utility_threshold: 0.3
+synapses:
+  - type: "push"
+    bind: "tcp://127.0.0.1:0"

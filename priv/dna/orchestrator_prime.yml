@@ -1,0 +1,11 @@
+cell_type: "orchestrator"
+allowed_actions:
+  - "allocate_resources"
+  - "formulate_plan"
+  - "trigger_apoptosis"
+ast_parser: "none"
+motor_executor: "none"
+utility_threshold: 0.8
+synapses:
+  - type: "pub"
+    bind: "tcp://127.0.0.1:0"
