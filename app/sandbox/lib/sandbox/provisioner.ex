@@ -66,34 +66,23 @@ defmodule Sandbox.Provisioner do
     Logger.info("[Sandbox.Provisioner] Setting up hardened network for #{vm_id} via #{tap_device}")
     
     if System.get_env("KARYON_MOCK_HARDWARE") != "1" do
-      # In production, we assume a pre-configured bridge 'karyon0' exists.
-      # This avoids ad-hoc sudo iptables calls for every VM.
+      # Use the secure karyon-net-helper binary
+      helper_path = Path.expand("../../../bin/karyon-net-helper")
       bridge_name = Application.get_env(:sandbox, :bridge_device, "karyon0")
       
-      # Use a dedicated capability-aware utility or a secure helper script
-      # rather than broad sudo access.
-      case System.cmd("karyon-net-helper", ["setup", tap_device, bridge_name]) do
+      case System.cmd(helper_path, ["setup", tap_device, bridge_name]) do
         {_, 0} -> :ok
         {error, _} -> 
-          Logger.warning("[Sandbox.Provisioner] Failed to use karyon-net-helper: #{error}. Falling back to legacy sudo (NOT RECOMMENDED FOR PROD).")
-          legacy_sudo_setup(tap_device)
+          Logger.error("[Sandbox.Provisioner] FAILED to setup network via helper: #{error}")
+          {:error, :network_setup_failed}
       end
     else
       Logger.info("[Sandbox.Provisioner] MOCK: Skipping real network setup for #{tap_device}")
     end
   end
 
-  defp legacy_sudo_setup(tap_device) do
-    System.cmd("sudo", ["ip", "tuntap", "add", "dev", tap_device, "mode", "tap"])
-    System.cmd("sudo", ["ip", "link", "set", tap_device, "up"])
-    
-    # Drop all forwarding to/from the tap
-    System.cmd("sudo", ["iptables", "-A", "FORWARD", "-i", tap_device, "-j", "DROP"])
-    System.cmd("sudo", ["iptables", "-A", "FORWARD", "-o", tap_device, "-j", "DROP"])
-    
-    # Prevent the VM from talking to the host's primary services
-    System.cmd("sudo", ["iptables", "-A", "INPUT", "-i", tap_device, "-j", "DROP"])
-  end
+  # Legacy sudo setup removed for security hardening.
+  # Production systems must use karyon-net-helper with restricted privileges.
 
   @doc """
   Verifies that a workspace path is safe to mount via virtio-fs.
