@@ -5,8 +5,22 @@ defmodule Core.MetabolicStressTest do
   alias Core.{MetabolicDaemon, ChaosMonkey, StemCell, EpigeneticSupervisor}
 
   setup do
-    # EpigeneticSupervisor is already started by the app
-    # We can clear its children if needed, or just use it.
+    # Ensure :pg is started
+    :pg.start_link()
+    
+    # Aggressively remove the real daemon from its supervisor to prevent auto-restarts
+    case GenServer.whereis(Core.MetabolicDaemon) do
+      nil -> :ok
+      _pid -> 
+        Supervisor.terminate_child(Core.Supervisor, Core.MetabolicDaemon)
+        Supervisor.delete_child(Core.Supervisor, Core.MetabolicDaemon)
+    end
+    
+    on_exit(fn ->
+      # Optionally restart it if we want subsequent tests to have it
+      Supervisor.start_child(Core.Supervisor, Core.MetabolicDaemon)
+    end)
+    
     :ok
   end
 
@@ -83,26 +97,21 @@ defmodule Core.MetabolicStressTest do
     # or just use the handle_call/cast if available.
     
     # Alternatively, we can just test the supervisor logic by ensuring it calls the daemon.
-    # Let's start a fake daemon that returns :high
-    defmodule FakeDaemon do
+    # Start a fake daemon that returns :high with the REQUIRED name
+    # We already stopped the old one in setup
+    defmodule HighPressureDaemon do
       use GenServer
-      def start_link(_), do: GenServer.start_link(__MODULE__, :ok, name: Core.MetabolicDaemon)
-      def init(_), do: {:ok, :high}
+      def start_link(_), do: GenServer.start_link(__MODULE__, :high, name: Core.MetabolicDaemon)
+      def init(pressure), do: {:ok, pressure}
       def handle_call(:get_pressure, _from, state), do: {:reply, state, state}
     end
 
-    # Stop real daemon if running
-    case GenServer.whereis(Core.MetabolicDaemon) do
-      nil -> :ok
-      pid -> 
-        Process.unlink(pid)
-        GenServer.stop(pid)
-    end
-
-    {:ok, _fake} = FakeDaemon.start_link([])
-
+    {:ok, fake_pid} = HighPressureDaemon.start_link([])
+    
     # Try to spawn
     dna_path = "/home/adrian/Projects/nexical/karyon/priv/dna/orchestrator_cell.yml"
     assert {:error, :metabolic_starvation} == EpigeneticSupervisor.spawn_cell(dna_path)
+
+    GenServer.stop(fake_pid)
   end
 end

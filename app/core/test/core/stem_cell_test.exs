@@ -22,7 +22,7 @@ defmodule Core.StemCellTest do
     """)
     on_exit(fn -> File.rm(speculative_dna) end)
 
-    {:ok, pid} = StemCell.start_link(speculative_dna)
+    {:ok, pid} = GenServer.start(StemCell, speculative_dna)
     
     # Monitor the process to detect termination
     ref = Process.monitor(pid)
@@ -89,7 +89,26 @@ defmodule Core.StemCellTest do
     
     Process.sleep(100)
     
-    # It should still be active, but expectations should be cleared and belief updated
     assert :active == GenServer.call(pid, :get_status)
+  end
+
+  test "StemCell correctly dispatches motor actions based on DNA motor_executor" do
+    # Create DNA with a specific motor_executor
+    specialized_dna = "/tmp/specialized_dna.yml"
+    File.write!(specialized_dna, """
+    cell_type: specialized_motor
+    allowed_actions: ["patch_codebase"]
+    motor_executor: "firecracker_python"
+    """)
+    on_exit(fn -> File.rm(specialized_dna) end)
+
+    {:ok, pid} = StemCell.start_link(specialized_dna)
+    
+    # We can't easily verify the side effect of Sandbox.Provisioner.capture_output 
+    # if it's not mocked, but for unit testing we verify the return value 
+    # which we know is "Success: Compilation complete. No errors found." from provisioner.ex
+    
+    assert {:ok, "Success: Compilation complete. No errors found."} == 
+           GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "test_vm"]})
   end
 end

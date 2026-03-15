@@ -16,8 +16,20 @@ defmodule Core.MetabolicDaemon do
   @impl true
   def init(_opts) do
     Logger.info("[MetabolicDaemon] Heartbeat initialized. Monitoring ERTS schedulers.")
-    schedule_poll()
-    {:ok, %{pressure: :low}}
+    
+    # Run mandatory pre-flight checks
+    case Core.Preflight.run_checks() do
+      :ok -> 
+        # Schedule calibration after a short delay to allow system to settle
+        Process.send_after(self(), :calibrate, 2000)
+        schedule_poll()
+        {:ok, %{pressure: :low, baselines: %{l3_misses: 0, run_queue: 0, iops: 0}, calibrated: false}}
+      {:error, _reason} ->
+        # In production this might halt the system. For now we log and proceed with warning.
+        Logger.warning("[MetabolicDaemon] WARNING: Pre-flight checks failed. Proceeding in degraded state.")
+        schedule_poll()
+        {:ok, %{pressure: :low, baselines: %{l3_misses: 0, run_queue: 0, iops: 0}, calibrated: false}}
+    end
   end
 
   @impl true
@@ -26,23 +38,43 @@ defmodule Core.MetabolicDaemon do
   end
 
   @impl true
+  def handle_info(:calibrate, state) do
+    Logger.info("[MetabolicDaemon] Calibrating metabolic baselines...")
+    
+    {:ok, l3} = Core.Native.read_l3_misses()
+    rq = :erlang.statistics(:run_queue)
+    {:ok, iops} = Core.Native.read_iops()
+
+    baselines = %{
+      l3_misses: l3,
+      run_queue: rq,
+      iops: iops
+    }
+
+    Logger.info("[MetabolicDaemon] Baselines established: L3=#{l3}, RQ=#{rq}, IOPS=#{iops}")
+    {:noreply, %{state | baselines: baselines, calibrated: true}}
+  end
+
+  @impl true
   def handle_info(:poll_metrics, state) do
-    pressure = calculate_system_pressure()
+    pressure = calculate_system_pressure(state)
     
     check_cpu_starvation(pressure)
-    check_l3_cache_constriction()
-    check_digital_torpor()
+    check_l3_cache_constriction(state)
+    check_digital_torpor(state)
     check_numa_violation()
 
     schedule_poll()
     {:noreply, %{state | pressure: pressure}}
   end
 
-  defp calculate_system_pressure do
+  defp calculate_system_pressure(state) do
     run_queue_len = :erlang.statistics(:run_queue)
+    baseline_rq = state.baselines.run_queue
+
     cond do
-      run_queue_len > 20 -> :high
-      run_queue_len > 10 -> :medium
+      run_queue_len > baseline_rq + 20 -> :high
+      run_queue_len > baseline_rq + 10 -> :medium
       true -> :low
     end
   end
@@ -76,23 +108,20 @@ defmodule Core.MetabolicDaemon do
     end
   end
 
-  defp check_l3_cache_constriction do
-    # Use real NIF to read hardware L3 cache misses
+  defp check_l3_cache_constriction(state) do
     case Core.Native.read_l3_misses() do
-      {:ok, misses} when misses > 5000 ->
-        Logger.warning("[MetabolicDaemon] L3 Cache Constriction: #{misses} misses. Inducing Motor Apoptosis.")
+      {:ok, misses} when misses > state.baselines.l3_misses + 5000 ->
+        Logger.warning("[MetabolicDaemon] L3 Cache Constriction detected. Inducing Motor Apoptosis.")
         induce_apoptosis(:motor)
       _ ->
         :ok
     end
   end
 
-  defp check_digital_torpor do
-    # Use real NIF to read IOPS from /proc/diskstats
+  defp check_digital_torpor(state) do
     case Core.Native.read_iops() do
-      {:ok, iops} when iops > 1000 ->
-        Logger.info("[MetabolicDaemon] High IOPS detected: #{iops}. Digital Torpor engaged.")
-        # In a full systems implementation, this would signal XTDB to slow flush cycles
+      {:ok, iops} when iops > state.baselines.iops + 1000 ->
+        Logger.info("[MetabolicDaemon] High IOPS detected. Digital Torpor engaged.")
       _ ->
         :ok
     end

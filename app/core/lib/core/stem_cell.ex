@@ -67,22 +67,16 @@ defmodule Core.StemCell do
   end
 
   @impl true
-  def handle_call(:get_status, _from, state) do
-    {:reply, state.status, state}
-  end
-
-  @impl true
-  def handle_call(:get_synapse_count, _from, state) do
-    {:reply, length(state.synapses), state}
-  end
-
-  @impl true
-  def handle_call({:execute, action, _params}, _from, state) do
+  def handle_call({:execute, action, params}, _from, state) do
     allowed_actions = Map.get(state.dna_spec, "allowed_actions", [])
     if action in allowed_actions do
       Logger.info("[StemCell] Executing allowed action: #{action}")
-      # Actual action execution logic would go here
-      {:reply, {:ok, :executed}, state}
+      
+      # Phase 1: Dynamic Dispatch based on DNA
+      case dispatch_motor_action(state.dna_spec, action, params) do
+        {:ok, result} -> {:reply, {:ok, result}, state}
+        {:error, reason} -> {:reply, {:error, reason}, state}
+      end
     else
       Logger.error("[StemCell] ACTION DENIED: #{action} not in DNA allowed_actions.")
       {:reply, {:error, :unauthorized}, state}
@@ -94,6 +88,32 @@ defmodule Core.StemCell do
     Logger.info("[StemCell] Forming expectation: #{inspect(goal)} with precision #{precision}")
     new_expectations = Map.put(state.expectations, id, %{goal: goal, precision: precision})
     {:reply, :ok, %{state | expectations: new_expectations}}
+  end
+
+  @impl true
+  def handle_call(:get_status, _from, state) do
+    {:reply, state.status, state}
+  end
+
+  @impl true
+  def handle_call(:get_synapse_count, _from, state) do
+    {:reply, length(state.synapses), state}
+  end
+
+  defp dispatch_motor_action(dna_spec, _action, params) do
+    executor = Map.get(dna_spec, "motor_executor", "none")
+    
+    case executor do
+      "firecracker_python" ->
+        # Dispatch to Sandbox application
+        Sandbox.Provisioner.capture_output(params[:vm_id] || "default_vm")
+      "none" ->
+        Logger.debug("[StemCell] No specialized motor_executor defined. Executing generic action.")
+        {:ok, :executed_generically}
+      other ->
+        Logger.warning("[StemCell] Unknown motor_executor: #{other}. Falling back to generic.")
+        {:ok, :executed_with_fallback}
+    end
   end
 
   @impl true

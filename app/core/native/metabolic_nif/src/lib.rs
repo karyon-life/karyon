@@ -26,6 +26,21 @@ pub fn parse_diskstats<R: BufRead>(reader: R) -> u64 {
     total_io
 }
 
+pub fn read_iops_impl() -> NifResult<u64> {
+    if std::env::var("KARYON_MOCK_HARDWARE").is_ok() {
+        return Ok(42);
+    }
+
+    let file = File::open("/proc/diskstats").map_err(|_| rustler::Error::Atom("diskstats_open_error"))?;
+    let reader = BufReader::new(file);
+    Ok(parse_diskstats(reader))
+}
+
+#[rustler::nif]
+pub fn read_iops() -> NifResult<u64> {
+    read_iops_impl()
+}
+
 pub fn read_l3_misses_impl() -> NifResult<u64> {
     // CI/CD Mock Mode
     if std::env::var("KARYON_MOCK_HARDWARE").is_ok() {
@@ -124,5 +139,12 @@ mod tests {
         std::env::set_var("KARYON_MOCK_HARDWARE", "true");
         let misses = read_l3_misses_impl().unwrap();
         assert_eq!(misses, 1337);
+    }
+
+    #[test]
+    fn test_read_iops_mock() {
+        std::env::set_var("KARYON_MOCK_HARDWARE", "true");
+        let iops = read_iops_impl().unwrap();
+        assert_eq!(iops, 42);
     }
 }
