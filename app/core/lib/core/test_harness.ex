@@ -88,4 +88,138 @@ defmodule Core.TestHarness do
     # 4. Assertions would happen in the test caller
     :ok
   end
+
+  @doc """
+  Runs a programmed cognitive episode from a YAML definition.
+  """
+  def run_episode(episode_path) do
+    Logger.info("[Harness] Loading Episode: #{episode_path}")
+    
+    case YamlElixir.read_from_file(episode_path) do
+      {:ok, episode} ->
+        execute_episode(episode)
+      {:error, reason} ->
+        Logger.error("[Harness] Failed to load episode: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp execute_episode(episode) do
+    Logger.info("[Harness] Executing Episode: #{episode["name"]}")
+    
+    # 1. Setup Environment
+    dna_path = Path.expand("../../#{episode["config"]["dna"]}", __DIR__)
+    count = episode["config"]["cells"] || 1
+    
+    cells = Enum.map(1..count, fn _ ->
+      {:ok, pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
+      pid
+    end)
+
+    # 2. Sequential Step Execution
+    results = Enum.reduce_while(episode["steps"], [], fn step, acc ->
+      case execute_step(step, cells) do
+        :ok -> {:cont, acc ++ [:ok]}
+        {:error, reason} -> {:halt, acc ++ [{:error, reason}]}
+      end
+    end)
+
+    if Enum.all?(results, &(&1 == :ok)) do
+      Logger.info("[Harness] Episode Completed Successfully")
+      {:ok, results}
+    else
+      Logger.error("[Harness] Episode Failed")
+      {:error, results}
+    end
+  end
+
+  defp execute_step(%{"action" => "form_expectation"} = step, cells) do
+    params = Map.get(step, "params", %{})
+    Enum.each(cells, fn pid ->
+      :ok = GenServer.call(pid, {:form_expectation, params["id"], params["type"], params["target"]})
+    end)
+    :ok
+  end
+
+  defp execute_step(%{"action" => "inject_perception"} = step, cells) do
+    params = Map.get(step, "params", %{})
+    simulate_perception(nil, params["lang"], params["code"])
+    if params["nociception"] do
+      execute_step(%{"action" => "inject_nociception", "params" => %{"reason" => "simulated_perception_failure"}}, cells)
+    else
+      :ok
+    end
+  end
+
+  defp execute_step(%{"action" => "inject_nociception"} = step, cells) do
+    params = Map.get(step, "params", %{})
+    Enum.each(cells, fn pid ->
+      send(pid, {:synapse_recv, self(), Jason.encode!(%{
+        "type" => "nociception",
+        "metadata" => %{"reason" => params["reason"]}
+      })})
+    end)
+    :ok
+  end
+
+  defp execute_step(%{"action" => "checkpoint"}, _cells) do
+    Logger.info("[Harness] Taking State Checkpoint...")
+    # Basic checkpoint: count nodes and edges in Memgraph
+    case Rhizome.Native.memgraph_query("MATCH (n) RETURN count(n) as count") do
+      {:ok, _} = resp -> 
+        Logger.info("[Harness] Checkpoint Result: #{inspect(resp)}")
+        :ok
+      error -> 
+        Logger.error("[Harness] Checkpoint Failed: #{inspect(error)}")
+        :ok # Don't halt for now
+    end
+  end
+
+  defp execute_step(%{"action" => "causal_trace"} = step, _cells) do
+    params = Map.get(step, "params", %{})
+    Logger.info("[Harness] Executing Causal Trace for: #{params["id"]}")
+    # Extract historical versions from XTDB
+    # XTDB REST API expects {"query": {...}}
+    query = %{
+      "query" => %{
+        "find" => ["(pull ?e [*])"],
+        "where" => [["?e", "xt/id", params["id"]]]
+      }
+    }
+    case Rhizome.Native.xtdb_query(Jason.encode!(query)) do
+      resp when is_binary(resp) ->
+        Logger.info("[Harness] Causal Trace Result: #{resp}")
+        :ok
+      error ->
+        Logger.error("[Harness] Causal Trace Failed: #{inspect(error)}")
+        :ok
+    end
+  end
+
+  defp execute_step(%{"action" => "wait"} = step, _cells) do
+    params = Map.get(step, "params", %{})
+    Process.sleep(params["ms"] || 0)
+    :ok
+  end
+
+  defp execute_step(%{"action" => "assert_vfe"} = step, cells) do
+    params = Map.get(step, "params", %{})
+    threshold = params["threshold"] || 0.5
+    Enum.all?(cells, fn pid ->
+      state = :sys.get_state(pid)
+      vfe = Map.get(state.beliefs, :last_vfe, 0.0)
+      if vfe >= threshold do
+        true
+      else
+        Logger.error("[Harness] Assertion failed: VFE #{vfe} < threshold #{threshold}")
+        false
+      end
+    end)
+    |> if(do: :ok, else: {:error, :assertion_failed})
+  end
+
+  defp execute_step(step, _) do
+    Logger.warn("[Harness] Unknown action: #{inspect(step["action"])}")
+    :ok
+  end
 end

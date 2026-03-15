@@ -33,6 +33,10 @@ defmodule Core.MixProject do
   defp deps do
     [
       {:yaml_elixir, "~> 2.9"},
+      {:jason, "~> 1.4"},
+      {:nervous_system, in_umbrella: true},
+      {:rhizome, in_umbrella: true},
+      {:sensory, in_umbrella: true},
       {:rustler, "~> 0.37.0", runtime: false}
     ]
   end

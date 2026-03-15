@@ -33,13 +33,12 @@ defmodule Core.StemCell do
     synapses = 
       case Map.get(dna_spec, "synapses", []) do
         [] -> []
-        syn_configs ->
+        syn_configs when is_list(syn_configs) ->
           Enum.map(syn_configs, fn config ->
-            type = String.to_atom(Map.get(config, "type", "push"))
-            bind = Map.get(config, "bind", "tcp://127.0.0.1:0")
-            {:ok, syn_pid} = NervousSystem.Synapse.start_link(type: type, bind: bind)
-            syn_pid
+            start_synapse(config)
           end)
+        syn_config when is_map(syn_config) ->
+            [start_synapse(syn_config)]
       end
 
     # Phase 1: Self-subscribe to the Pain Receptor as an "Eye" for the organism
@@ -99,11 +98,23 @@ defmodule Core.StemCell do
     end)
   end
 
+  defp start_synapse(config) do
+    type = String.to_atom(Map.get(config, "type", "push"))
+    bind = Map.get(config, "bind", "tcp://127.0.0.1:0")
+
+    case NervousSystem.Synapse.start_link(type: type, bind: bind) do
+      {:ok, pid} -> pid
+      {:error, reason} ->
+        Logger.error("[StemCell] Failed to start synapse: #{inspect(reason)}. Continuing differentiation.")
+        nil
+    end
+  end
+
   defp prune_rhizome_pathways(expectations) do
     # Phase 4 Integration: Communicate with Rhizome.Native to weaken graph edges
     Enum.each(expectations, fn {id, _} ->
       Logger.info("[StemCell] Requesting Rhizome pruning for: #{id}")
-      Rhizome.Native.weaken_edge(id)
+      Rhizome.Native.weaken_edge(to_string(id))
     end)
   end
 end

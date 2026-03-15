@@ -1,0 +1,27 @@
+name: "Nociception Basic"
+description: "Verify that perception failure triggers pain and pruning"
+config:
+  dna: "config/genetics/base_stem_cell.yml"
+  cells: 1
+steps:
+  - action: "form_expectation"
+    params:
+      id: "edge_789"
+      type: "Stability"
+      target: 0.9
+  - action: "checkpoint"
+  - action: "inject_perception"
+    params:
+      lang: "javascript"
+      code: "console.log('trigger failure');"
+      nociception: true
+  - action: "wait"
+    params: 
+      ms: 200
+  - action: "checkpoint"
+  - action: "causal_trace"
+    params:
+      id: "edge_789"
+  - action: "assert_vfe"
+    params:
+      threshold: 0.5
