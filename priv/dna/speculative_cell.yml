@@ -1,0 +1,9 @@
+cell_type: "speculative"
+allowed_actions: []
+synapses:
+  - type: "push"
+    bind: "tcp://127.0.0.1:0"
+subscriptions:
+  - "metabolic.spike"
+utility_threshold: 0.1
+memory_retention: "ephemeral"
