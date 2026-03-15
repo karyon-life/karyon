@@ -1,17 +1,43 @@
 defmodule Core.YamlParserTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case
+  alias Core.YamlParser
 
-  test "transcribe! parses valid yaml" do
-    dna_path = Path.expand("../../config/genetics/base_stem_cell.yml", __DIR__)
-    dna = Core.YamlParser.transcribe!(dna_path)
-    
-    assert dna["cell_type"] == "stem_cell"
-    assert is_list(dna["capabilities"])
+  @valid_dna "/tmp/valid_dna.yml"
+  @invalid_dna "/tmp/invalid_dna.yml"
+
+  setup do
+    File.write!(@valid_dna, """
+    cell_type: motor
+    synapses:
+      - type: push
+        bind: "tcp://127.0.0.1:0"
+    """)
+
+    File.write!(@invalid_dna, """
+    cell_type: [unclosed list
+    """)
+
+    on_exit(fn ->
+      File.rm(@valid_dna)
+      File.rm(@invalid_dna)
+    end)
   end
 
-  test "transcribe! crashes on missing file" do
+  test "transcribe! parses valid DNA" do
+    dna = YamlParser.transcribe!(@valid_dna)
+    assert dna["cell_type"] == "motor"
+    assert is_list(dna["synapses"])
+  end
+
+  test "transcribe! raises for invalid YAML (apoptotic design)" do
+    assert_raise YamlElixir.ParsingError, fn ->
+      YamlParser.transcribe!(@invalid_dna)
+    end
+  end
+
+  test "transcribe! raises for missing file" do
     assert_raise YamlElixir.FileNotFoundError, fn ->
-      Core.YamlParser.transcribe!("non_existent.yml")
+      YamlParser.transcribe!("/tmp/non_existent.yml")
     end
   end
 end

@@ -57,14 +57,38 @@ pub fn read_l3_misses() -> NifResult<u64> {
 }
 
 #[rustler::nif]
-pub fn read_iops() -> NifResult<u64> {
-    // Read from /proc/diskstats
-    let file = File::open("/proc/diskstats").map_err(|_| rustler::Error::Atom("diskstats_error"))?;
-    let reader = BufReader::new(file);
-    Ok(parse_diskstats(reader))
+pub fn read_numa_node() -> NifResult<i32> {
+    let cpu = unsafe { libc::sched_getcpu() };
+    if cpu < 0 {
+        return Ok(-1);
+    }
+
+    // Scan /sys/devices/system/cpu/cpu{cpu}/ node*
+    let path = format!("/sys/devices/system/cpu/cpu{}/", cpu);
+    if let Ok(entries) = std::fs::read_dir(path) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let name = entry.file_name().into_string().unwrap_or_default();
+                if name.starts_with("node") {
+                    if let Ok(node_id) = name.trim_start_matches("node").parse::<i32>() {
+                        return Ok(node_id);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(0) // Default to node 0 if we can't find it (UMA)
 }
 
-rustler::init!("Elixir.Core.Native");
+#[rustler::nif]
+pub fn read_cpu_index() -> NifResult<i32> {
+    unsafe {
+        Ok(libc::sched_getcpu())
+    }
+}
+
+rustler::init!("Elixir.Core.Native", [read_l3_misses, read_iops, read_numa_node, read_cpu_index]);
 
 #[cfg(test)]
 mod tests {

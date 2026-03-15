@@ -25,6 +25,7 @@ defmodule Core.MetabolicDaemon do
     check_cpu_starvation()
     check_l3_cache_constriction()
     check_digital_torpor()
+    check_numa_violation()
 
     schedule_poll()
     {:noreply, state}
@@ -61,6 +62,16 @@ defmodule Core.MetabolicDaemon do
       {:ok, iops} when iops > 1000 ->
         Logger.info("[MetabolicDaemon] High IOPS detected: #{iops}. Digital Torpor engaged.")
         # In a full systems implementation, this would signal XTDB to slow flush cycles
+      _ ->
+        :ok
+    end
+  end
+
+  defp check_numa_violation do
+    case Core.Native.read_numa_node() do
+      {:ok, node} when node > 0 ->
+        Logger.warning("[MetabolicDaemon] NUMA VIOLATION: Current Node #{node}. Bitemporal latency risk.")
+        induce_apoptosis(:numa_migration)
       _ ->
         :ok
     end

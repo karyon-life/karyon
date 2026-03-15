@@ -114,7 +114,21 @@ defmodule Core.StemCell do
     # Phase 4 Integration: Communicate with Rhizome.Native to weaken graph edges
     Enum.each(expectations, fn {id, _} ->
       Logger.info("[StemCell] Requesting Rhizome pruning for: #{id}")
-      Rhizome.Native.weaken_edge(to_string(id))
+      
+      # Convert ID to numeric if possible for pointer creation
+      numeric_id = 
+        case id do
+          i when is_integer(i) -> i
+          s when is_binary(s) -> 
+            case Integer.parse(s) do
+              {i, _} -> i
+              _ -> 0 # Default placeholder
+            end
+          _ -> 0
+        end
+
+      resource = Rhizome.Native.create_pointer(numeric_id)
+      Rhizome.Native.weaken_edge(resource)
     end)
   end
 end
