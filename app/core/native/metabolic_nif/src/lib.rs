@@ -80,6 +80,22 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_diskstats_empty() {
+        let data = "";
+        let reader = Cursor::new(data);
+        let iops = parse_diskstats(reader);
+        assert_eq!(iops, 0);
+    }
+
+    #[test]
+    fn test_parse_diskstats_malformed() {
+        let data = "garbage data";
+        let reader = Cursor::new(data);
+        let iops = parse_diskstats(reader);
+        assert_eq!(iops, 0);
+    }
+
+    #[test]
     fn test_read_l3_misses_mock() {
         std::env::set_var("KARYON_MOCK_HARDWARE", "true");
         let misses = read_l3_misses_impl().unwrap();

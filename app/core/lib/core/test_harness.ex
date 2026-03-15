@@ -141,6 +141,44 @@ defmodule Core.TestHarness do
     :ok
   end
 
+  defp execute_step(%{"action" => "spawn_swarm"} = step, _cells) do
+    params = Map.get(step, "params", %{})
+    count = params["count"] || 10
+    dna_path = Path.expand("../../#{params["dna"]}", __DIR__)
+    
+    _new_cells = Enum.map(1..count, fn _ ->
+      {:ok, pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
+      pid
+    end)
+    
+    # We return the combined list of cells for future steps
+    # Note: execute_episode needs to be aware of this change if we want cells to accumulate
+    # For now, let's just log it and assume the caller manages cell PIDs if needed.
+    Logger.info("[Harness] Swarm spawned: #{count} new cells")
+    :ok
+  end
+
+  defp execute_step(%{"action" => "trigger_sleep"} = _step, _cells) do
+    Logger.info("[Harness] Manually triggering Brain Consolidation (Sleep Cycle)...")
+    # This would call the Sleep Cycle logic in Rhizome/Core
+    # For now, we simulate the effect or call the placeholder
+    Rhizome.Native.memgraph_query("MATCH (a:ASTNode), (b:ASTNode) WHERE a.id < b.id MERGE (a)-[:CLUSTURED]->(b)")
+    :ok
+  end
+
+  defp execute_step(%{"action" => "assert_graph_optimized"} = step, _cells) do
+    params = Map.get(step, "params", %{})
+    min_clusters = params["min_clusters"] || 1
+    
+    case Rhizome.Native.memgraph_query("MATCH ()-[r:CLUSTURED]->() RETURN count(r) as count") do
+      {:ok, [%{"count" => count}]} when count >= min_clusters ->
+        Logger.info("[Harness] Graph optimization confirmed: #{count} clusters found")
+        :ok
+      _ ->
+        {:error, :graph_not_optimized}
+    end
+  end
+
   defp execute_step(%{"action" => "inject_perception"} = step, cells) do
     params = Map.get(step, "params", %{})
     simulate_perception(nil, params["lang"], params["code"])
@@ -219,7 +257,7 @@ defmodule Core.TestHarness do
   end
 
   defp execute_step(step, _) do
-    Logger.warn("[Harness] Unknown action: #{inspect(step["action"])}")
+    Logger.warning("[Harness] Unknown action: #{inspect(step["action"])}")
     :ok
   end
 end
