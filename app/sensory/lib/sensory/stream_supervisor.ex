@@ -38,7 +38,7 @@ defmodule Sensory.StreamSupervisor do
   end
 
   defp handle_payload("neural_tensor", payload) do
-    tensor = Sensory.Quantizer.dequantize(payload)
+    _tensor = Sensory.Quantizer.dequantize(payload)
     # Log or push to Rhizome
     # IO.inspect(tensor, label: "Received Neural Tensor")
     :ok
