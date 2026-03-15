@@ -5,10 +5,12 @@ use neo4rs::{Graph, ConfigBuilder, query, Txn, Error};
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
+use zmq::Context;
 
 lazy_static::lazy_static! {
     pub static ref RUNTIME: Runtime = Runtime::new().unwrap();
     pub static ref CLIENT: Mutex<Option<Arc<MemgraphClient>>> = Mutex::new(None);
+    pub static ref ZMQ_CONTEXT: Context = Context::new();
 }
 
 /// Cache-aligned memory structure to prevent NUMA traversal issues.
@@ -259,12 +261,63 @@ async fn ingest_node(txn: &mut Txn, node: Node<'_>, source: &str, count: &mut u3
     Ok(())
 }
 
+#[rustler::nif(schedule = "DirtyIo")]
+pub fn zmq_publish_tensor(topic: String, payload: rustler::Binary) -> NifResult<(rustler::Atom, String)> {
+    let socket = match ZMQ_CONTEXT.socket(zmq::PUB) {
+        Ok(s) => s,
+        Err(e) => return Ok((atoms::error(), format!("ZMQ Socket Error: {}", e))),
+    };
+
+    if let Err(e) = socket.connect("tcp://127.0.0.1:5556") {
+        return Ok((atoms::error(), format!("ZMQ Connect Error: {}", e)));
+    }
+    
+    if let Err(e) = socket.send(&topic, zmq::SNDMORE) {
+        return Ok((atoms::error(), format!("ZMQ Send Topic Error: {}", e)));
+    }
+    if let Err(e) = socket.send(payload.as_slice(), 0) {
+        return Ok((atoms::error(), format!("ZMQ Send Payload Error: {}", e)));
+    }
+    
+    Ok((atoms::ok(), "Tensor published successfully".to_string()))
+}
+
+#[rustler::nif(schedule = "DirtyIo")]
+pub fn zmq_subscribe_sensory(topic: String) -> NifResult<(rustler::Atom, Vec<u8>)> {
+    let socket = match ZMQ_CONTEXT.socket(zmq::SUB) {
+        Ok(s) => s,
+        Err(e) => return Ok((atoms::error(), Vec::new())),
+    };
+
+    if let Err(_) = socket.connect("tcp://127.0.0.1:5557") {
+        return Ok((atoms::error(), Vec::new()));
+    }
+
+    if let Err(_) = socket.set_subscribe(topic.as_bytes()) {
+        return Ok((atoms::error(), Vec::new()));
+    }
+    
+    let _ = socket.set_rcvtimeo(100); // Shorter timeout for responsiveness
+    
+    let _topic_recv = match socket.recv_bytes(0) {
+        Ok(t) => t,
+        Err(_) => return Ok((atoms::error(), Vec::new())),
+    };
+
+    let payload = match socket.recv_bytes(0) {
+        Ok(p) => p,
+        Err(_) => return Ok((atoms::error(), Vec::new())),
+    };
+    
+    Ok((atoms::ok(), payload))
+}
+
 fn load(env: Env, _info: Term) -> bool {
-    rustler::resource!(GraphResource, env);
+    let _ = rustler::resource!(GraphResource, env);
     true
 }
 
-rustler::init!("Elixir.Sensory.Native", [parse_code, parse_to_graph, ingest_to_memgraph], load = load);
+rustler::init!("Elixir.Sensory.Native", [parse_code, parse_to_graph, ingest_to_memgraph, zmq_publish_tensor, zmq_subscribe_sensory], load = load);
 
 #[cfg(test)]
 mod tests {
