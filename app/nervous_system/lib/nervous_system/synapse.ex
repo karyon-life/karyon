@@ -58,10 +58,16 @@ defmodule NervousSystem.Synapse do
         port_to_bind = if port == 0, do: get_free_port(), else: port
         
         case robust_bind(socket_pid, String.to_atom(protocol), host, port_to_bind) do
-          {:ok, _res} ->
-            Logger.info("[Synapse] Bound to #{protocol}://#{host}:#{port_to_bind}")
+          {:ok, bind_res} ->
+            actual_port = 
+              case bind_res do
+                # Chumak bind might return a port or a PID
+                p when is_integer(p) -> p
+                _ -> port_to_bind
+              end
+            Logger.info("[Synapse] Bound to #{protocol}://#{host}:#{actual_port}")
             if type in [:sub, :pull], do: start_receiver(socket_pid)
-            {:ok, %{socket: socket_pid, port: port_to_bind, type: type, owner: owner, protocol: protocol}}
+            {:ok, %{socket: socket_pid, port: actual_port, type: type, owner: owner, protocol: protocol}}
           {:error, reason} -> {:stop, reason}
         end
       :connect ->
