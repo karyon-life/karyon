@@ -17,12 +17,13 @@ rustler::init!(
         crate::xtdb::xtdb_query,
         crate::xtdb::xtdb_submit,
         crate::optimizer::optimize_graph,
+        crate::memgraph::bridge_to_xtdb,
     ],
     load = load
 );
 
 fn load(env: Env, _info: Term) -> bool {
     // Register the GraphResource for use with ResourceArc
-    rustler::resource!(GraphResource, env);
+    let _ = rustler::resource!(GraphResource, env);
     true
 }
