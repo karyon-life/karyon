@@ -135,6 +135,14 @@ defmodule NervousSystem.Synapse do
   end
 
   @impl true
+  def handle_call({:subscribe, topic}, _from, state) do
+    case :chumak.subscribe(state.socket, topic) do
+      :ok -> {:reply, :ok, state}
+      error -> {:reply, error, state}
+    end
+  end
+
+  @impl true
   def handle_info({:synapse_recv_internal, payload}, state) do
     send(state.owner, {:synapse_recv, self(), payload})
     {:noreply, state}
