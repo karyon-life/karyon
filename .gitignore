@@ -39,3 +39,6 @@ config/*.secret.exs
 coverage/
 .temp/
 .cache/
+*.log
+*.txt
+
