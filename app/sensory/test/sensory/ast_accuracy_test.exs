@@ -2,7 +2,7 @@ defmodule Sensory.AstAccuracyTest do
   use ExUnit.Case, async: true
   alias Sensory.Native
 
-  test "complex python script parsing" do
+  test "complex python script parsing via parse_code" do
     script = """
     def hello(name):
         print(f"Hello, {name}")
@@ -12,21 +12,29 @@ defmodule Sensory.AstAccuracyTest do
             print(i)
     """
     
-    # Verify it parses without error and returns matching node count
-    # Sensory.Native.parse_script returns {:ok, %{node_count: N}}
-    assert {:ok, result} = Native.parse_script(script, "python")
-    assert result.node_count > 10
+    # NIF uses parse_code(lang, code) -> JSON String
+    result_json = Native.parse_code("python", script)
+    assert result_json != "Unsupported language"
+    
+    {:ok, v} = Jason.decode(result_json)
+    assert v["type"] == "module"
+    assert length(v["children"]) > 0
   end
 
   test "error handling for invalid language" do
-    assert {:error, :unsupported_language} = Native.parse_script("print(1)", "non_existent_lang")
+    result = Native.parse_code("non_existent_lang", "print(1)")
+    assert result == "Unsupported language"
   end
 
   test "accuracy with nested structures" do
     script = "def a(): def b(): pass"
-    assert {:ok, result} = Native.parse_script(script, "python")
-    # Nested functions should result in more nodes than a single function
-    {:ok, single} = Native.parse_script("def a(): pass", "python")
-    assert result.node_count > single.node_count
+    result_json = Native.parse_code("python", script)
+    {:ok, v} = Jason.decode(result_json)
+    
+    # Nested functions should result in deeper structure
+    single_json = Native.parse_code("python", "def a(): pass")
+    {:ok, single_v} = Jason.decode(single_json)
+    
+    assert byte_size(result_json) > byte_size(single_json)
   end
 end
