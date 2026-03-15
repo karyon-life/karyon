@@ -3,6 +3,8 @@ pub mod client;
 pub mod memgraph;
 pub mod xtdb;
 pub mod optimizer;
+#[cfg(test)]
+pub mod tests;
 
 use rustler::{Env, Term};
 use crate::resource::GraphResource;

@@ -16,8 +16,7 @@ pub struct GraphResource {
     pub pointer: RwLock<GraphPointer>,
 }
 
-#[rustler::nif]
-pub fn create_pointer(id: u64) -> ResourceArc<GraphResource> {
+pub fn create_pointer_impl(id: u64) -> ResourceArc<GraphResource> {
     ResourceArc::new(GraphResource {
         pointer: RwLock::new(GraphPointer {
             node_id: id,
@@ -28,7 +27,16 @@ pub fn create_pointer(id: u64) -> ResourceArc<GraphResource> {
 }
 
 #[rustler::nif]
-pub fn get_pointer_id(resource: ResourceArc<GraphResource>) -> u64 {
+pub fn create_pointer(id: u64) -> ResourceArc<GraphResource> {
+    create_pointer_impl(id)
+}
+
+pub fn get_pointer_id_impl(resource: ResourceArc<GraphResource>) -> u64 {
     let pointer = resource.pointer.read().unwrap();
     pointer.node_id
+}
+
+#[rustler::nif]
+pub fn get_pointer_id(resource: ResourceArc<GraphResource>) -> u64 {
+    get_pointer_id_impl(resource)
 }
