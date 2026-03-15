@@ -70,11 +70,34 @@ defmodule Sandbox.Provisioner do
       System.cmd("sudo", ["ip", "tuntap", "add", "dev", tap_device, "mode", "tap"])
       System.cmd("sudo", ["ip", "link", "set", tap_device, "up"])
       
-      # Enforce air-gap via iptables (drop all traffic from this tap except to a specific control port if needed)
+      # Enforce air-gap via iptables
+      # 1. Drop all forwarding to/from the tap
       System.cmd("sudo", ["iptables", "-A", "FORWARD", "-i", tap_device, "-j", "DROP"])
+      System.cmd("sudo", ["iptables", "-A", "FORWARD", "-o", tap_device, "-j", "DROP"])
+      
+      # 2. Prevent the VM from talking to the host's primary services
       System.cmd("sudo", ["iptables", "-A", "INPUT", "-i", tap_device, "-j", "DROP"])
+      
+      # 3. Log attempts to breach the air-gap
+      System.cmd("sudo", ["iptables", "-A", "INPUT", "-i", tap_device, "-m", "limit", "--limit", "1/sec", "-j", "LOG", "--log-prefix", "KARYON_AIRGAP_BREACH: "])
     else
       Logger.info("[Sandbox.Provisioner] MOCK: Skipping real network setup for #{tap_device}")
+    end
+  end
+
+  @doc """
+  Verifies that a workspace path is safe to mount via virtio-fs.
+  Ensures it is trapped within the ~/.karyon/sandboxes/ directory.
+  """
+  def verify_mount_safety(path) do
+    abs_path = Path.expand(path)
+    base_sandbox_dir = Path.expand("~/.karyon/sandboxes")
+    
+    if String.starts_with?(abs_path, base_sandbox_dir) do
+      {:ok, abs_path}
+    else
+      Logger.error("[Sandbox.Provisioner] SECURITY VIOLATION: Attempted to mount path outside of sandbox jail: #{abs_path}")
+      {:error, :unsafe_mount_path}
     end
   end
 

@@ -35,6 +35,16 @@ defmodule Sandbox.Console do
           File.stream!(pipe_path)
           |> Enum.each(fn line ->
             NervousSystem.Synapse.send_signal(synapse, "LOG:#{line}")
+            
+            # Detect high-severity errors for Active Inference feedback
+            if String.contains?(line, ["ERROR", "PANIC", "Exception", "Kernel panic"]) do
+              Logger.error("[Sandbox.Console] Sandbox CRITICAL failure detected! Signaling PainReceptor.")
+              NervousSystem.PainReceptor.trigger_nociception(%{
+                origin: "firecracker",
+                log_segment: String.trim(line),
+                severity: :high
+              })
+            end
           end)
         rescue
           e ->

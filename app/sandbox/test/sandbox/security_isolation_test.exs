@@ -33,22 +33,26 @@ defmodule Sandbox.SecurityIsolationTest do
     assert String.contains?(payload, "\"mem_size_mib\":512")
   end
 
-  test "air-gap isolation logic generates correct iptables rules" do
-    if System.get_env("KARYON_MOCK_HARDWARE") == "1" do
-      # In mock mode, we verify the logic that triggers iptables
-      # Since we can't easily verify the side-effect without being root,
-      # we check if the Provisioner handles the isolation command.
-      
-      vm_id = "isolation_test_vm"
-      tap_device = "tap_iso_0"
-      
-      # Verifying that the isolation command doesn't crash in mock mode
-      assert :ok == Provisioner.isolate_network(vm_id, tap_device)
-    else
-      # Real hardware check (requires sudo)
-      # assert true # Placeholder
-      :ok
-    end
+  test "air-gap isolation logic executes without error in mock mode" do
+    System.put_env("KARYON_MOCK_HARDWARE", "1")
+    # We verify that provision_vm (which calls setup_network) works fine
+    assert {:ok, _vm_id} = Provisioner.provision_vm("/tmp/test_plan.json")
+  end
+
+  test "verify_mount_safety prevents path traversal and enforces jail" do
+    base_dir = Path.expand("~/.karyon/sandboxes")
+    
+    # Valid path
+    valid_path = Path.join(base_dir, "my_vm/workspace")
+    assert {:ok, _} = Provisioner.verify_mount_safety(valid_path)
+    
+    # Invalid path (outside jail)
+    invalid_path = "/etc/passwd"
+    assert {:error, :unsafe_mount_path} = Provisioner.verify_mount_safety(invalid_path)
+    
+    # Relative traversal attempt
+    traversal_path = Path.join(base_dir, "../../../etc/passwd")
+    assert {:error, :unsafe_mount_path} = Provisioner.verify_mount_safety(traversal_path)
   end
 
   test "UDS socket segregation prevents cross-VM crosstalk" do
