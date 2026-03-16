@@ -52,13 +52,27 @@ defmodule Rhizome.ConsolidationManager do
       {:error, reason} -> Logger.error("[Rhizome.ConsolidationManager] XTDB Bridge failed: #{inspect(reason)}")
     end
 
-    # 2. Trigger graph optimization (Louvain/Leiden) to generate Super-Nodes
+    # 2. Trigger graph optimization (Leiden) to generate Super-Nodes
     case Rhizome.Native.optimize_graph() do
       {:ok, msg} -> Logger.info("[Rhizome.ConsolidationManager] Optimizer: #{msg}")
       {:error, reason} -> Logger.error("[Rhizome.ConsolidationManager] Optimizer failed: #{inspect(reason)}")
     end
 
+    # 3. Memory Relief: Prune nodes with extreme VFE or low utility
+    perform_memory_relief()
+
     Logger.info("[Rhizome.ConsolidationManager] SLEEP CYCLE COMPLETE. Homeostasis restored.")
     schedule_next_check()
+  end
+
+  defp perform_memory_relief do
+    Logger.info("[Rhizome.ConsolidationManager] Executing Memory Relief: Pruning high-VFE engrams.")
+    
+    # Prune cells with VFE > 0.8
+    prune_query = "MATCH (c:Cell) WHERE c.vfe > 0.8 DETACH DELETE c"
+    case Rhizome.Native.memgraph_query(prune_query) do
+      {:ok, _} -> :ok
+      err -> Logger.error("[Rhizome.ConsolidationManager] Memory Relief Failed: #{inspect(err)}")
+    end
   end
 end
