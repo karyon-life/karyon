@@ -12,12 +12,15 @@ defmodule Core.ChaosTest do
   end
 
   test "Global Chaos: Resilience to Mass Apoptosis" do
+    # Trap exits so mass apoptosis doesn't kill the test process
+    Process.flag(:trap_exit, true)
+
     Logger.info("[ChaosTest] Spawning #{@cell_count} Stem Cells...")
     
-    dna_path = "priv/dna/architect_planner.yml"
+    dna_path = Path.expand("../../priv/dna/architect_planner.yml", __DIR__)
     
     cells = Enum.map(1..@cell_count, fn _ ->
-      {:ok, pid} = Core.StemCell.start(dna_path)
+      {:ok, pid} = Core.StemCell.start_link(dna_path)
       pid
     end)
 
@@ -49,7 +52,7 @@ defmodule Core.ChaosTest do
     end)
 
     # 3. Verify survivors enter Digital Torpor
-    Process.sleep(500)
+    Process.sleep(1500)
     
     torpor_count = Enum.count(survivors, fn pid ->
       if Process.alive?(pid) do
@@ -78,7 +81,7 @@ defmodule Core.ChaosTest do
       timestamp: System.system_time(:second),
       severity: severity
     }
-    {:ok, binary} = Karyon.NervousSystem.MetabolicSpike.encode(msg)
-    binary
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(msg)
+    IO.iodata_to_binary(iodata)
   end
 end

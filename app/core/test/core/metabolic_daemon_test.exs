@@ -3,6 +3,10 @@ defmodule Core.MetabolicDaemonTest do
   alias Core.MetabolicDaemon
 
   setup do
+    # Ensure supervisors are ready
+    TestUtils.wait_for_process(Core.Supervisor)
+    TestUtils.wait_for_process(Core.EpigeneticSupervisor)
+
     case GenServer.whereis(Core.MetabolicDaemon) do
       nil -> :ok
       _pid -> 
@@ -11,7 +15,9 @@ defmodule Core.MetabolicDaemonTest do
     end
     
     on_exit(fn ->
-      Supervisor.start_child(Core.Supervisor, Core.MetabolicDaemon)
+      if Process.whereis(Core.Supervisor) do
+        Supervisor.start_child(Core.Supervisor, Core.MetabolicDaemon)
+      end
     end)
     :ok
   end

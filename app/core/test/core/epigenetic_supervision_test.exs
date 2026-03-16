@@ -3,14 +3,24 @@ defmodule Core.EpigeneticSupervisionTest do
   alias Core.EpigeneticSupervisor
 
   setup do
-    # Cleanup PG groups
-    :pg.leave(:motor, self())
-    :pg.leave(:sensory, self())
-    :pg.leave(:orchestrator, self())
+    Application.ensure_all_started(:core)
+    
+    # Cleanup PG groups - ignore errors if process is not in group
+    try do
+      :pg.leave(:motor, self())
+      :pg.leave(:sensory, self())
+      :pg.leave(:orchestrator, self())
+    rescue
+      _ -> :ok
+    catch
+      _ -> :ok
+    end
     
     # Ensure supervisor is clean
-    for {_, pid, _, _} <- DynamicSupervisor.which_children(EpigeneticSupervisor) do
-      DynamicSupervisor.terminate_child(EpigeneticSupervisor, pid)
+    if pid = Process.whereis(EpigeneticSupervisor) do
+      for {_, child_pid, _, _} <- DynamicSupervisor.which_children(pid) do
+        DynamicSupervisor.terminate_child(pid, child_pid)
+      end
     end
     :ok
   end

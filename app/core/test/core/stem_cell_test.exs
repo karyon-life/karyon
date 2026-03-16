@@ -5,6 +5,12 @@ defmodule Core.StemCellTest do
   @dna_path "/tmp/stem_cell_test_dna.yml"
 
   setup do
+    # Ensure :pg is started for stigmergy/process groups
+    case :pg.start_link() do
+      {:ok, _} -> :ok
+      {:error, {:already_started, _}} -> :ok
+    end
+
     File.write!(@dna_path, """
     cell_type: sensor
     synapses: []
@@ -29,7 +35,8 @@ defmodule Core.StemCellTest do
 
     # Simulate medium stress spike
     spike = %Karyon.NervousSystem.MetabolicSpike{severity: "medium"}
-    {:ok, payload} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    payload = IO.iodata_to_binary(iodata)
     send(pid, {:msg, "metabolic.spike", payload})
 
     assert_receive {:DOWN, ^ref, :process, ^pid, :metabolic_pruning}, 1000
@@ -56,7 +63,8 @@ defmodule Core.StemCellTest do
     
     # Simulate high stress spike
     spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
-    {:ok, payload} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    payload = IO.iodata_to_binary(iodata)
     send(pid, {:msg, "metabolic.spike", payload})
 
     Process.sleep(200)

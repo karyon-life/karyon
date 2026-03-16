@@ -15,27 +15,24 @@ defmodule Core.NativeTest do
   end
 
   test "read_l3_misses returns a value" do
-    System.put_env("KARYON_MOCK_HARDWARE", "true")
-    System.delete_env("KARYON_FAIL_NATIVE")
+    Native.set_native_mock(nil, 1337, false)
     assert {:ok, misses} = Native.read_l3_misses()
     assert misses == 1337
   end
 
   test "read_l3_misses handles failure" do
-    System.put_env("KARYON_FAIL_NATIVE", "true")
-    # Must wait a bit or ensure the env is picked up if it was already cached (though it shouldn't be)
+    Native.set_native_mock(nil, nil, true)
     assert {:error, 0} = Native.read_l3_misses()
   end
 
   test "read_iops returns a value" do
-    System.put_env("KARYON_MOCK_HARDWARE", "true")
-    System.delete_env("KARYON_FAIL_NATIVE")
+    Native.set_native_mock(42, nil, false)
     assert {:ok, iops} = Native.read_iops()
     assert iops == 42
   end
 
   test "read_iops handles failure" do
-    System.put_env("KARYON_FAIL_NATIVE", "true")
+    Native.set_native_mock(nil, nil, true)
     assert {:error, 0} = Native.read_iops()
   end
 end

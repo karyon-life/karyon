@@ -3,6 +3,7 @@ defmodule Core.StemCellMigrationTest do
   alias Core.StemCell
 
   setup do
+    Process.flag(:trap_exit, true)
     # Use a real DNA file from the project
     dna_path = Path.expand("../../../../priv/dna/motor_cell.yml", __DIR__)
     {:ok, pid} = StemCell.start_link(dna_path)
@@ -56,7 +57,8 @@ defmodule Core.StemCellMigrationTest do
   test "speculative cell undergoes apoptosis under medium stress" do
     # Use a speculative DNA
     dna_path = Path.expand("../../../../priv/dna/speculative_cell.yml", __DIR__)
-    {:ok, pid} = StemCell.start_link(dna_path)
+    # Use start (unlinked) so the test runner doesn't crash on apoptosis
+    {:ok, pid} = GenServer.start(Core.StemCell, dna_path)
     
     ref = Process.monitor(pid)
     

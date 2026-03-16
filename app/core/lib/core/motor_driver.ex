@@ -47,7 +47,7 @@ defmodule Core.MotorDriver do
     GenServer.call(cell_pid, {:execute, "execute_plan", plan})
   end
 
-  defp fetch_causal_chain(super_node_id) do
+  defp fetch_causal_chain(_super_node_id) do
     # In a production scenario, this would perform a deep graph traversal
     # to find the optimal sequence of low-level nodes.
     # For now, we simulate the extraction of a known chain.

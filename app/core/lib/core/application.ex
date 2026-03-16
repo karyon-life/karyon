@@ -6,7 +6,11 @@ defmodule Core.Application do
   @impl true
   def start(_type, _args) do
     # 1. Start Erlang's Process Group scope for decentralized routing without global dictionaries.
-    :pg.start_link()
+    # Handle already started case in test environments.
+    case :pg.start_link() do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> :ok
+    end
 
     # 2. Define our Supervision Tree
     children = [

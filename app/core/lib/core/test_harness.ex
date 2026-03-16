@@ -9,7 +9,7 @@ defmodule Core.TestHarness do
     Logger.info("[Harness] Starting Genesis Boot Sequence...")
     
     # Boot the various umbrella "organelles" if not already started
-    Enum.each([:telemetry, :jason, :nervous_system, :rhizome, :sensory], fn app ->
+    Enum.each([:telemetry, :jason, :core, :nervous_system, :rhizome, :sensory], fn app ->
       case Application.ensure_all_started(app) do
         {:ok, _} -> :ok
         {:error, {:already_started, _}} -> :ok
@@ -48,10 +48,14 @@ defmodule Core.TestHarness do
     :ok = GenServer.call(cell_pid, {:form_expectation, "edge_789", "Stability", 0.9})
     
     # 3. Simulate Pain signal arrival (Nociception)
-    send(cell_pid, {:synapse_recv, self(), Jason.encode!(%{
+    pain_msg = %Karyon.NervousSystem.PredictionError{
       type: "nociception",
-      metadata: %{reason: "simulated_structural_failure"}
-    })})
+      message: "Simulated structural failure",
+      timestamp: System.system_time(:second),
+      metadata: %{"reason" => "simulated_structural_failure"}
+    }
+    {:ok, binary} = Karyon.NervousSystem.PredictionError.encode(pain_msg)
+    send(cell_pid, {:synapse_recv, self(), binary})
     
     # 4. Wait for processing (Inference + Pruning)
     Process.sleep(200)
@@ -192,10 +196,14 @@ defmodule Core.TestHarness do
   defp execute_step(%{"action" => "inject_nociception"} = step, cells) do
     params = Map.get(step, "params", %{})
     Enum.each(cells, fn pid ->
-      send(pid, {:synapse_recv, self(), Jason.encode!(%{
-        "type" => "nociception",
-        "metadata" => %{"reason" => params["reason"]}
-      })})
+      pain_msg = %Karyon.NervousSystem.PredictionError{
+        type: "nociception",
+        message: "Episode nociception injection",
+        timestamp: System.system_time(:second),
+        metadata: %{"reason" => params["reason"]}
+      }
+      {:ok, binary} = Karyon.NervousSystem.PredictionError.encode(pain_msg)
+      send(pid, {:synapse_recv, self(), binary})
     end)
     :ok
   end

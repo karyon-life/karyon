@@ -46,8 +46,19 @@ defmodule Core.StemCell do
       end
 
     # Phase 1: Self-subscribe to the Pain Receptor as an "Eye" for the organism
-    nociception_port = Application.get_env(:nervous_system, :nociception_port, 5555)
-    {:ok, nociception_syn_pid} = NervousSystem.Synapse.start_link(type: :sub, bind: "tcp://127.0.0.1:#{nociception_port}", action: :connect)
+    nociception_address = Application.get_env(:nervous_system, :nociception_port, 5555)
+    
+    bind_uri = case nociception_address do
+      addr when is_binary(addr) -> addr
+      port when is_integer(port) -> "tcp://127.0.0.1:#{port}"
+    end
+
+    {:ok, nociception_syn_pid} = NervousSystem.Synapse.start_link(
+      type: :sub, 
+      bind: bind_uri, 
+      action: :connect,
+      hwm: 500
+    )
 
     # Subscribe to metabolic spikes via NATS (Endocrine system)
     endocrine_topic = "metabolic.spike"
@@ -124,6 +135,8 @@ defmodule Core.StemCell do
       "none" ->
         Logger.debug("[StemCell] No specialized motor_executor defined. Executing generic action.")
         {:ok, :executed_generically}
+      "error_test" ->
+        {:error, :simulated_failure}
       other ->
         Logger.warning("[StemCell] Unknown motor_executor: #{other}. Falling back to generic.")
         {:ok, :executed_with_fallback}
@@ -131,6 +144,10 @@ defmodule Core.StemCell do
   end
 
   @impl true
+  def handle_info({:msg, %{body: iodata, topic: topic}}, state) do
+    handle_info({:msg, topic, iodata}, state)
+  end
+
   def handle_info({:msg, _topic, iodata}, state) do
     payload = IO.iodata_to_binary(iodata)
     # Handle NATS Metabolic Spikes (Endocrine system)
@@ -161,6 +178,10 @@ defmodule Core.StemCell do
 
       {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "low"}} ->
         {:noreply, %{state | atp_metabolism: 0.8}}
+
+      {:error, reason} ->
+        Logger.debug("[StemCell] Failed to decode metabolic spike: #{inspect(reason)}. Payload length: #{byte_size(payload)}")
+        {:noreply, state}
 
       _ ->
         {:noreply, state}

@@ -1,3 +1,22 @@
 ExUnit.start()
 System.put_env("KARYON_MOCK_HARDWARE", "1")
-# manual mocks removed to avoid conflict with real NIFs
+# Ensure :pg is started for stigmergy/process groups
+case :pg.start_link() do
+  {:ok, _} -> :ok
+  {:error, {:already_started, _}} -> :ok
+end
+
+defmodule TestUtils do
+  def wait_for_process(name, attempts \\ 10) do
+    if Process.whereis(name) do
+      :ok
+    else
+      if attempts > 0 do
+        Process.sleep(100)
+        wait_for_process(name, attempts - 1)
+      else
+        {:error, :timeout}
+      end
+    end
+  end
+end

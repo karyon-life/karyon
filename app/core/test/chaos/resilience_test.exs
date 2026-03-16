@@ -3,7 +3,13 @@ defmodule Core.ChaosResilienceTest do
   alias Core.{EpigeneticSupervisor, ChaosMonkey}
 
   setup do
-    # Ensure supervisor is started
+    # Ensure supervisor is started and ready
+    case TestUtils.wait_for_process(Core.EpigeneticSupervisor) do
+      :ok -> :ok
+      _ -> 
+        Application.ensure_all_started(:core)
+        TestUtils.wait_for_process(Core.EpigeneticSupervisor)
+    end
     :ok
   end
 

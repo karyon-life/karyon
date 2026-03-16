@@ -5,6 +5,17 @@ defmodule Core.EpigeneticSupervisorStressTest do
   @dna_path Path.expand("../../../../priv/dna/motor_cell.yml", __DIR__)
 
   setup do
+    # Ensure core is started
+    Application.ensure_all_started(:core)
+    
+    # Wait for the supervisor to be registered and ready
+    case wait_for_ready(Core.EpigeneticSupervisor, 50) do
+      :ok -> :ok
+      _ -> 
+        require Logger
+        Logger.error("[StressTest] EpigeneticSupervisor failed to start!")
+    end
+
     # Start a fake MetabolicDaemon for these tests to ensure deterministic pressure
     if Process.whereis(Core.Supervisor) do
       Supervisor.terminate_child(Core.Supervisor, Core.MetabolicDaemon)
@@ -65,5 +76,18 @@ defmodule Core.EpigeneticSupervisorStressTest do
     
     # Attempt to spawn
     assert {:error, :metabolic_starvation} = EpigeneticSupervisor.spawn_cell(@dna_path)
+  end
+
+  defp wait_for_ready(name, attempts) do
+    if Process.whereis(name) do
+      :ok
+    else
+      if attempts > 0 do
+        Process.sleep(100)
+        wait_for_ready(name, attempts - 1)
+      else
+        {:error, :timeout}
+      end
+    end
   end
 end
