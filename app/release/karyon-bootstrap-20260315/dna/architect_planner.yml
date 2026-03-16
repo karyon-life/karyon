@@ -1,0 +1,13 @@
+cell_type: "architect_planner"
+description: "Planning cell that sequences architectural modifications via Active Inference."
+allowed_actions:
+  - "form_expectation"
+  - "sequence_tasks"
+  - "evaluate_vfe"
+subscriptions:
+  - "metabolic.spike"
+synapses:
+  - type: "push"
+    bind: "tcp://127.0.0.1:0"
+utility_threshold: 0.2
+precision_baseline: 0.9
