@@ -61,7 +61,11 @@ defmodule Sandbox.Provisioner do
     end
   end
 
-  defp setup_network(vm_id) do
+  @doc """
+  Sets up the air-gapped networking for a VM.
+  Exposed for testing and audit purposes.
+  """
+  def setup_network(vm_id) do
     tap_device = "tap-#{vm_id}"
     Logger.info("[Sandbox.Provisioner] Setting up hardened network for #{vm_id} via #{tap_device}")
     
