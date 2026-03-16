@@ -3,8 +3,8 @@ defmodule Rhizome.ConsolidationManagerTest.MockMetabolicDaemon do
   def start_link(pressure), do: GenServer.start_link(__MODULE__, pressure, name: Core.MetabolicDaemon)
   def init(pressure), do: {:ok, pressure}
   def handle_call(:get_pressure, _from, pressure), do: {:reply, pressure, pressure}
-  def set_pressure(pressure), do: GenServer.call(Core.MetabolicDaemon, {:set, pressure})
   def handle_call({:set, pressure}, _from, _old), do: {:reply, :ok, pressure}
+  def set_pressure(pressure), do: GenServer.call(Core.MetabolicDaemon, {:set, pressure})
 end
 
 defmodule Rhizome.ConsolidationManagerTest do
@@ -63,7 +63,10 @@ defmodule Rhizome.ConsolidationManagerTest do
     # Since interval is hardcoded in the module, we might need to send the message manually
     # or patch the module. For now, let's send :check_consolidation_window.
     
-    {:ok, pid} = ConsolidationManager.start_link()
+    {:ok, pid} = case ConsolidationManager.start_link() do
+      {:ok, p} -> {:ok, p}
+      {:error, {:already_started, p}} -> {:ok, p}
+    end
     
     # We want to verify that bridge_to_xtdb and optimize_graph are called.
     # Since these are in Rhizome.Native which is a NIF, we can't easily mock them 
@@ -81,7 +84,10 @@ defmodule Rhizome.ConsolidationManagerTest do
     # Start fake daemon in :high pressure state
     {:ok, _daemon} = start_mock(:high)
 
-    {:ok, pid} = ConsolidationManager.start_link()
+    {:ok, pid} = case ConsolidationManager.start_link() do
+      {:ok, p} -> {:ok, p}
+      {:error, {:already_started, p}} -> {:ok, p}
+    end
     
     # Send check
     send(pid, :check_consolidation_window)

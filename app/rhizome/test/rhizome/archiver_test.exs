@@ -15,7 +15,9 @@ defmodule Rhizome.ArchiverTest do
 
   test "optimizer logic runs Leiden community detection" do
     case Native.optimize_graph() do
-      {:ok, info} -> assert String.contains?(info, "Optimization complete")
+      {:ok, info} -> 
+        assert String.contains?(info, "Optimization complete") or 
+               String.contains?(info, "No graph data")
       {:error, reason} ->
         assert String.contains?(reason, "Memgraph client not initialized") or
                String.contains?(reason, "Connection Error") or

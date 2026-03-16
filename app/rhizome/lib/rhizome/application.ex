@@ -7,7 +7,8 @@ defmodule Rhizome.Application do
   def start(_type, _args) do
     children = [
       Rhizome.Optimizer,
-      Rhizome.Archiver
+      Rhizome.Archiver,
+      Rhizome.ConsolidationManager
     ]
 
     opts = [strategy: :one_for_one, name: Rhizome.Supervisor]

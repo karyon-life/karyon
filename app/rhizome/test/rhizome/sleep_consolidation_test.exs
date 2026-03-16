@@ -1,6 +1,6 @@
 defmodule Rhizome.SleepConsolidationTest do
   use ExUnit.Case
-  alias Rhizome.{Native, ConsolidationManager}
+  alias Rhizome.ConsolidationManager
 
   require Logger
 
@@ -9,7 +9,7 @@ defmodule Rhizome.SleepConsolidationTest do
     # (In a real test we'd need Memgraph running)
     
     # 2. Trigger optimization
-    case Native.optimize_graph() do
+    case Rhizome.Native.optimize_graph() do
       {:ok, result} ->
         Logger.info("[SleepConsolidationTest] Optimization result: #{result}")
         assert String.contains?(result, "Optimization complete") or String.contains?(result, "No graph data found")
@@ -20,7 +20,20 @@ defmodule Rhizome.SleepConsolidationTest do
   end
 
   test "ConsolidationManager lifecycle" do
-    # Verify the manager is running in the supervision tree
-    assert Process.whereis(ConsolidationManager) != nil
+    # Verify the manager is running
+    # The supervisor might take a few ms to start it
+    Application.ensure_all_started(:rhizome)
+    pid = wait_for_process(Rhizome.ConsolidationManager, 100)
+    assert pid != nil
   end
+
+  defp wait_for_process(name, tries) when tries > 0 do
+    case Process.whereis(name) do
+      nil -> 
+        Process.sleep(100)
+        wait_for_process(name, tries - 1)
+      pid -> pid
+    end
+  end
+  defp wait_for_process(_, _), do: nil
 end
