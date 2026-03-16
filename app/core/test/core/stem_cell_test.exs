@@ -120,4 +120,13 @@ defmodule Core.StemCellTest do
     assert {:ok, "Success: Compilation complete. No errors found."} == 
            GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "test_vm"]})
   end
+
+  test "StemCell fails to start with malformed DNA" do
+    malformed_dna = "/tmp/malformed_dna.yml"
+    File.write!(malformed_dna, "::: malformed yaml :::")
+    on_exit(fn -> File.rm(malformed_dna) end)
+
+    # Use GenServer.start (unlinked) to avoid exit signal propagation in test
+    assert {:error, _} = GenServer.start(StemCell, malformed_dna)
+  end
 end

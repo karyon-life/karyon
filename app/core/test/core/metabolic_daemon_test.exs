@@ -97,4 +97,27 @@ defmodule Core.MetabolicDaemonTest do
     refute Process.alive?(motor_pid)
     assert Process.alive?(sensory_pid)
   end
+
+  test "MetabolicDaemon triggers motor pruning on high L3 misses" do
+    {:ok, pid} = MetabolicDaemon.start_link(name: :l3_test_daemon)
+    
+    # Manually calibrate with low L3 misses baseline
+    :sys.replace_state(pid, fn state ->
+      %{state | baselines: %{state.baselines | l3_misses: 100}, calibrated: true}
+    end)
+
+    # Spawn a motor cell to be pruned
+    {:ok, motor_pid} = Core.EpigeneticSupervisor.spawn_cell("/home/adrian/Projects/nexical/karyon/priv/dna/motor_cell.yml")
+    :pg.join(:motor, motor_pid)
+
+    # Mock high misses (> baseline + 5000)
+    Core.Native.set_native_mock(nil, 6000, false)
+
+    # Trigger poll
+    send(pid, :poll_metrics)
+    Process.sleep(200)
+
+    # Verify motor cell received apoptosis
+    refute Process.alive?(motor_pid)
+  end
 end

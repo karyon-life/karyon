@@ -35,4 +35,10 @@ defmodule Core.NativeTest do
     Native.set_native_mock(nil, nil, true)
     assert {:error, 0} = Native.read_iops()
   end
+
+  test "get_affinity_mask returns a list of CPUs" do
+    assert {:ok, bits} = Native.get_affinity_mask()
+    assert is_list(bits)
+    assert length(bits) > 0
+  end
 end

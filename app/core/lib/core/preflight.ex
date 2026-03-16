@@ -56,15 +56,40 @@ defmodule Core.Preflight do
 
   defp check_scheduler_affinity do
     # Verify BEAM scheduler binding: +sbt tnnps
-    # We can check :erlang.system_info(:scheduler_bind_type)
     case :erlang.system_info(:scheduler_bind_type) do
-      :thread_no_node_processor_spread -> :ok
-      :tnnps -> :ok
+      :thread_no_node_processor_spread -> 
+        validate_affinity_mask()
+      :tnnps -> 
+        validate_affinity_mask()
       other -> 
         if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
           :ok
         else
           {:error, "Invalid BEAM scheduler binding: #{inspect(other)}. Expected: tnnps"}
+        end
+    end
+  end
+
+  defp validate_affinity_mask do
+    case Core.Native.get_affinity_mask() do
+      {:ok, bits} ->
+        # For a production organism, we expect specific pinning.
+        # Minimal check: ensure we are pinned to SPECIFIC CPUs (not all of them)
+        if length(bits) > 0 and length(bits) < :erlang.system_info(:logical_processors) do
+          Logger.info("[Preflight] Affinity mask validated: #{inspect(bits)}")
+          :ok
+        else
+          if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
+             :ok
+          else
+             {:error, "Thread affinity too broad. Migration risks detected. Mask: #{inspect(bits)}"}
+          end
+        end
+      {:error, _} ->
+        if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
+          :ok
+        else
+          {:error, "Failed to retrieve CPU affinity mask."}
         end
     end
   end

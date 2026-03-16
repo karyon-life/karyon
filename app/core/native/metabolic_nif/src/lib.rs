@@ -136,6 +136,26 @@ pub fn read_cpu_index() -> (rustler::Atom, i32) {
 }
 
 #[rustler::nif]
+pub fn get_affinity_mask() -> (rustler::Atom, Vec<u64>) {
+    let mut mask: libc::cpu_set_t = unsafe { std::mem::zeroed() };
+    let result = unsafe {
+        libc::sched_getaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &mut mask)
+    };
+
+    if result != 0 {
+        return (atoms::error(), Vec::new());
+    }
+
+    let mut bits = Vec::new();
+    for i in 0..libc::CPU_SETSIZE {
+        if unsafe { libc::CPU_ISSET(i as usize, &mask) } {
+            bits.push(i as u64);
+        }
+    }
+    (atoms::ok(), bits)
+}
+
+#[rustler::nif]
 pub fn set_native_mock(iops: Option<u64>, l3: Option<u64>, fail: bool) -> rustler::Atom {
     if let Ok(mut iops_lock) = MOCK_IOPS_OVERRIDE.lock() {
         *iops_lock = iops;
@@ -149,7 +169,7 @@ pub fn set_native_mock(iops: Option<u64>, l3: Option<u64>, fail: bool) -> rustle
     atoms::ok()
 }
 
-rustler::init!("Elixir.Core.Native", [read_l3_misses, read_iops, read_numa_node, read_cpu_index, set_native_mock]);
+rustler::init!("Elixir.Core.Native", [read_l3_misses, read_iops, read_numa_node, read_cpu_index, set_native_mock, get_affinity_mask]);
 
 #[cfg(test)]
 mod tests {

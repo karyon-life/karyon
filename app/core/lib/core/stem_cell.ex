@@ -198,6 +198,9 @@ defmodule Core.StemCell do
         # Calculate Variational Free Energy (F)
         vfe = calculate_variational_free_energy(state.expectations, meta)
         
+        # Phase 2: Persist state to Rhizome for Memory Consolidation
+        update_rhizome_state(state.dna_spec, vfe, state.atp_metabolism)
+
         utility_threshold = Map.get(state.dna_spec, "utility_threshold", 0.5)
 
         if vfe > utility_threshold do
@@ -241,6 +244,12 @@ defmodule Core.StemCell do
         Logger.error("[StemCell] Failed to start synapse: #{inspect(reason)}. Continuing differentiation.")
         nil
     end
+  end
+
+  defp update_rhizome_state(dna_spec, vfe, atp) do
+    id = Map.get(dna_spec, "id", "unknown_cell")
+    query = "MERGE (c:Cell {id: '#{id}'}) SET c.vfe = #{vfe}, c.atp = #{atp}, c.last_update = #{System.system_time(:second)}"
+    Rhizome.Native.memgraph_query(query)
   end
 
   defp prune_rhizome_pathways(expectations) do
