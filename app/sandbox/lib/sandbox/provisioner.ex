@@ -26,6 +26,8 @@ defmodule Sandbox.Provisioner do
     
     with {:ok, _vmm_pid} <- Sandbox.VmmSupervisor.start_vmm(vm_id, socket_path),
          :ok <- wait_for_socket(socket_path),
+         :ok <- setup_network(vm_id),
+         :ok <- verify_network(vm_id), # Mandatory SPEC.md safety check
          :ok <- Sandbox.Firecracker.init_vmm(socket_path),
          :ok <- Sandbox.Firecracker.set_machine_config(socket_path, vcpus, mem_size_mib),
          :ok <- Sandbox.Firecracker.set_network_interface(socket_path, "eth0", tap_device),
@@ -45,6 +47,25 @@ defmodule Sandbox.Provisioner do
         {:error, reason}
       error ->
         {:error, error}
+    end
+  end
+
+  @doc """
+  Verifies the air-gap isolation of the VM via karyon-net-helper.
+  """
+  def verify_network(vm_id) do
+    if System.get_env("KARYON_MOCK_HARDWARE") == "1" do
+      :ok
+    else
+      tap_device = "tap-#{vm_id}"
+      helper_path = Path.expand("../../../bin/karyon-net-helper")
+      
+      case System.cmd(helper_path, ["verify", tap_device]) do
+        {_, 0} -> :ok
+        {output, _} -> 
+          Logger.error("[Sandbox.Provisioner] AIR-GAP VERIFICATION FAILED for #{tap_device}: #{output}")
+          {:error, :air_gap_validation_failed}
+      end
     end
   end
 

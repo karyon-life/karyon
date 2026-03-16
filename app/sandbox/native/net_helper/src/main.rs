@@ -32,10 +32,28 @@ fn main() {
         "cleanup" => {
             cleanup_tap(tap_device);
         }
+        "verify" => {
+            verify_tap(tap_device);
+        }
         _ => {
             eprintln!("Unknown command: {}", command);
             std::process::exit(1);
         }
+    }
+}
+
+fn verify_tap(tap: &str) {
+    let output = Command::new("iptables")
+        .args(&["-L", "FORWARD", "-n"])
+        .output()
+        .expect("Failed to execute iptables");
+    
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.contains(tap) && stdout.contains("DROP") {
+        println!("Verification successful: Tap {} is isolated.", tap);
+    } else {
+        eprintln!("Verification FAILED: Tap {} is NOT isolated!", tap);
+        std::process::exit(1);
     }
 }
 

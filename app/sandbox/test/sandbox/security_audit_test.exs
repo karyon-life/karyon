@@ -22,8 +22,20 @@ defmodule Sandbox.SecurityAuditTest do
     # When KARYON_MOCK_HARDWARE is 1, it should skip real setup
     # We've already verified this in previous stabilization, 
     # but we'll add a structured test for it.
-    System.put_env("KARYON_MOCK_HARDWARE", "1")
     # This shouldn't crash or attempt to run sudo
     assert :ok = Provisioner.setup_network("test-vm")
+  end
+
+  test "verify_network failure handling" do
+    # Ensure helper path check doesn't crash if binary is missing or perms are wrong
+    # but more importantly, verify the error return when real check fails (or mock isn't 1)
+    System.put_env("KARYON_MOCK_HARDWARE", "0")
+    # This will likely fail in CI due to missing tap or permissions
+    # We just want to ensure it returns an error tuple and doesn't crash the BEAM
+    result = Provisioner.verify_network("non-existent-tap")
+    assert {:error, _} = result
+    
+    # Reset mock for other tests
+    System.put_env("KARYON_MOCK_HARDWARE", "1")
   end
 end
