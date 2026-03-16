@@ -33,13 +33,15 @@ defmodule NervousSystem.Synapse do
     Process.link(socket_pid)
     
     # Strictly cap the buffer to enforce physical pain/prediction errors during saturation.
-    :chumak.set_socket_option(socket_pid, :sndhwm, 1)
-    :chumak.set_socket_option(socket_pid, :rcvhwm, 1)
-
+    # Default to 500 for balanced throughput and backpressure.
+    hwm = Keyword.get(opts, :hwm, 500)
+    :chumak.set_socket_option(socket_pid, :sndhwm, hwm)
+    :chumak.set_socket_option(socket_pid, :rcvhwm, hwm)
+    
     # Simple parsing logic
     [protocol, rest] = String.split(bind_addr, "://")
     
-    # Handle inproc which might not have a host:port structure
+    # Handle protocol which might not have a host:port structure
     {host, port} = 
       case String.split(rest, ":") do
         [h, p] ->
@@ -58,7 +60,7 @@ defmodule NervousSystem.Synapse do
         # If port is 0, find a free one first because chumak.bind returns a PID instead of port
         port_to_bind = if port == 0, do: get_free_port(), else: port
         
-        case robust_bind(socket_pid, String.to_atom(protocol), host, port_to_bind) do
+        case robust_bind(socket_pid, String.to_atom(protocol), ~c"#{host}", port_to_bind) do
           {:ok, bind_res} ->
             actual_port = 
               case bind_res do
@@ -90,12 +92,13 @@ defmodule NervousSystem.Synapse do
   end
 
   defp robust_bind(socket, protocol, host, port, retries \\ 20) do
-    case :chumak.bind(socket, protocol, ~c"#{host}", port) do
+    case :chumak.bind(socket, protocol, host, port) do
       {:ok, res} -> {:ok, res}
-      {:error, :eaddrinuse} when retries > 0 ->
-        # If we hit collision, try a different random port
-        new_port = port + :rand.uniform(100)
-        Process.sleep(50)
+      {:error, reason} when retries > 0 ->
+        # If we hit collision or any other bind error, try a different random port
+        Logger.debug("[Synapse] Bind failed for #{protocol}://#{host}:#{port} reason: #{inspect(reason)}. Retrying...")
+        new_port = if port == 0, do: get_free_port(), else: Enum.random(20000..60000)
+        Process.sleep(100)
         robust_bind(socket, protocol, host, new_port, retries - 1)
       {:error, reason} -> {:error, reason}
     end

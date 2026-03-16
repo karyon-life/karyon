@@ -5,7 +5,11 @@ defmodule NervousSystem.Application do
 
   @impl true
   def start(_type, _args) do
-    # Currently setting up supervised communication lines.
+    # Ensure :pg is started for decentralized communication.
+    case :pg.start_link() do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> :ok
+    end
     children = [
       NervousSystem.PainReceptor
     ]

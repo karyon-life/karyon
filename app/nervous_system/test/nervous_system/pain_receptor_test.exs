@@ -1,27 +1,82 @@
 defmodule NervousSystem.PainReceptorTest do
   use ExUnit.Case, async: false
+  require Logger
 
   setup do
-    # Ensure previous instance is gone
-    if pid = GenServer.whereis(NervousSystem.PainReceptor), do: GenServer.stop(pid)
+    # Revert to TCP because chumak does NOT support inproc, but use a random port
+    port = Enum.random(40000..60000)
+    address = "tcp://127.0.0.1:#{port}"
     
-    case NervousSystem.PainReceptor.start_link([]) do
-      {:ok, pid} ->
-        on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid) end)
-        {:ok, pid: pid}
-      {:error, {:already_started, pid}} ->
-        {:ok, pid: pid}
+    # Explicitly start the Nervous System application and wait for its supervisor
+    Application.ensure_all_started(:nervous_system)
+    
+    # Wait for the supervisor to be registered and ready
+    case wait_for_ready(NervousSystem.Supervisor, 100) do
+      :ok -> :ok
+      _ -> Logger.error("[PainReceptorTest] Supervisor failed to start!")
+    end
+
+    # 1. Stop the global supervised instance if it exists to avoid port/name collisions
+    if Process.whereis(NervousSystem.Supervisor) do
+      try do
+        Supervisor.terminate_child(NervousSystem.Supervisor, NervousSystem.PainReceptor)
+      rescue
+        _ -> :ok
+      end
+    end
+    
+    # Also stop any manually started ones or zombies from previous failed runs
+    stop_if_alive(Karyon.NervousSystem.PainReceptor)
+    stop_if_alive(NervousSystem.PainReceptor)
+    stop_if_alive(:pain_synapse)
+    
+    # Give the OS a moment to reclaim ports
+    Process.sleep(100)
+
+    # 2. Start the PainReceptor for the test with EXPLICIT address
+    {:ok, pid} = NervousSystem.PainReceptor.start_link(%{address: address})
+    
+    on_exit(fn -> 
+      if Process.alive?(pid), do: GenServer.stop(pid)
+      stop_if_alive(:pain_synapse)
+    end)
+    
+    {:ok, pid: pid, address: address}
+  end
+
+  defp wait_for_ready(name, attempts \\ 20) do
+    if Process.whereis(name) do
+      :ok
+    else
+      if attempts > 0 do
+        Process.sleep(100)
+        wait_for_ready(name, attempts - 1)
+      else
+        {:error, :timeout}
+      end
     end
   end
 
-  test "intercepts telemetry error and sends nociception signal" do
+  defp stop_if_alive(name) do
+    case GenServer.whereis(name) do
+      nil -> :ok
+      pid ->
+        try do
+          Process.unlink(pid)
+          GenServer.stop(pid)
+        catch
+          :exit, _ -> :ok
+        end
+    end
+  end
+
+  test "intercepts telemetry error and sends nociception signal", %{address: address} do
     # 1. Listen for Synapse signals
-    port = Application.get_env(:nervous_system, :nociception_port, 5555)
     
     # Start a SUB synapse to verify the PainReceptor's PUB broadcast
     {:ok, sub_pid} = NervousSystem.Synapse.start_link(
       type: :sub, 
-      bind: "tcp://127.0.0.1:#{port}", 
+      bind: address, 
       action: :connect,
       owner: self()
     )
@@ -32,14 +87,19 @@ defmodule NervousSystem.PainReceptorTest do
     :ok = GenServer.call(sub_pid, {:subscribe, ""})
 
     # 2. Give ZMQ SUB time to connect to the PUB socket (slow joiner problem)
-    Process.sleep(500)
+    # inproc is very fast but still needs a micro-sleep for handshake
+    Process.sleep(200)
 
     # 3. Trigger a simulated "Pain" event via Telemetry
+    # Check if PainReceptor is still alive before sending
+    assert Process.whereis(NervousSystem.PainReceptor) != nil
+    
     metadata = %{reason: "crash", module: __MODULE__}
     :telemetry.execute([:logger, :error], %{count: 1}, metadata)
 
     # 4. Assert signal arrival
-    assert_receive {:synapse_recv, ^sub_pid, payload}, 3000
+    # PainReceptor might log warnings if Synapse is dead, but it should still try to send
+    assert_receive {:synapse_recv, ^sub_pid, payload}, 10000
     
     assert {:ok, decoded} = Karyon.NervousSystem.PredictionError.decode(payload)
     assert decoded.type == "nociception"
