@@ -10,15 +10,14 @@ defmodule NervousSystem.SynapsePropertyTest do
   @tag timeout: 120_000
   property "synapse preserves message integrity across randomized payloads" do
     check all payload <- string(:printable), max_runs: 5 do
-      # Use a very large randomized port range to minimize collisions in TIME_WAIT
-      port = 30000 + :rand.uniform(20000)
-      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:#{port}", owner: self())
+      addr = "inproc://synapse_#{:rand.uniform(100000)}"
+      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: addr, owner: self())
       
-      # Allow listener to stabilize
-      Process.sleep(50)
+      # Allow listener to stabilize longer
+      Process.sleep(20)
 
       # Start a PUSH synapse (sender)
-      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}", action: :connect)
+      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: addr, action: :connect)
 
       # Send the randomized signal
       :ok = NervousSystem.Synapse.send_signal(push_pid, payload)
@@ -26,7 +25,7 @@ defmodule NervousSystem.SynapsePropertyTest do
       # Receive and verify
       assert_receive {:synapse_recv, ^pull_pid, ^payload}, 500
       
-      # Synchronous cleanup to avoid :eaddrinuse in rapid property iterations
+      # Synchronous cleanup
       GenServer.stop(pull_pid, :normal, 5000)
       GenServer.stop(push_pid, :normal, 5000)
     end
@@ -35,13 +34,12 @@ defmodule NervousSystem.SynapsePropertyTest do
   @tag timeout: 120_000
   property "synapse handles rapid bursts without corruption (HWM=1 exercise)" do
     check all payloads <- list_of(string(:alphanumeric), min_length: 5, max_length: 20), max_runs: 5 do
-      port = 50000 + :rand.uniform(10000)
-      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:#{port}", owner: self())
+      addr = "inproc://burst_#{:rand.uniform(100000)}"
+      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: addr, owner: self())
       
-      # Allow listener to stabilize
-      Process.sleep(50)
+      Process.sleep(20)
 
-      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}", action: :connect)
+      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: addr, action: :connect)
 
       # Rapidly fire payloads
       for p <- payloads do
@@ -57,8 +55,7 @@ defmodule NervousSystem.SynapsePropertyTest do
   @tag :property
   property "Synapse correctly handles arbitrary binary payloads including oversized messages" do
     check all payload <- binary(min_length: 1, max_length: 5000) do
-      port = 60000 + :rand.uniform(5000)
-      addr = "tcp://127.0.0.1:#{port}"
+      addr = "inproc://binary_#{:rand.uniform(100000)}"
       
       {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: addr, owner: self(), action: :bind)
       {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: addr, action: :connect)
