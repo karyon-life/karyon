@@ -42,5 +42,8 @@ coverage/
 *.log
 *.txt
 *.zip
+*.so
+*.dll
+*.dylib
 
 
