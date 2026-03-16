@@ -1,0 +1,29 @@
+# Elixir
+/_build
+/deps
+/*.beam
+/*.ez
+/erl_crash.dump
+/mix.lock
+
+# Rust Native
+target/
+**/*.rs.bk
+priv/native/*.so
+priv/native/*.dll
+
+# AI Platform Specific
+/bin/karyon-net-helper
+/protoc_bin/
+/release/
+priv/engrams/*.engram
+protoc-*.zip
+
+# Runtime Jails
+sandbox_jails/
+.karyon/
+
+# Frontend
+node_modules/
+/dashboard/priv/static/assets/
+/dashboard/assets/node_modules/
