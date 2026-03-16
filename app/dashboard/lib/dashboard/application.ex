@@ -11,7 +11,7 @@ defmodule Dashboard.Application do
       DashboardWeb.Telemetry,
       {Phoenix.PubSub, name: Dashboard.PubSub},
       # Start the DNS cluster to rebuild ZMQ/NATS topologies
-      {DNSCluster, query: Application.get_env(:dashboard, :dns_cluster_query) || :conn},
+      {DNSCluster, query: Application.get_env(:dashboard, :dns_cluster_query) || "localhost"},
       # Start the bridge
       Dashboard.TelemetryBridge,
       # Start the Finch HTTP client for Firecracker API

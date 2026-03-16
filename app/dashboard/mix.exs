@@ -60,6 +60,7 @@ defmodule Dashboard.MixProject do
       {:jason, "~> 1.4"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.10.2"},
+      {:finch, "~> 0.13"},
       {:core, in_umbrella: true},
       {:nervous_system, in_umbrella: true}
     ]
