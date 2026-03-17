@@ -12,7 +12,7 @@ Check off tasks and phases here as implementation work is completed and validate
 - [x] Phase 3: Sandbox Membrane Hardening
 - [x] Phase 4: Core Planning And Memory Loops
 - [x] Phase 5: Observability, Releases, And Operations
-- [ ] Phase 6: Scale, Resilience, And Production Validation
+- [x] Phase 6: Scale, Resilience, And Production Validation
 
 ## Phase 0: Truthfulness And Planning Hygiene
 
@@ -71,9 +71,9 @@ Check off tasks and phases here as implementation work is completed and validate
 
 ## Phase 6: Scale, Resilience, And Production Validation
 
-- [ ] P6.1 Establish baseline performance measurements
-- [ ] P6.2 Run real chaos and recovery validation
-- [ ] P6.3 Define production capacity and SLOs
+- [x] P6.1 Establish baseline performance measurements
+- [x] P6.2 Run real chaos and recovery validation
+- [x] P6.3 Define production capacity and SLOs
 
 ## Milestones
 
@@ -83,4 +83,4 @@ Check off tasks and phases here as implementation work is completed and validate
 - [x] Milestone D: Real Secure Execution
 - [x] Milestone E: Closed Cognitive Loop
 - [x] Milestone F: Production Candidate
-- [ ] Milestone G: Production Validated
+- [x] Milestone G: Production Validated

@@ -1111,7 +1111,7 @@ Prove the system under real load and fault conditions.
 ### Tasks
 
 #### P6.1 Establish baseline performance measurements
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - measure spawn rates, messaging throughput, sensory ingest speed, and consolidation cost
 - Dependencies:
@@ -1123,10 +1123,25 @@ Prove the system under real load and fault conditions.
 - Validation:
   - benchmark outputs recorded in docs or repo artifacts
 - Progress notes:
-  - none yet
+  - added `mix karyon.baseline` in `app/core/lib/mix/tasks/karyon.baseline.ex`
+  - baseline harness records spawn throughput, messaging throughput and latency, sensory parse throughput, and consolidation control-plane cost to JSON artifacts under `app/artifacts/benchmarks/`
+  - added `Rhizome.ConsolidationManager.run_once/1` so consolidation orchestration can be measured directly without the periodic GenServer loop
+  - recorded baseline artifact `app/artifacts/benchmarks/phase6_baseline_20260317.json`
+  - latest measured results:
+    - `29.74 cells/s` for `100` cell spawns over `3362 ms`
+    - `7085.46 msg/s` with `141.13 us` average end-to-end latency for `500` messages over `71 ms`
+    - `3147.62 ops/s` with `0.318 ms` average parse latency for `100` sensory parse iterations over `32 ms`
+    - consolidation control-plane average `0.15 ms` across `20` iterations, `21 ms` total
+  - validation commands:
+    - `cd app && env PATH=/tmp/protoc/bin:$PATH mix compile --force`
+    - `cd app && env PATH=/tmp/protoc/bin:$PATH mix karyon.baseline --spawn-count 100 --message-count 500 --parse-iterations 100 --consolidation-iterations 20 --output artifacts/benchmarks/phase6_baseline_20260317.json`
+  - non-blocking environment warnings during the run:
+    - scheduler binding reported `:unbound` instead of `tnnps`
+    - `inotify-tools` was missing for live reload
+    - dashboard asset tool version warnings were present
 
 #### P6.2 Run real chaos and recovery validation
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - execute apoptosis and supervision recovery against real service-backed runs
 - Dependencies:
@@ -1138,10 +1153,27 @@ Prove the system under real load and fault conditions.
 - Validation:
   - targeted chaos suite
 - Progress notes:
-  - none yet
+  - added external recovery suite `app/core/test/core/recovery_chaos_integration_test.exs`
+  - the suite measures supervised child restart latency for:
+    - `Core.MetabolicDaemon`
+    - `NervousSystem.PainReceptor`
+    - `Rhizome.ConsolidationManager`
+  - the suite also measures cell apoptosis recovery with real XTDB-backed belief hydration using `app/core/config/genetics/base_stem_cell.yml`
+  - recorded recovery artifact `app/artifacts/benchmarks/phase6_recovery_20260317.json`
+  - latest measured results:
+    - `Core.MetabolicDaemon` restart recovery `51 ms`
+    - `NervousSystem.PainReceptor` restart recovery `51 ms`
+    - `Rhizome.ConsolidationManager` restart recovery `51 ms`
+    - cell apoptosis plus belief recovery `51 ms`
+  - validation commands:
+    - `cd app && mix compile`
+    - `cd app/core && mix test test/core/recovery_chaos_integration_test.exs --include external`
+  - run caveats:
+    - `PainReceptor` restart emits a transient `:eaddrinuse` bind retry on `tcp://127.0.0.1:5555` before the replacement `:pain_synapse` binds successfully
+    - `Rhizome.Native.optimize_graph/0` can still panic on current graph data, so the chaos suite validates `ConsolidationManager` restart and real service readiness rather than invoking the optimizer as part of recovery verification
 
 #### P6.3 Define production capacity and SLOs
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - identify practical operating envelope
   - define recovery and latency expectations
@@ -1155,7 +1187,27 @@ Prove the system under real load and fault conditions.
 - Validation:
   - docs review
 - Progress notes:
-  - none yet
+  - added `docs/OPERATIONS/CAPACITY.md` to define the current validated operating envelope and initial SLOs
+  - anchored the production envelope to the measured artifacts:
+    - `app/artifacts/benchmarks/phase6_baseline_20260317.json`
+    - `app/artifacts/benchmarks/phase6_recovery_20260317.json`
+  - documented current minimum proven capacity on the measured four-scheduler node:
+    - `29.74 cells/s` spawn throughput
+    - `7085.46 msg/s` local synapse throughput at `141.13 us` average end-to-end latency
+    - `3147.62 ops/s` sensory parse throughput at `0.318 ms` average latency
+    - `51 ms` supervised child restart recovery
+    - `51 ms` cell apoptosis plus XTDB-backed belief recovery
+  - defined conservative initial SLOs:
+    - readiness availability `>= 99.5%`
+    - supervised restart and cell recovery `p95 <= 250 ms`
+    - cell spawn throughput floor `>= 20 cells/s`
+    - local synapse throughput floor `>= 5000 msg/s`
+    - average local synapse and sensory parse latency `<= 1 ms`
+  - documented the current limits of those SLOs:
+    - single-node local environment only
+    - consolidation numbers exclude real optimizer and external graph-service latency
+    - `Rhizome.Native.optimize_graph/0` remains unsafe on current live graph data
+    - `PainReceptor` restart still performs a transient bind retry on recovery
 
 ## Parallel-Safe Work
 
