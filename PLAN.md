@@ -1021,7 +1021,7 @@ Make the platform deployable and operable in production.
 ### Tasks
 
 #### P5.1 Replace dashboard mock metrics
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - remove random values for L3 misses and IOPS
   - wire dashboard to actual organism telemetry
@@ -1037,10 +1037,16 @@ Make the platform deployable and operable in production.
 - Validation:
   - dashboard tests and manual telemetry verification
 - Progress notes:
-  - none yet
+  - 2026-03-17: Codex - moved the dashboard off direct `Core.Native` reads during bridge handling. `Core.MetabolicDaemon` now emits raw metabolic measurements as part of the `[:karyon, :metabolism, :poll]` telemetry metadata, including `l3_misses`, `run_queue`, `iops`, `pressure`, `atp`, and `preflight_status`.
+  - 2026-03-17: Codex - simplified `Dashboard.TelemetryBridge` to relay the real telemetry payload over Phoenix PubSub instead of polling upstream state a second time. The metabolic dashboard now reflects organism-emitted values only.
+  - 2026-03-17: Codex - added focused dashboard coverage for the PubSub bridge payload and the LiveView update path so the dashboard contract is validated from the UI boundary.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/metabolic_daemon_test.exs test/core/metabolic_stress_test.exs` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix deps.get` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test/dashboard/telemetry_bridge_test.exs apps/dashboard/test/dashboard_web/live/metabolic_live/index_test.exs` -> passed after dependency sync; umbrella emitted a non-blocking existing config warning about `:karyon` not being an available application
 
 #### P5.2 Add release and runtime deployment path
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - define production runtime config
   - create deployment and release workflow
@@ -1053,10 +1059,19 @@ Make the platform deployable and operable in production.
 - Validation:
   - release build verification
 - Progress notes:
-  - none yet
+  - 2026-03-17: Codex - added a real umbrella release definition in `app/mix.exs` for a single `karyon` artifact that starts `core`, `nervous_system`, `sandbox`, `rhizome`, `sensory`, and `dashboard` together.
+  - 2026-03-17: Codex - added umbrella runtime configuration in `app/config/runtime.exs` and a matching `app/config/prod.exs`. Runtime env handling now covers shared service URLs, nociception port, strict preflight, sandbox host paths, and dashboard endpoint settings instead of relying on compile-time environment capture.
+  - 2026-03-17: Codex - moved the release workflow out of placeholder territory by adding `bin/build_release.sh`, updating `app/scripts/bootstrap_airgap.sh` to build and archive the real release artifact, and documenting the runtime contract in `docs/OPERATIONS/RELEASES.md`.
+  - 2026-03-17: Codex - fixed two production build blockers discovered during release validation: `protox` build-time `protoc` resolution now works in both the umbrella and dashboard asset-build contexts, and the dashboard asset entrypoint no longer imports the unresolved `phoenix-colocated/dashboard` module.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `bash -n /home/adrian/Projects/nexical/karyon/app/scripts/bootstrap_airgap.sh && bash -n /home/adrian/Projects/nexical/karyon/bin/build_release.sh` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon && bin/build_release.sh /tmp/karyon-rel-test` -> passed, created `/tmp/karyon-rel-test`
+  - Validation: `env SECRET_KEY_BASE=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef KARYON_DASHBOARD_SERVER=false /tmp/karyon-rel-test/bin/karyon daemon` -> passed
+  - Validation: `env SECRET_KEY_BASE=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef /tmp/karyon-rel-test/bin/karyon stop` -> passed
+  - Validation: `pgrep -af '/tmp/karyon-rel-test/.*/beam.smp|/tmp/karyon-rel-test/bin/karyon'` -> no remaining release processes
 
 #### P5.3 Add operator health surfaces and runbooks
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - add health endpoints, dependency status, and operational docs
 - Dependencies:
@@ -1069,7 +1084,12 @@ Make the platform deployable and operable in production.
 - Validation:
   - manual inspection and docs review
 - Progress notes:
-  - none yet
+  - 2026-03-17: Codex - added operator-facing dashboard health surfaces in `DashboardWeb.HealthController` and routed them at `/health/live`, `/health/ready`, and `/health/status`. Liveness reports process identity, while readiness and status expose `Core.ServiceHealth` dependency probes with HTTP `503` on degraded dependencies.
+  - 2026-03-17: Codex - introduced `Dashboard.OperatorHealth` as the dashboard-side runtime health adapter so health payloads include release metadata, dependency state, BEAM scheduler count, uptime, and whether the dashboard HTTP server is enabled.
+  - 2026-03-17: Codex - added focused controller coverage for live, ready, and degraded status responses, using an injected dashboard `:service_health_module` to validate operator-facing responses deterministically.
+  - 2026-03-17: Codex - documented the operator workflow and response guidance in `docs/OPERATIONS/HEALTH.md`, covering endpoint usage, dependency-specific failure interpretation, and release-mode behavior.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test/dashboard_web/controllers/health_controller_test.exs apps/dashboard/test/dashboard_web/controllers/page_controller_test.exs apps/dashboard/test/dashboard_web/live/metabolic_live/index_test.exs` -> passed; umbrella emitted the existing non-blocking `:karyon` config warning during app startup
 
 ## Phase 6: Scale, Resilience, And Production Validation
 

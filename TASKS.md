@@ -11,7 +11,7 @@ Check off tasks and phases here as implementation work is completed and validate
 - [x] Phase 2: Real Infrastructure Integration
 - [x] Phase 3: Sandbox Membrane Hardening
 - [x] Phase 4: Core Planning And Memory Loops
-- [ ] Phase 5: Observability, Releases, And Operations
+- [x] Phase 5: Observability, Releases, And Operations
 - [ ] Phase 6: Scale, Resilience, And Production Validation
 
 ## Phase 0: Truthfulness And Planning Hygiene
@@ -65,9 +65,9 @@ Check off tasks and phases here as implementation work is completed and validate
 
 ## Phase 5: Observability, Releases, And Operations
 
-- [ ] P5.1 Replace dashboard mock metrics
-- [ ] P5.2 Add release and runtime deployment path
-- [ ] P5.3 Add operator health surfaces and runbooks
+- [x] P5.1 Replace dashboard mock metrics
+- [x] P5.2 Add release and runtime deployment path
+- [x] P5.3 Add operator health surfaces and runbooks
 
 ## Phase 6: Scale, Resilience, And Production Validation
 
@@ -82,5 +82,5 @@ Check off tasks and phases here as implementation work is completed and validate
 - [x] Milestone C: Real Service-Backed Organism
 - [x] Milestone D: Real Secure Execution
 - [x] Milestone E: Closed Cognitive Loop
-- [ ] Milestone F: Production Candidate
+- [x] Milestone F: Production Candidate
 - [ ] Milestone G: Production Validated
