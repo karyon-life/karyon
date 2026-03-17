@@ -12,6 +12,10 @@ defmodule Rhizome.ConsolidationManager do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  def run_once(opts \\ []) do
+    perform_consolidation(opts)
+  end
+
   @impl true
   def init(_opts) do
     Logger.info("[Rhizome.ConsolidationManager] Sleep Cycle Daemon initialized.")
@@ -43,36 +47,65 @@ defmodule Rhizome.ConsolidationManager do
     end
   end
 
-  defp perform_consolidation do
+  defp perform_consolidation(opts \\ []) do
+    native_module = Keyword.get(opts, :native_module, Rhizome.Native)
+    logger_fun = Keyword.get(opts, :logger_fun, &Logger.info/1)
+
     Logger.info("[Rhizome.ConsolidationManager] STARTING SLEEP CYCLE: Consolidation in progress...")
-    
-    # 1. Trigger the bridge to XTDB to archive working state
-    case Rhizome.Native.bridge_to_xtdb() do
-      {:ok, %{message: msg}} -> Logger.info("[Rhizome.ConsolidationManager] XTDB Bridge: #{msg}")
-      {:error, reason} -> Logger.error("[Rhizome.ConsolidationManager] XTDB Bridge failed: #{inspect(reason)}")
-    end
 
-    # 2. Trigger graph optimization (Leiden) to generate Super-Nodes
-    case Rhizome.Native.optimize_graph() do
-      {:ok, msg} -> Logger.info("[Rhizome.ConsolidationManager] Optimizer: #{msg}")
-      {:error, reason} -> Logger.error("[Rhizome.ConsolidationManager] Optimizer failed: #{inspect(reason)}")
-    end
+    started_at = System.monotonic_time()
 
-    # 3. Memory Relief: Prune nodes with extreme VFE or low utility
-    perform_memory_relief()
+    bridge_result =
+      case native_module.bridge_to_xtdb() do
+        {:ok, %{message: msg} = result} ->
+          logger_fun.("[Rhizome.ConsolidationManager] XTDB Bridge: #{msg}")
+          {:ok, result}
+
+        {:error, reason} ->
+          Logger.error("[Rhizome.ConsolidationManager] XTDB Bridge failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+
+    optimize_result =
+      case native_module.optimize_graph() do
+        {:ok, msg} ->
+          logger_fun.("[Rhizome.ConsolidationManager] Optimizer: #{msg}")
+          {:ok, msg}
+
+        {:error, reason} ->
+          Logger.error("[Rhizome.ConsolidationManager] Optimizer failed: #{inspect(reason)}")
+          {:error, reason}
+      end
+
+    memory_relief_result = perform_memory_relief(native_module)
+
+    duration_ms =
+      System.convert_time_unit(System.monotonic_time() - started_at, :native, :millisecond)
 
     Logger.info("[Rhizome.ConsolidationManager] SLEEP CYCLE COMPLETE. Homeostasis restored.")
-    schedule_next_check()
+
+    if Keyword.get(opts, :schedule_next?, true) do
+      schedule_next_check()
+    end
+
+    %{
+      bridge_to_xtdb: bridge_result,
+      optimize_graph: optimize_result,
+      memory_relief: memory_relief_result,
+      duration_ms: duration_ms
+    }
   end
 
-  defp perform_memory_relief do
+  defp perform_memory_relief(native_module) do
     Logger.info("[Rhizome.ConsolidationManager] Executing Memory Relief: Pruning high-VFE engrams.")
     
     # Prune cells with VFE > 0.8
     prune_query = "MATCH (c:Cell) WHERE c.vfe > 0.8 DETACH DELETE c"
-    case Rhizome.Native.memgraph_query(prune_query) do
+    case native_module.memgraph_query(prune_query) do
       {:ok, _} -> :ok
-      err -> Logger.error("[Rhizome.ConsolidationManager] Memory Relief Failed: #{inspect(err)}")
+      err ->
+        Logger.error("[Rhizome.ConsolidationManager] Memory Relief Failed: #{inspect(err)}")
+        err
     end
   end
 end
