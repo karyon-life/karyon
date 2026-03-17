@@ -17,6 +17,8 @@ services:
     container_name: karyon_xtdb
     ports:
       - "3000:3000"
+      - "5432:5432"
+      - "8080:8080"
     volumes:
       - xtdb_data:/var/lib/xtdb
 
