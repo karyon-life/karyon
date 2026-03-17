@@ -1,198 +1,64 @@
-# Karyon Autonomous Production Readiness Plan
+# Karyon Book-Indexed Architectural Parity Program
 
-This file is the execution source of truth for bringing Karyon from its current scaffolded state to a production-ready platform. It is designed for long autonomous runs. It must be detailed enough that an agent can select work, implement it, validate it, update status, and continue without inventing architecture or drifting from the organism model.
+This file is the source of truth for bringing the implementation in `app/` into exact architectural alignment with the Karyon manifesto and theory documented in the book source.
 
-This plan must remain aligned with:
+## Canonical Sources
 
-- [`AGENTS.md`](/home/adrian/Projects/nexical/karyon/AGENTS.md)
-- [`SPEC.md`](/home/adrian/Projects/nexical/karyon/SPEC.md)
-- the implementation reality of the `app/` umbrella and docs tree
+Source precedence for this program:
 
-## Program Objectives
+1. `docs/src/content/docs/**` as the canonical book source because `docs/public/book.md` is not present in the repository.
+2. [`AGENTS.md`](/home/adrian/Projects/nexical/karyon/AGENTS.md) as governing project instructions.
+3. [`SPEC.md`](/home/adrian/Projects/nexical/karyon/SPEC.md) as structural and operational specification.
 
-All work under this plan must move the system toward these outcomes:
+All parity work must be evaluated against the book first, while explicitly logging any conflict between the book and governing repo instructions. Where a conflict has already been resolved in this file, implementation must follow the resolved contract.
 
-1. A truthful organism whose runtime behavior matches its claims.
-2. Stable inter-app contracts across Elixir, Rust NIFs, and external services.
-3. Secure embodied execution through a real sandbox membrane.
-4. Deterministic sensory and memory flows with explicit feedback loops.
-5. Observable, testable, deployable production operations.
-6. Standardized development that preserves topological sterility and biomimetic constraints.
+## Conflict Ledger
 
-## Operating Rules
+These conflicts are known at the start of this program and must remain visible until resolved or explicitly accepted:
 
-1. Do not start a task whose dependencies are not complete.
-2. Do not treat simulated behavior as production behavior.
-3. Prefer correctness and contract repair before scale or optimization.
-4. Keep app boundaries typed and explicit.
-5. For every completed task, run the listed validation commands or document why they could not run.
-6. If a task touches a cross-app contract, update both sides in the same work unit.
-7. If an external dependency is required and unavailable, mark the task blocked and proceed to the next unblocked task.
-8. Do not introduce central registries, shared mutable state, or synchronous control bottlenecks that violate the organism model.
-9. Do not hardcode project semantics into the sterile core if the behavior belongs in DNA, Rhizome state, or declarative configuration.
-10. When a task changes runtime behavior, update tests and docs in the same work unit unless explicitly blocked.
-11. Do not advance a phase on partial implementation. Advance only on validated system state.
-12. Prefer bounded, cohesive changes over broad speculative refactors.
+1. `virtio-fs` and DAX guidance conflict.
+   Book position:
+   `docs/src/content/docs/part-2/chapter-3/5-the-kvm-qemu-membrane.md`, `docs/src/content/docs/part-4/chapter-8/3-the-sandbox.md`, and related wrap-up sections repeatedly favor `virtio-fs` bridging and discuss DAX as part of the membrane model.
+   Governing repo position:
+   [`AGENTS.md`](/home/adrian/Projects/nexical/karyon/AGENTS.md) and `GEMINI.md` require avoiding `virtio-fs` DAX in active workspaces and prefer `virtio-blk` plus overlay filesystems for I/O isolation and performance.
+   Resolution:
+   The implementation contract for active Firecracker workspaces is `virtio-blk` plus overlay-backed writable workspaces, not `virtio-fs`.
+   Rationale:
+   The current sandbox code already attaches block drives and does not implement a real `virtio-fs` share, while repo governance explicitly prefers `virtio-blk` plus overlay filesystems over `virtio-fs` DAX for active workspaces.
+   Remaining work:
+   Complete the block-backed workspace model, remove stale `virtio-fs` assumptions from code and docs, and document the divergence from the book language where necessary.
 
-## Architectural Guardrails
+## Gap-Analysis Method
 
-These constraints apply to every task in this plan:
+Each section phase in this file follows the same structure:
 
-- Prefer OTP process isolation and asynchronous message passing over shared state.
-- Keep `core` sterile. Behavioral specialization belongs in YAML DNA, Rhizome state, or bounded edge modules.
-- Keep NIF boundaries explicit, typed, and failure-safe. Rust code must not rely on panic paths crossing into Elixir.
-- Any operation that can block the BEAM must be treated as a dirty or externalized operation.
-- Sandbox changes must preserve air-gap, bounded-resource, and host-protection assumptions.
-- Sensory parsing must remain deterministic. Do not reintroduce heuristic parsing into core reasoning paths.
-- Dashboard and docs must report actual state, not aspirational or mocked behavior, unless explicitly labeled as simulated.
-- System behavior must fail closed on unsafe or unsupported conditions.
+- `Book Claim`: the architectural or theoretical behavior required by the corresponding section.
+- `Observed Code Reality`: what the current implementation in `app/` actually does today.
+- `Gap`: the concrete mismatch between the book and the implementation.
+- `Implementation Tasks`: the work required to close the gap without violating organism constraints.
+- `Validation`: the minimum commands or suites required to verify the phase.
+- `Exit Criteria`: the condition that must be true before the phase can be marked complete.
 
-## Status Model
-
-Use these markers when updating this plan:
+Status model for execution:
 
 - `[todo]` not started
-- `[doing]` actively in progress
-- `[blocked]` cannot proceed because of an external dependency or upstream task
-- `[done]` completed and validated
+- `[doing]` in progress
+- `[blocked]` blocked by conflict, missing dependency, or unresolved design issue
+- `[done]` implemented and validated
 
-### Status update requirements
+Global parity themes already observed and expected to recur through the phases:
 
-Whenever a task status changes, record:
+- `core` still relies on stringly motor dispatch, direct Cypher construction, and placeholder planning shortcuts instead of typed planning-cell contracts.
+- `sensory` still contains demo-level polling and quantization behavior rather than the deterministic multi-organ sensory perimeter described by the book.
+- `sandbox` provisions Firecracker, but the workspace bridge, WRS gate, and plan-driven mutation loop are incomplete relative to the book.
+- `dashboard` exposes runtime health but not the Rhizome and topology observability required by the book.
+- `~/.karyon/objectives/`, localized `.nexical/plan.yml`, cross-workspace planning, teacher-daemon curriculum, and negotiation or defiance surfaces are missing.
+- surprise is still represented by a hardcoded variational free energy calculation rather than a typed model combining expectations, precision, outcome telemetry, and weighted priors derived from needs and values.
+- objectives, needs, and values are not yet represented as weighted priors that can measurably alter attractor selection, improvement priorities, pruning, reinforcement, and refusal behavior.
 
-- date
-- owner or agent identifier if available
-- short summary of what changed
-- validation run
-- blocker reason if status becomes `[blocked]`
+## Global Validation Baseline
 
-If this plan is being updated manually, append updates directly under the task in a `Progress notes:` subsection.
-
-## Standard Task Workflow
-
-Every implementation task should follow this sequence:
-
-1. Confirm prerequisites and dependencies.
-2. Read the relevant files and identify contract boundaries.
-3. Decide whether the change is local or cross-app.
-4. Implement the smallest cohesive slice that leaves the system in a valid state.
-5. Add or update tests covering intended behavior.
-6. Run the minimum required validation commands.
-7. Update docs if behavior, operations, or architecture assumptions changed.
-8. Update task status and progress notes in this plan.
-
-## Standard Definition Of Done
-
-A task is only `[done]` when all applicable items below are true:
-
-- the code compiles
-- the touched behavior is validated by existing or new tests
-- callers and callees agree on any changed contract
-- no fake success path was introduced
-- logs and error handling are explicit enough for debugging
-- related docs or inline comments are updated if behavior changed materially
-- the plan entry reflects the current status accurately
-
-## Minimum Validation Matrix
-
-Unless a task explicitly states a narrower or broader scope, use this matrix:
-
-- Elixir-only local logic change:
-  - `mix compile`
-  - targeted app tests
-- Cross-app Elixir contract change:
-  - `mix compile`
-  - targeted tests for both apps
-- NIF contract or Rust behavior change:
-  - `mix compile`
-  - targeted Elixir app tests
-  - relevant native tests if available
-- Sandbox or service integration change:
-  - targeted app tests
-  - integration validation if the environment is available
-- Docs-only change:
-  - path/build/manual verification appropriate to the docs surface
-
-## Cross-App Change Rules
-
-If a task touches one of these boundaries, the task is not complete until both sides are updated:
-
-- `core` <-> `rhizome`
-- `core` <-> `sandbox`
-- `core` <-> `nervous_system`
-- `sensory` <-> `rhizome`
-- `dashboard` <-> telemetry emitters
-- docs <-> actual runtime behavior
-
-For each cross-app change:
-
-- define the contract shape first
-- update producer and consumer in the same task or tightly linked subtask pair
-- add validation on both sides
-- remove or rewrite tests that encoded the old contract
-
-## File Ownership Guidance
-
-Use this ownership model during autonomous execution to reduce drift:
-
-- `app/core/**`: execution core, metabolism, orchestration, engrams, planning
-- `app/nervous_system/**`: messaging, nociception, endocrine signaling, schemas
-- `app/rhizome/**`: graph, temporal state, archival, consolidation, native memory boundaries
-- `app/sandbox/**`: Firecracker membrane, host bridge, execution audit surface
-- `app/sensory/**`: deterministic parsing and ingest
-- `app/dashboard/**`: operator-facing observability and control surfaces
-- `docs/**`, `README.md`, `PLAN.md`: truthfulness, deployment, architecture, and operating guidance
-
-An agent should avoid widening a task beyond one ownership area unless the task is explicitly a contract or integration task.
-
-## Current Readiness Assessment
-
-### What is already real
-- Umbrella application structure across `core`, `nervous_system`, `rhizome`, `sandbox`, `sensory`, and `dashboard`
-- OTP supervision and cellular lifecycle scaffolding
-- Rust NIF integration for metabolic, sensory, and rhizome functionality
-- Tree-sitter parsing in the sensory layer
-- initial graph archival and consolidation concepts
-- property, subsystem, and chaos-oriented test coverage across much of the repo
-
-### What is currently blocking production readiness
-- `core` callers and `rhizome` NIF contracts are inconsistent
-- several production-facing paths still return simulated success
-- nervous-system transport behavior is unstable and has failing tests
-- sandbox execution is not yet a real Firecracker membrane end to end
-- dashboard metrics still contain mocked values
-- XTDB and service-backed integration behavior is not stable enough
-- docs and public artifact references are inconsistent with the actual repo
-
-## Global Environment Prerequisites
-
-These are the baseline assumptions for autonomous work. Any task that needs more than this should declare additional prerequisites inside its phase.
-
-### Local toolchain
-- Elixir and Erlang available
-- Rust toolchain available
-- Mix dependencies installable
-- Cargo build available for NIF crates
-
-### Service dependencies
-- Memgraph for graph-backed integration work
-- XTDB for temporal state validation
-- NATS for endocrine/control-plane integration
-- Firecracker host support for sandbox hardening work
-
-### Validation baseline
-- `mix compile` from [`app/mix.exs`](/home/adrian/Projects/nexical/karyon/app/mix.exs)
-- targeted `mix test` runs per app
-
-### Optional but recommended validation tools
-- Rust crate tests for changed native code
-- service-backed integration runs for Memgraph, XTDB, and NATS
-- release boot smoke test for deployment-related changes
-- docs build verification for docs-system changes
-
-## Global Validation Commands
-
-Use these as the default validation commands unless a task overrides them.
+Default validation commands for parity work:
 
 ```bash
 cd /home/adrian/Projects/nexical/karyon/app && mix compile
@@ -202,1111 +68,1694 @@ cd /home/adrian/Projects/nexical/karyon/app && mix compile
 cd /home/adrian/Projects/nexical/karyon/app && mix test
 ```
 
-Targeted suites:
+Subsystem suites:
 
 ```bash
-cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test
-cd /home/adrian/Projects/nexical/karyon/app && mix test apps/nervous_system/test
-cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sandbox/test
 cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test
+cd /home/adrian/Projects/nexical/karyon/app && mix test apps/nervous_system/test
+cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test
+cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sandbox/test
 cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test
+cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test
 ```
 
-## Execution Order
-
-Agents should work phases in this order unless a task is marked parallel-safe:
-
-1. Phase 0: Truthfulness And Planning Hygiene
-2. Phase 1: Runtime Contract Correction
-3. Phase 2: Real Infrastructure Integration
-4. Phase 3: Sandbox Membrane Hardening
-5. Phase 4: Core Planning And Memory Loops
-6. Phase 5: Observability, Releases, And Operations
-7. Phase 6: Scale, Resilience, And Production Validation
-
-## Phase Handoff Requirements
-
-Before moving from one phase to the next, confirm:
-
-- all phase exit criteria are met
-- all `[doing]` tasks in the phase are resolved to `[done]` or `[blocked]`
-- blocked tasks are documented with reason and next dependency
-- no temporary compatibility shim remains without an explicit follow-up task
-- relevant docs and tests were updated for the phase outcomes
-
-Do not advance phases just because partial code landed. Advance only on validated system state.
-
-## Blocking Conditions
-
-Mark a task `[blocked]` instead of forcing progress when any of the following is true:
-
-- an upstream contract task is incomplete
-- an external service or host feature is unavailable
-- the task would require inventing architecture that conflicts with `SPEC.md`
-- the correct implementation depends on a product, security, or deployment decision not yet made
-- the validation environment needed to prove the change is absent
-
-Blocked tasks should include:
-
-- precise missing dependency
-- whether the block is local, infrastructure, or design-level
-- the next task that can proceed instead
-
-## Standard Progress Note Template
-
-Use this template under each task when recording progress:
-
-```md
-Progress notes:
-- YYYY-MM-DD: owner/agent - short summary
-- Validation: `command` -> result
-- Follow-up: short note if any
-```
-
-## Standard Task Template
-
-Use this shape for any new task added to the plan:
-
-```md
-#### PX.Y Task Name
-- Status: `[todo]`
-- Scope:
-  - concise change list
-- Primary files:
-  - path list
-- Dependencies:
-  - upstream task IDs
-- Risks:
-  - main implementation or validation risks
-- Definition of done:
-  - concrete completion criteria
-- Validation:
-  - commands or manual verification
-- Progress notes:
-  - none yet
-```
-
-## Phase 0: Truthfulness And Planning Hygiene
-
-### Goal
-Remove ambiguity between implemented behavior and target behavior so later phases are working against an honest baseline.
-
-### Entry criteria
-- none
-
-### Exit criteria
-- no production-facing path silently returns fake success without explicit marker or config gating
-- docs do not reference absent generated artifacts as if they are present
-- this plan is usable as the source of truth for execution ordering
-
-### Additional prerequisites
-- none
-
-### Tasks
-
-#### P0.1 Audit simulated success paths
-- Status: `[done]`
-- Scope:
-  - inspect `core`, `sandbox`, and `dashboard` for simulated or placeholder success behavior
-  - replace with explicit `{:error, :not_implemented}` or config-gated dev/mock behavior where appropriate
-- Primary files:
-  - [`app/core/lib/core/motor_driver.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/motor_driver.ex)
-  - [`app/core/lib/core/stem_cell.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/stem_cell.ex)
-  - [`app/sandbox/lib/sandbox/provisioner.ex`](/home/adrian/Projects/nexical/karyon/app/sandbox/lib/sandbox/provisioner.ex)
-  - [`app/dashboard/lib/dashboard/telemetry_bridge.ex`](/home/adrian/Projects/nexical/karyon/app/dashboard/lib/dashboard/telemetry_bridge.ex)
-- Dependencies:
-  - none
-- Risks:
-  - simulated behavior may currently be relied on by tests or demo flows
-- Definition of done:
-  - fake success paths are either removed or explicitly isolated behind mock/dev configuration
-  - production code paths fail closed
-- Validation:
-  - `mix compile`
-  - targeted tests for touched apps
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Replaced placeholder success in `Core.MotorDriver`, `Core.StemCell`, and `Sandbox.Provisioner.capture_output/1` with explicit not-ready errors or mock-gated behavior.
-    - Replaced randomized dashboard telemetry values with live BEAM/native readings, surfacing unavailable metrics honestly instead of fabricating values.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
-      - `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs test/core/motor_driver_test.exs`
-      - `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/provisioner_test.exs`
-
-#### P0.2 Repair documentation references
-- Status: `[done]`
-- Scope:
-  - reconcile README and docs references to `docs/public/book.md`
-  - either generate the artifact or update references to the real docs source/build output
-- Primary files:
-  - [`README.md`](/home/adrian/Projects/nexical/karyon/README.md)
-  - docs config and public references
-- Dependencies:
-  - none
-- Risks:
-  - some docs links may point to generated artifacts not currently produced in this repo
-- Definition of done:
-  - no top-level docs link points to a missing file
-  - current-state caveat exists where needed
-- Validation:
-  - manual link/path verification
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Updated top-level README links to point to real repo paths instead of missing `docs/public/book.md`, `file://` links, and an absent local walkthrough artifact.
-    - Made the docs-site book download button conditional on the generated file actually existing.
-    - Validation run:
-      - manual path verification against checked-in files
-      - `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
-
-#### P0.3 Add current-state note to docs
-- Status: `[done]`
-- Scope:
-  - document target architecture versus implemented runtime
-  - clarify which subsystems are MVP, partial, or production-grade
-- Dependencies:
-  - P0.2 preferred
-- Risks:
-  - docs can drift again if later phases do not update them with behavior changes
-- Definition of done:
-  - docs include an honest system-status section
-- Validation:
-  - docs build or file inspection
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Added an honest current-state section to the root README, docs README, and docs landing page clarifying which parts of Karyon are implemented versus still being hardened.
-    - Validation run:
-      - file inspection of `README.md`, `docs/README.md`, and `docs/src/content/docs/index.mdx`
-
-## Phase 1: Runtime Contract Correction
-
-### Goal
-Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `nervous_system`.
-
-### Entry criteria
-- Phase 0 complete
-
-### Exit criteria
-- `core` and `rhizome` agree on NIF return contracts
-- XTDB query and submit semantics are coherent
-- `nervous_system` baseline test failures are resolved
-- no critical code path depends on placeholder query responses
-
-### Additional prerequisites
-- `mix compile` baseline
-- ability to run targeted tests
-
-### Subphase 1A: Rhizome Contract Redesign
-
-#### P1.1 Define canonical Rhizome NIF return shapes
-- Status: `[done]`
-- Scope:
-  - define structured Elixir-facing response contracts for:
-    - `memgraph_query/1`
-    - `xtdb_query/1`
-    - `xtdb_submit/2`
-    - `bridge_to_xtdb/0`
-    - `weaken_edge/1`
-  - decide whether rows return maps, lists of maps, or typed structs
-- Primary files:
-  - [`app/rhizome/lib/rhizome/native.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/native.ex)
-  - [`app/rhizome/native/rhizome_nif/src/memgraph.rs`](/home/adrian/Projects/nexical/karyon/app/rhizome/native/rhizome_nif/src/memgraph.rs)
-  - [`app/rhizome/native/rhizome_nif/src/xtdb.rs`](/home/adrian/Projects/nexical/karyon/app/rhizome/native/rhizome_nif/src/xtdb.rs)
-- Dependencies:
-  - Phase 0
-- Risks:
-  - changing return shapes will affect multiple callers and tests at once
-- Definition of done:
-  - one explicit contract is chosen and documented in code comments or moduledocs
-- Validation:
-  - `mix compile`
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Split the raw Rustler boundary into `Rhizome.Raw` and a public `Rhizome.Native` wrapper that now defines and documents canonical Elixir-facing contracts.
-    - Standardized public shapes to decoded row lists for `memgraph_query/1` and `xtdb_query/1`, metadata maps for `xtdb_submit/2`, `bridge_to_xtdb/0`, and `weaken_edge/1`, and explicit `{:error, reason}` failures.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
-
-#### P1.2 Implement real Memgraph query result decoding
-- Status: `[done]`
-- Scope:
-  - replace string-only success responses with structured rows
-  - preserve error tuples as explicit `{:error, reason}`
-- Dependencies:
-  - P1.1
-- Risks:
-  - row decoding may require a stable serialization strategy across Rust and Elixir
-- Definition of done:
-  - `memgraph_query/1` returns query data usable by callers
-- Validation:
-  - `mix test apps/rhizome/test`
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Reworked the native Memgraph client to execute queries as row streams and serialize decoded rows as JSON instead of returning string-only success markers.
-    - `Rhizome.Native.memgraph_query/1` now returns real row data, including aggregate maps such as `%{"count" => ...}` and graph payload rows used by `Engram`.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test`
-
-#### P1.3 Implement coherent XTDB submit/query behavior
-- Status: `[done]`
-- Scope:
-  - make XTDB submit and query contracts consistent with caller expectations
-  - reject malformed input explicitly
-- Dependencies:
-  - P1.1
-- Risks:
-  - XTDB caller expectations may need normalization before code changes settle
-- Definition of done:
-  - XTDB APIs are no longer mixed between ad hoc strings and incompatible JSON assumptions
-- Validation:
-  - `mix test apps/rhizome/test`
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Normalized XTDB submit/query inputs to JSON payloads and normalized successful responses to decoded Elixir terms instead of ad hoc raw strings.
-    - Added explicit rejection for malformed query/document inputs through the wrapper contract and updated XTDB tests to use structured query payloads.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test`
-
-### Subphase 1B: Core Caller Alignment
-
-#### P1.4 Update `StemCell` hydration and pruning callers
-- Status: `[done]`
-- Scope:
-  - update XTDB hydration logic
-  - update Rhizome pruning interactions to match real NIF return shapes
-- Primary files:
-  - [`app/core/lib/core/stem_cell.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/stem_cell.ex)
-- Dependencies:
-  - P1.2
-  - P1.3
-- Risks:
-  - hydration and pruning are stateful paths that may expose hidden assumptions in tests
-- Definition of done:
-  - `StemCell` no longer calls incompatible Rhizome APIs
-- Validation:
-  - `mix test apps/core/test`
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Replaced the old XTDB hydration assumption in `StemCell` with structured XTDB query input and tolerant belief extraction from decoded query results.
-    - Kept pruning interactions aligned with the new `weaken_edge/1` contract while preserving fail-closed behavior when Rhizome data is absent.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs test/core/motor_driver_test.exs test/core/engram_test.exs`
-      - Broader `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core` was started but is dominated by long-running scale/stress coverage outside this contract slice, so focused contract tests were used for task validation.
-
-#### P1.5 Replace placeholder motor planning assumptions
-- Status: `[done]`
-- Scope:
-  - stop depending on placeholder query values in `MotorDriver`
-  - keep planning minimal if necessary, but contract-correct
-- Primary files:
-  - [`app/core/lib/core/motor_driver.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/motor_driver.ex)
-- Dependencies:
-  - P1.2
-- Risks:
-  - temporary fallback behavior can accidentally become permanent if not made explicit
-- Definition of done:
-  - `MotorDriver` either uses real graph data or returns an explicit not-ready error
-- Validation:
-  - `mix test apps/core/test`
-- Progress notes:
-  - 2026-03-16 / Codex
-    - `Core.MotorDriver` no longer depends on placeholder graph-step data. It now requires a real Rhizome attractor lookup and returns `{:error, :graph_planning_not_ready}` until graph-backed planning is implemented.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs`
-
-#### P1.6 Correct engram capture/injection assumptions
-- Status: `[done]`
-- Scope:
-  - make `Engram` operate on actual graph result shapes
-  - prevent serialization of placeholder query responses
-- Primary files:
-  - [`app/core/lib/core/engram.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/engram.ex)
-- Dependencies:
-  - P1.2
-- Risks:
-  - engram format changes can create compatibility issues with existing sample artifacts
-- Definition of done:
-  - engram operations consume real typed graph payloads
-- Validation:
-  - `mix test apps/core/test`
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Updated `Core.Engram` to capture decoded graph rows and import from explicit `%{"n" => ..., "m" => ...}` row shapes rather than ambiguous nested list placeholders.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/engram_test.exs`
-
-### Subphase 1C: Nervous System Stabilization
-
-#### P1.7 Restrict Synapse transport support
-- Status: `[done]`
-- Scope:
-  - validate supported protocols explicitly
-  - reject unsupported transports like `inproc` if not truly supported by the current implementation
-- Primary files:
-  - [`app/nervous_system/lib/nervous_system/synapse.ex`](/home/adrian/Projects/nexical/karyon/app/nervous_system/lib/nervous_system/synapse.ex)
-- Dependencies:
-  - Phase 0
-- Risks:
-  - test fixtures may currently assume unsupported protocol behavior
-- Definition of done:
-  - unsupported protocols do not produce noisy retry loops or crashes
-- Validation:
-  - `mix test apps/nervous_system/test`
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Restricted `NervousSystem.Synapse` to explicit supported transport parsing, returning `{:unsupported_protocol, ...}` for unsupported schemes instead of retry storms.
-    - Updated property tests to validate supported TCP topology and added an explicit unsupported-transport assertion.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/synapse_test.exs test/nervous_system/synapse_property_test.exs test/nervous_system/pain_receptor_test.exs`
-
-#### P1.8 Fix nociception delivery reliability
-- Status: `[done]`
-- Scope:
-  - fix `PainReceptor` and publish/subscribe timing assumptions
-  - ensure the pain-signal path is deterministic enough for tests
-- Primary files:
-  - [`app/nervous_system/lib/nervous_system/pain_receptor.ex`](/home/adrian/Projects/nexical/karyon/app/nervous_system/lib/nervous_system/pain_receptor.ex)
-  - [`app/nervous_system/lib/nervous_system/synapse.ex`](/home/adrian/Projects/nexical/karyon/app/nervous_system/lib/nervous_system/synapse.ex)
-- Dependencies:
-  - P1.7
-- Risks:
-  - fixing timing issues without clearer contracts can recreate flakiness in a different form
-- Definition of done:
-  - current `PainReceptor` test failures are resolved
-- Validation:
-  - `mix test apps/nervous_system/test`
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Fixed `PainReceptor` telemetry attachment lifetime by using per-process handler ids and detaching them on terminate.
-    - Fixed `Synapse.start_link/1` to honor GenServer registration options such as `:name`, which stabilized the test setup and delivery path.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/synapse_test.exs test/nervous_system/synapse_property_test.exs test/nervous_system/pain_receptor_test.exs`
-
-#### P1.9 Add transport error telemetry
-- Status: `[done]`
-- Scope:
-  - emit telemetry for bind failures, unsupported protocols, dropped payloads, and retries
-- Dependencies:
-  - P1.7
-- Risks:
-  - telemetry can become noisy if event names and payloads are not standardized
-- Definition of done:
-  - transport faults become observable
-- Validation:
-  - targeted nervous-system tests
-- Progress notes:
-  - 2026-03-16 / Codex
-    - Added telemetry emission for transport init failures, unsupported protocols, bind retries, bind/connect failures, send failures, and receiver shutdown.
-    - Validation run:
-      - `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/synapse_test.exs test/nervous_system/synapse_property_test.exs test/nervous_system/pain_receptor_test.exs`
-
-## Phase 2: Real Infrastructure Integration
-
-### Goal
-Make the architecture spine function against real services, not just local assumptions.
-
-### Entry criteria
-- Phase 1 complete
-
-### Exit criteria
-- Memgraph, XTDB, and NATS integration paths are configurable and testable
-- dependency health is visible
-- service-backed integration tests exist and pass in supported environments
-
-### Additional prerequisites
-- Memgraph available
-- XTDB available
-- NATS available
-
-### Tasks
-
-#### P2.1 Externalize service configuration
-- Status: `[done]`
-- Scope:
-  - remove hardcoded `127.0.0.1` service assumptions from NIF and runtime code
-  - move endpoints and credentials to app config/runtime env
-- Primary files:
-  - rhizome native client and config files
-  - nervous-system connection logic
-  - umbrella config
-- Dependencies:
-  - Phase 1
-- Risks:
-  - config shape can sprawl if not normalized across apps
-- Definition of done:
-  - services are configurable without code edits
-- Validation:
-  - `mix compile`
-- Progress notes:
-  - 2026-03-16: Codex - centralized Memgraph, XTDB, and NATS endpoints under `:karyon, :services`; removed hardcoded service URLs from `NervousSystem.Endocrine`, `Rhizome.Native`/`Rhizome.Raw`, and the Sensory NIF boundary.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/endocrine_test.exs` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix test test/sensory/native_test.exs` -> passed
-
-#### P2.2 Add service health and readiness checks
-- Status: `[done]`
-- Scope:
-  - implement dependency probes for Memgraph, XTDB, and NATS
-  - gate startup or mark degraded state explicitly
-- Dependencies:
-  - P2.1
-- Risks:
-  - readiness checks can mask real failure modes if they are too shallow
-- Definition of done:
-  - system reports dependency health before critical work proceeds
-- Validation:
-  - targeted integration tests
-- Progress notes:
-  - 2026-03-16: Codex - added `Core.ServiceHealth` with explicit Memgraph, XTDB, and NATS probes and gated service-backed harness flows in `Core.TestHarness` so critical integration paths fail closed on degraded dependencies.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/service_health_test.exs` -> passed
-
-#### P2.3 Create real integration suite for Rhizome
-- Status: `[done]`
-- Scope:
-  - add integration tests for:
-    - graph writes
-    - query reads
-    - XTDB submit/query
-    - archival bridge
-    - consolidation manager with real state
-- Dependencies:
-  - P2.1
-  - P2.2
-- Risks:
-  - CI and local environments may diverge without a consistent service harness
-- Definition of done:
-  - skipped or flaky XTDB behavior is replaced with controlled service-backed validation
-- Validation:
-  - `mix test apps/rhizome/test`
-- Progress notes:
-  - 2026-03-16: Codex - added `app/rhizome/test/rhizome/service_integration_test.exs` covering real Memgraph writes/reads, XTDB submit/query, archival bridge, and consolidation-manager pruning with controlled service probing.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/service_integration_test.exs --include external` -> failed; Memgraph-backed checks passed, but XTDB `/tx` and `/query` calls intermittently returned `channel closed` and `connection reset by peer`.
-  - 2026-03-16: Codex - verified root cause of the XTDB failures: `compose.yml` launches `ghcr.io/xtdb/xtdb:latest`, which is XTDB `2.1.0`; the running container exposes health on `8080` and PG-wire on `5432`, while the Rhizome client still targets the XTDB v1 HTTP `/tx` and `/query` API on `3000`.
-  - Validation: `curl -i --max-time 5 http://127.0.0.1:3000/` -> `Recv failure: Connection reset by peer`
-  - Validation: `curl -i --max-time 5 http://127.0.0.1:3000/status` -> `Recv failure: Connection reset by peer`
-  - Validation: `docker logs --tail 100 karyon_xtdb` -> XTDB `2.1.0`, health server on `8080`, PG-wire on `5432`
-  - Validation: `docker exec karyon_xtdb sh -lc 'curl -i --max-time 5 http://127.0.0.1:8080/'` -> XTDB Healthz HTML page
-  - Validation: `docker exec karyon_xtdb sh -lc 'curl -i --max-time 5 http://127.0.0.1:3000/'` -> connection refused inside container
-  - 2026-03-16: Codex - exposed XTDB `5432` and `8080` in `compose.yml` so the actual v2 service surface is inspectable during the eventual contract migration or harness pinning work.
-  - 2026-03-16: Codex - migrated the public XTDB path to XTDB v2 semantics by replacing the v1 HTTP client with an Elixir `Postgrex` adapter in `Rhizome.Xtdb`, switching the default XTDB config to `postgres://127.0.0.1:5432/xtdb`, recreating the XTDB container with `5432` exposed, and reimplementing `Rhizome.Native.bridge_to_xtdb/0` on the Elixir side while preserving the existing public return shapes.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix deps.get` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/bitemporal_test.exs` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/service_integration_test.exs --include external` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test` -> Rhizome tests passed; umbrella path emitted path-mismatch noise in other apps after the Rhizome run, so the effective validation was the Rhizome app suite plus the external service suite.
-
-#### P2.4 Create real integration suite for Nervous System
-- Status: `[done]`
-- Scope:
-  - validate NATS publish/subscribe against a real broker
-  - validate ZMQ transport with supported protocols only
-- Dependencies:
-  - Phase 1
-  - P2.1
-- Risks:
-  - transport tests can become timing-sensitive if contracts remain implicit
-- Definition of done:
-  - nervous-system tests are grounded in real supported topology
-- Validation:
-  - `mix test apps/nervous_system/test`
-- Progress notes:
-  - 2026-03-16: Codex - converted NATS broker tests to explicit external integrations with broker-availability gating and kept supported TCP-only ZMQ transport validation in the standard suite.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/endocrine_gradient_test.exs --include external` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/synapse_test.exs test/nervous_system/synapse_property_test.exs` -> passed
-
-#### P2.5 Validate sensory -> rhizome -> core flow
-- Status: `[done]`
-- Scope:
-  - ingest code via sensory
-  - persist to graph
-  - query from core
-  - verify downstream signaling
-- Dependencies:
-  - P2.3
-  - P1.4
-  - P1.5
-- Risks:
-  - partial success in one layer may hide contract weakness in another
-- Definition of done:
-  - one end-to-end organism path works against real services
-- Validation:
-  - targeted integration suite
-- Progress notes:
-  - 2026-03-16: Codex - not started because `P2.3` remains blocked on unstable XTDB-backed Rhizome integration, which is a declared prerequisite for end-to-end service-backed flow validation.
-  - 2026-03-16: Codex - tightened existing XTDB-dependent integration tests so they are tagged `:external` and no longer imply default-suite coverage while the XTDB service contract remains mismatched.
-  - 2026-03-16: Codex - strengthened `app/core/test/platform_integration_test.exs` so the end-to-end path now ingests code via `Sensory.Native`, persists and bridges graph state through Rhizome, hydrates a new `Core.StemCell` lineage from XTDB v2, and verifies downstream endocrine signaling by driving the cell into torpor from a real metabolic spike.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/platform_integration_test.exs --include external` -> passed
-
-## Phase 3: Sandbox Membrane Hardening
-
-### Goal
-Replace the current mock-heavy sandbox path with a real secure execution membrane.
-
-### Entry criteria
-- Phase 2 complete
-
-### Exit criteria
-- Firecracker boot path is real
-- helper pathing and privilege boundaries are correct
-- execution results are authentic
-- network and mount isolation are enforced and testable
-
-### Additional prerequisites
-- Firecracker installed or otherwise available
-- host support for TAP and network setup
-- helper binary build path understood
-
-### Tasks
-
-#### P3.1 Fix helper binary path resolution
-- Status: `[done]`
-- Scope:
-  - correct `karyon-net-helper` path resolution from sandbox code
-  - avoid brittle relative path assumptions
-- Primary files:
-  - [`app/sandbox/lib/sandbox/provisioner.ex`](/home/adrian/Projects/nexical/karyon/app/sandbox/lib/sandbox/provisioner.ex)
-- Dependencies:
-  - Phase 2
-- Risks:
-  - path fixes can still leave host privilege assumptions unresolved
-- Definition of done:
-  - sandbox tests no longer fail due to missing helper executable path
-- Validation:
-  - `mix test apps/sandbox/test`
-- Progress notes:
-  - 2026-03-16: Codex - replaced brittle helper-path guessing with explicit `Sandbox.Provisioner.helper_path/0` resolution over sandbox config, environment, `$PATH`, and known app-root build outputs; missing helpers now return `{:error, :net_helper_not_found}` instead of raising.
-  - 2026-03-16: Codex - added sandbox test coverage for config-driven helper resolution and retained failure-path coverage through `verify_network/1`.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
-
-#### P3.2 Remove app-layer privileged cleanup assumptions
-- Status: `[done]`
-- Scope:
-  - replace `sudo`-dependent cleanup with a safer host integration strategy
-  - document the privilege boundary
-- Primary files:
-  - [`app/sandbox/lib/sandbox/vmm_supervisor.ex`](/home/adrian/Projects/nexical/karyon/app/sandbox/lib/sandbox/vmm_supervisor.ex)
-- Dependencies:
-  - P3.1
-- Risks:
-  - host integration can become underspecified if responsibility is not clearly split
-- Definition of done:
-  - sandbox runtime no longer shells into privileged cleanup as an app concern
-- Validation:
-  - `mix test apps/sandbox/test`
-- Progress notes:
-  - 2026-03-16: Codex - removed direct `sudo ip ...` cleanup from `Sandbox.VmmSupervisor`; tap-device teardown is now delegated exclusively to `karyon-net-helper` via the existing host-boundary resolution path.
-  - 2026-03-16: Codex - documented the privilege boundary in `Sandbox.VmmSupervisor` and added a focused test proving cleanup invokes the configured helper instead of shelling into privileged app-layer commands.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
-
-#### P3.3 Implement real Firecracker boot chain
-- Status: `[done]`
-- Scope:
-  - wire kernel image, rootfs, machine config, and startup flow
-  - ensure socket readiness reflects actual VM lifecycle
-- Dependencies:
-  - P3.1
-  - P3.2
-- Risks:
-  - host-specific Firecracker setup can create hidden environment coupling
-- Definition of done:
-  - VM startup is not a placeholder task/sleep model
-- Validation:
-  - integration validation in sandbox environment
-- Progress notes:
-  - 2026-03-16: Codex - wired explicit Firecracker runtime prerequisite resolution into the non-mock sandbox path. `Sandbox.Firecracker.boot_requirements/0` now requires a real Firecracker binary, kernel image, and rootfs path; `Sandbox.Provisioner.provision_vm/1` now re-enables `set_boot_source/3` and `set_drive/3` and refuses to proceed without those prerequisites.
-  - 2026-03-16: Codex - updated `Sandbox.VmmSupervisor.start_vmm/3` to use the resolved Firecracker binary instead of a bare `"firecracker"` shell assumption, and added focused test coverage for fail-closed prerequisite handling.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs` -> passed
-  - 2026-03-16: Codex - verified a real Firecracker binary now exists at `/usr/local/bin/firecracker` and pinned that path into `app/config/config.exs` via `:sandbox, :firecracker_binary`.
-  - Validation: `ls -l /usr/local/bin/firecracker` -> present and executable
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - 2026-03-16: Codex - verified host kernel and rootfs artifacts were provided at `/opt/karyon/firecracker/vmlinux` and `/opt/karyon/firecracker/rootfs.ext4`.
-  - 2026-03-16: Codex - built the host network helper, broadened sandbox helper resolution to accept the actual built artifact name `net_helper`, and tightened the helper so failed TAP/iptables setup exits non-zero instead of reporting false success.
-  - 2026-03-16: Codex - executed the real non-mock provision path with `KARYON_MOCK_HARDWARE=0`, `KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux`, `KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4`, and `KARYON_NET_HELPER=/home/adrian/Projects/nexical/karyon/app/sandbox/native/net_helper/target/release/net_helper`. Firecracker started successfully and bound `/tmp/firecracker-vm-3.socket`, but host networking failed before a valid isolated VM launch completed.
-  - Validation: `env KARYON_MOCK_HARDWARE=0 KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4 KARYON_NET_HELPER=/home/adrian/Projects/nexical/karyon/app/sandbox/native/net_helper/target/release/net_helper mix run -e 'IO.inspect(Sandbox.Provisioner.provision_vm("/tmp/test_plan.json"))'` -> Firecracker API socket started, then provisioning failed with `{:error, :network_setup_failed}`
-  - Blocker: infrastructure - host TAP and firewall setup are not permitted for the helper in the current environment, and the configured bridge device `karyon0` does not exist.
-  - Validation: helper output during real run -> `ioctl(TUNSETIFF): Operation not permitted`
-  - Validation: helper output during real run -> `iptables ... Permission denied (you must be root)`
-  - Validation: helper output during real run -> `argument "karyon0" is wrong: Device does not exist`
-  - 2026-03-16: Codex - verified `/usr/local/bin/karyon-net-helper` now has `cap_net_admin=ep` and `karyon0` exists, then reran the real non-mock provision path. Firecracker still started and bound its API socket, but TAP and iptables setup failed with the same permission errors.
-  - Validation: `getcap /usr/local/bin/karyon-net-helper && ip link show karyon0` -> helper has `cap_net_admin=ep`, bridge exists
-  - Validation: `env KARYON_MOCK_HARDWARE=0 KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4 KARYON_NET_HELPER=/usr/local/bin/karyon-net-helper mix run -e 'IO.inspect(Sandbox.Provisioner.provision_vm("/tmp/test_plan.json"))'` -> Firecracker API socket started, then provisioning failed with `{:error, :network_setup_failed}`
-  - Blocker refinement: implementation/design - the helper currently shells out to `ip` and `iptables`, and the helper's file capability does not grant those child executables the needed privilege. To complete the real boot chain, the helper must perform TAP and firewall work directly (netlink/nftables or equivalent) or be executed through a truly privileged host boundary.
-  - 2026-03-16: Codex - refactored `app/sandbox/native/net_helper/src/main.rs` so the helper now manages TAP lifecycle directly with Linux ioctls instead of spawning `ip` or `iptables`. The helper now creates persistent TAP devices through `/dev/net/tun`, attaches them to the requested bridge with `SIOCBRADDIF`, brings them up with `SIOCSIFFLAGS`, and tears them down by clearing `TUNSETPERSIST`.
-  - 2026-03-16: Codex - replaced the old iptables-based verification path with structural bridge isolation checks. `verify` now requires the tap to exist, be up, be attached to a bridge, the bridge to contain only `tap-vm-*` members, and the bridge to have no IPv4 route in `/proc/net/route`.
-  - 2026-03-16: Codex - stabilized the sandbox test suite after the stricter helper validation by making the mock-network audit test set `KARYON_MOCK_HARDWARE` explicitly.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox/native/net_helper && cargo build --release` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
-  - 2026-03-16: Codex - after the rebuilt helper was reinstalled onto `/usr/local/bin/karyon-net-helper` with `CAP_NET_ADMIN`, the real non-mock provision path moved past host networking and exposed Firecracker API drift in the Elixir client. `init_vmm/1` was corrected to use `GET /version`, and the network-interface payload was aligned with Firecracker 1.15 by removing the unsupported `allow_mmds_requests` field.
-  - Validation: `getcap /usr/local/bin/karyon-net-helper` -> `/usr/local/bin/karyon-net-helper cap_net_admin=ep`
-  - Validation: `ip link show karyon0` -> bridge exists and is up for host use
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
-  - Validation: `env KARYON_MOCK_HARDWARE=0 KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4 KARYON_NET_HELPER=/usr/local/bin/karyon-net-helper mix run -e 'IO.inspect(Sandbox.Provisioner.provision_vm("/tmp/test_plan.json"))'` -> Firecracker initialized, accepted machine/network/boot/drive configuration, returned `204` on `InstanceStart`, and `Sandbox.Provisioner.provision_vm/1` completed with `{:ok, "vm-3042"}`
-
-#### P3.4 Implement real execution telemetry capture
-- Status: `[done]`
-- Scope:
-  - replace fake success text with real stdout, stderr, and exit-code capture
-  - pipe failure states back to the organism
-- Dependencies:
-  - P3.3
-- Risks:
-  - output capture can be incomplete if guest process lifecycle is not fully wired
-- Definition of done:
-  - `capture_output/1` reflects actual guest execution results
-- Validation:
-  - sandbox integration suite
-- Progress notes:
-  - 2026-03-17: Codex - replaced the placeholder `capture_output/1` path with real file-backed runtime telemetry. `Sandbox.Provisioner` now registers per-VM runtime metadata, persists stdout/stderr paths in `Sandbox.RuntimeRegistry`, and `capture_output/1` returns actual captured output, status, and exit code instead of fabricated success text.
-  - 2026-03-17: Codex - refactored `Sandbox.VmmSupervisor` so Firecracker launches with stdout and stderr redirected into per-VM files, stores the supervised task pid in runtime metadata, and reports non-zero exits to `PainReceptor`.
-  - 2026-03-17: Codex - repointed `Sandbox.Console` from a nonexistent placeholder pipe to the real stdout stream and changed it to tail append-only files instead of only working against FIFOs, so VM boot/runtime failures can flow back into the organism.
-  - 2026-03-17: Codex - added focused coverage for `capture_output/1` returning persisted stdout/stderr/exit_code and for the missing-runtime error path.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
-  - Validation: `env KARYON_MOCK_HARDWARE=0 KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4 KARYON_NET_HELPER=/usr/local/bin/karyon-net-helper mix run -e 'case Sandbox.Provisioner.provision_vm("/tmp/test_plan.json") do {:ok, vm_id} -> Process.sleep(500); IO.inspect({vm_id, Sandbox.Provisioner.capture_output(vm_id)}) ; {:error, reason} -> IO.inspect({:error, reason}) end'` -> returned `{:ok, %{mode: :firecracker, status: :running, stdout: ...guest boot/runtime log..., stderr: "", exit_code: nil, vm_id: "vm-1410"}}`
-  - Residual risk: host-side orphan tap cleanup is still imperfect when a VM is terminated outside the normal runtime path; that does not block real telemetry capture, but it should be addressed during Phase 3 isolation hardening.
-
-#### P3.5 Enforce mount and network isolation end to end
-- Status: `[done]`
-- Scope:
-  - verify mount jail constraints
-  - verify network isolation on the actual VM execution path
-- Dependencies:
-  - P3.3
-- Risks:
-  - audit logic can differ from actual runtime enforcement if tested indirectly
-- Definition of done:
-  - isolation claims are validated by tests or controlled audits
-- Validation:
-  - `mix test apps/sandbox/test`
-- Progress notes:
-  - 2026-03-17: Codex - hardened mount-jail enforcement in `Sandbox.Provisioner`. `verify_mount_safety/1` now rejects sibling-prefix escapes like `~/.karyon/sandboxes_evil/...`, and `verify_mount_isolation/1` rejects symlink-backed mount targets even when they live under the sandbox root.
-  - 2026-03-17: Codex - extended the privileged helper cleanup path to detach TAP devices from the bridge before clearing persistence, so network teardown can remove VM interfaces instead of leaving orphaned `tap-vm-*` devices behind.
-  - 2026-03-17: Codex - fixed the runtime cleanup boundary so VMM teardown stops the live Firecracker process before helper cleanup runs. `Sandbox.VmmSupervisor` now attempts managed runtime shutdown and falls back to a targeted `pkill` by `--api-sock` path to avoid leaked VMs keeping TAP devices busy.
-  - 2026-03-17: Codex - added focused test coverage for sibling-prefix jail bypasses, symlink mount rejection, and the real external cleanup path that provisions a non-mock VM and asserts its tap device is absent after cleanup.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox/native/net_helper && cargo build --release` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs test/sandbox/security_isolation_test.exs` -> passed after test env isolation fixes
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/security_isolation_test.exs --include external` -> passed
-  - Validation: `pgrep -af firecracker` -> no remaining Firecracker processes after cleanup
-  - Validation: `ls /sys/class/net` -> no remaining `tap-vm-*` interfaces after cleanup
-
-## Phase 4: Core Planning And Memory Loops
-
-### Goal
-Replace cognitive placeholders with real graph-backed planning and feedback loops.
-
-### Entry criteria
-- Phase 3 complete
-
-### Exit criteria
-- planning is graph-backed
-- execution outcomes feed memory updates
-- engram operations reflect real topological data
-
-### Additional prerequisites
-- real service-backed Rhizome behavior
-- real sandbox execution
-
-### Tasks
-
-#### P4.1 Implement graph-backed motor planning
-- Status: `[done]`
-- Scope:
-  - replace static dependency lists in `MotorDriver`
-  - derive plan steps from real graph topology
-- Primary files:
-  - [`app/core/lib/core/motor_driver.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/motor_driver.ex)
-- Dependencies:
-  - P2.3
-  - P3.4
-- Risks:
-  - graph-backed planning can leak semantics into core if abstractions are not carefully placed
-- Definition of done:
-  - plans are produced from graph state rather than hardcoded sequences
-- Validation:
-  - `mix test apps/core/test`
-- Progress notes:
-  - 2026-03-17: Codex - replaced the `MotorDriver.fetch_causal_chain/1` placeholder with a real Memgraph traversal over `(:SuperNode)<-[:MEMBER_OF]-(:TaskNode|:Cell|:ASTNode|...)`. Planning now derives ordered step maps from actual Rhizome topology instead of hardcoded failure returns.
-  - 2026-03-17: Codex - normalized graph member nodes into stable motor-plan steps with `id`, `action`, `params`, and `predicted_outcome`, while preserving the existing structured plan envelope used by `dispatch_plan/2`.
-  - 2026-03-17: Codex - aligned the stale tier-5 core test with the structured plan contract and added a real external planning test that seeds a `SuperNode` plus `MEMBER_OF`/`SYNAPSE` topology in Memgraph and verifies ordered step derivation.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs test/core/tier5_global_test.exs` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs --include external` -> passed
-
-#### P4.2 Wire execution outcomes back into Rhizome
-- Status: `[done]`
-- Scope:
-  - persist real success and failure outcomes
-  - use them to inform future planning and pruning
-- Dependencies:
-  - P3.4
-  - P1.4
-- Risks:
-  - event persistence can become lossy if outcome schemas are not standardized
-- Definition of done:
-  - one execution loop updates memory with real outcomes
-- Validation:
-  - targeted core and rhizome integration tests
-- Progress notes:
-  - 2026-03-17: Codex - added `Rhizome.Memory.submit_execution_outcome/1` as the canonical Phase 4 outcome write path. It persists normalized execution-outcome documents into XTDB and projects a summary `(:Cell)-[:EMITTED]->(:ExecutionOutcome)` edge back into Memgraph.
-  - 2026-03-17: Codex - wired `Core.StemCell.handle_call({:execute, ...})` to persist both success and failure outcomes after motor dispatch without changing the caller-visible reply contract. Outcome records now include cell identity, action, executor, vm id, params, belief snapshot, status, exit code, and result/error payloads.
-  - 2026-03-17: Codex - added a stubbed unit test proving `StemCell.execute` emits an execution-outcome persistence request, a real external core test proving a `StemCell` execution stores an outcome in XTDB, and a real Rhizome test proving `submit_execution_outcome/1` is queryable from XTDB.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome_test.exs --include external` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs --include external` -> passed
-
-#### P4.3 Tighten engram import and export semantics
-- Status: `[done]`
-- Scope:
-  - define portable engram payload semantics
-  - ensure export and import round-trip meaningful structure
-- Dependencies:
-  - P1.6
-  - P2.3
-- Risks:
-  - backwards compatibility with sample engrams may need explicit migration handling
-- Definition of done:
-  - engrams are no longer opaque term dumps of ambiguous result shapes
-- Validation:
-  - `mix test apps/core/test`
-- Progress notes:
-  - 2026-03-17: Codex - replaced the opaque Erlang-term engram dump with a versioned portable envelope in `Core.Engram`. Captured engrams now contain explicit node and edge payloads, format/version metadata, counts, and a SHA-256 digest, then serialize as gzipped JSON instead of unsafe `binary_to_term` blobs.
-  - 2026-03-17: Codex - tightened import semantics to validate engram name safety, payload schema, and digest integrity before any Rhizome mutation. `inject/1` now reconstructs nodes and typed edges from explicit payload semantics rather than collapsing everything into anonymous `KNOWLEDGE_LINK` edges.
-  - 2026-03-17: Codex - added focused tests for invalid names, malformed payload rejection, valid schema import, and preserved the higher-level capture/inject cycle test against the new portable format.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/engram_test.exs test/core/tier5_global_test.exs` -> passed
-
-#### P4.4 Strengthen preflight and metabolic enforcement
-- Status: `[done]`
-- Scope:
-  - replace placeholder hardware topology checks where feasible
-  - better define failure behavior when environment violates constraints
-- Dependencies:
-  - Phase 2
-- Risks:
-  - real hardware checks may require environment-specific behavior or elevated access
-- Definition of done:
-  - preflight is more than a permissive placeholder outside mock mode
-- Validation:
-  - `mix test apps/core/test`
-- Progress notes:
-  - 2026-03-17: Codex - replaced the permissive non-mock memory-channel placeholder in `Core.Preflight` with actual topology evidence checks. Preflight now accepts either EDAC controller presence under `/sys/devices/system/edac/mc` or NUMA node memory evidence from `/sys/devices/system/node/node0/meminfo`, and it supports explicit test/runtime injection of the native module and filesystem probes.
-  - 2026-03-17: Codex - tightened scheduler and NUMA enforcement by routing preflight through injected native-module reads, preserving hard failure semantics outside mock mode while allowing explicit `mock_hardware?: false` coverage under the core test harness.
-  - 2026-03-17: Codex - strengthened `Core.MetabolicDaemon` boot behavior so failed preflight now either stops startup in strict mode or starts in a degraded metabolic state with elevated pressure when strict mode is disabled. Pressure calculation now folds in preflight degradation and high IOPS pressure instead of relying only on run-queue deltas.
-  - 2026-03-17: Codex - added focused tests for memory-topology failure, NUMA violation failure, degraded-start behavior, strict preflight refusal, and high-IOPS pressure elevation.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/preflight_test.exs test/core/metabolic_daemon_test.exs test/core/metabolic_stress_test.exs` -> passed
-
-## Phase 5: Observability, Releases, And Operations
-
-### Goal
-Make the platform deployable and operable in production.
-
-### Entry criteria
-- Phase 4 complete
-
-### Exit criteria
-- dashboard uses real telemetry
-- release path exists
-- operators have health, logs, and runbooks
-
-### Additional prerequisites
-- actual runtime telemetry from earlier phases
-
-### Tasks
-
-#### P5.1 Replace dashboard mock metrics
-- Status: `[done]`
-- Scope:
-  - remove random values for L3 misses and IOPS
-  - wire dashboard to actual organism telemetry
-- Primary files:
-  - [`app/dashboard/lib/dashboard/telemetry_bridge.ex`](/home/adrian/Projects/nexical/karyon/app/dashboard/lib/dashboard/telemetry_bridge.ex)
-  - [`app/dashboard/lib/dashboard_web/live/metabolic_live/index.ex`](/home/adrian/Projects/nexical/karyon/app/dashboard/lib/dashboard_web/live/metabolic_live/index.ex)
-- Dependencies:
-  - Phase 4
-- Risks:
-  - dashboard can become a misleading partial view if upstream telemetry is incomplete
-- Definition of done:
-  - dashboard visuals reflect actual signals only
-- Validation:
-  - dashboard tests and manual telemetry verification
-- Progress notes:
-  - 2026-03-17: Codex - moved the dashboard off direct `Core.Native` reads during bridge handling. `Core.MetabolicDaemon` now emits raw metabolic measurements as part of the `[:karyon, :metabolism, :poll]` telemetry metadata, including `l3_misses`, `run_queue`, `iops`, `pressure`, `atp`, and `preflight_status`.
-  - 2026-03-17: Codex - simplified `Dashboard.TelemetryBridge` to relay the real telemetry payload over Phoenix PubSub instead of polling upstream state a second time. The metabolic dashboard now reflects organism-emitted values only.
-  - 2026-03-17: Codex - added focused dashboard coverage for the PubSub bridge payload and the LiveView update path so the dashboard contract is validated from the UI boundary.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/metabolic_daemon_test.exs test/core/metabolic_stress_test.exs` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix deps.get` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test/dashboard/telemetry_bridge_test.exs apps/dashboard/test/dashboard_web/live/metabolic_live/index_test.exs` -> passed after dependency sync; umbrella emitted a non-blocking existing config warning about `:karyon` not being an available application
-
-#### P5.2 Add release and runtime deployment path
-- Status: `[done]`
-- Scope:
-  - define production runtime config
-  - create deployment and release workflow
-- Dependencies:
-  - Phase 4
-- Risks:
-  - runtime assumptions can diverge from development environments if not captured explicitly
-- Definition of done:
-  - app can be packaged and started in a production-shaped environment
-- Validation:
-  - release build verification
-- Progress notes:
-  - 2026-03-17: Codex - added a real umbrella release definition in `app/mix.exs` for a single `karyon` artifact that starts `core`, `nervous_system`, `sandbox`, `rhizome`, `sensory`, and `dashboard` together.
-  - 2026-03-17: Codex - added umbrella runtime configuration in `app/config/runtime.exs` and a matching `app/config/prod.exs`. Runtime env handling now covers shared service URLs, nociception port, strict preflight, sandbox host paths, and dashboard endpoint settings instead of relying on compile-time environment capture.
-  - 2026-03-17: Codex - moved the release workflow out of placeholder territory by adding `bin/build_release.sh`, updating `app/scripts/bootstrap_airgap.sh` to build and archive the real release artifact, and documenting the runtime contract in `docs/OPERATIONS/RELEASES.md`.
-  - 2026-03-17: Codex - fixed two production build blockers discovered during release validation: `protox` build-time `protoc` resolution now works in both the umbrella and dashboard asset-build contexts, and the dashboard asset entrypoint no longer imports the unresolved `phoenix-colocated/dashboard` module.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `bash -n /home/adrian/Projects/nexical/karyon/app/scripts/bootstrap_airgap.sh && bash -n /home/adrian/Projects/nexical/karyon/bin/build_release.sh` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon && bin/build_release.sh /tmp/karyon-rel-test` -> passed, created `/tmp/karyon-rel-test`
-  - Validation: `env SECRET_KEY_BASE=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef KARYON_DASHBOARD_SERVER=false /tmp/karyon-rel-test/bin/karyon daemon` -> passed
-  - Validation: `env SECRET_KEY_BASE=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef /tmp/karyon-rel-test/bin/karyon stop` -> passed
-  - Validation: `pgrep -af '/tmp/karyon-rel-test/.*/beam.smp|/tmp/karyon-rel-test/bin/karyon'` -> no remaining release processes
-
-#### P5.3 Add operator health surfaces and runbooks
-- Status: `[done]`
-- Scope:
-  - add health endpoints, dependency status, and operational docs
-- Dependencies:
-  - P5.1
-  - P5.2
-- Risks:
-  - operational docs can drift if they are not updated alongside runtime changes
-- Definition of done:
-  - operators have a supported view into system health and response procedures
-- Validation:
-  - manual inspection and docs review
-- Progress notes:
-  - 2026-03-17: Codex - added operator-facing dashboard health surfaces in `DashboardWeb.HealthController` and routed them at `/health/live`, `/health/ready`, and `/health/status`. Liveness reports process identity, while readiness and status expose `Core.ServiceHealth` dependency probes with HTTP `503` on degraded dependencies.
-  - 2026-03-17: Codex - introduced `Dashboard.OperatorHealth` as the dashboard-side runtime health adapter so health payloads include release metadata, dependency state, BEAM scheduler count, uptime, and whether the dashboard HTTP server is enabled.
-  - 2026-03-17: Codex - added focused controller coverage for live, ready, and degraded status responses, using an injected dashboard `:service_health_module` to validate operator-facing responses deterministically.
-  - 2026-03-17: Codex - documented the operator workflow and response guidance in `docs/OPERATIONS/HEALTH.md`, covering endpoint usage, dependency-specific failure interpretation, and release-mode behavior.
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
-  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test/dashboard_web/controllers/health_controller_test.exs apps/dashboard/test/dashboard_web/controllers/page_controller_test.exs apps/dashboard/test/dashboard_web/live/metabolic_live/index_test.exs` -> passed; umbrella emitted the existing non-blocking `:karyon` config warning during app startup
-
-## Phase 6: Scale, Resilience, And Production Validation
-
-### Goal
-Prove the system under real load and fault conditions.
-
-### Entry criteria
-- Phase 5 complete
-
-### Exit criteria
-- known throughput and recovery targets
-- validated chaos and resilience behavior
-- documented production operating envelope
-
-### Additional prerequisites
-- stable release path
-- service-backed integration environment
-
-### Tasks
-
-#### P6.1 Establish baseline performance measurements
-- Status: `[done]`
-- Scope:
-  - measure spawn rates, messaging throughput, sensory ingest speed, and consolidation cost
-- Dependencies:
-  - Phase 5
-- Risks:
-  - measurements can be misleading if environment and workload are not fixed
-- Definition of done:
-  - a baseline table of throughput and latency exists
-- Validation:
-  - benchmark outputs recorded in docs or repo artifacts
-- Progress notes:
-  - added `mix karyon.baseline` in `app/core/lib/mix/tasks/karyon.baseline.ex`
-  - baseline harness records spawn throughput, messaging throughput and latency, sensory parse throughput, and consolidation control-plane cost to JSON artifacts under `app/artifacts/benchmarks/`
-  - added `Rhizome.ConsolidationManager.run_once/1` so consolidation orchestration can be measured directly without the periodic GenServer loop
-  - recorded baseline artifact `app/artifacts/benchmarks/phase6_baseline_20260317.json`
-  - latest measured results:
-    - `29.74 cells/s` for `100` cell spawns over `3362 ms`
-    - `7085.46 msg/s` with `141.13 us` average end-to-end latency for `500` messages over `71 ms`
-    - `3147.62 ops/s` with `0.318 ms` average parse latency for `100` sensory parse iterations over `32 ms`
-    - consolidation control-plane average `0.15 ms` across `20` iterations, `21 ms` total
-  - validation commands:
-    - `cd app && env PATH=/tmp/protoc/bin:$PATH mix compile --force`
-    - `cd app && env PATH=/tmp/protoc/bin:$PATH mix karyon.baseline --spawn-count 100 --message-count 500 --parse-iterations 100 --consolidation-iterations 20 --output artifacts/benchmarks/phase6_baseline_20260317.json`
-  - non-blocking environment warnings during the run:
-    - scheduler binding reported `:unbound` instead of `tnnps`
-    - `inotify-tools` was missing for live reload
-    - dashboard asset tool version warnings were present
-
-#### P6.2 Run real chaos and recovery validation
-- Status: `[done]`
-- Scope:
-  - execute apoptosis and supervision recovery against real service-backed runs
-- Dependencies:
-  - P6.1
-- Risks:
-  - failure injection can be too shallow if it only targets processes and not backing services
-- Definition of done:
-  - recovery behavior is measured, not assumed
-- Validation:
-  - targeted chaos suite
-- Progress notes:
-  - added external recovery suite `app/core/test/core/recovery_chaos_integration_test.exs`
-  - the suite measures supervised child restart latency for:
-    - `Core.MetabolicDaemon`
-    - `NervousSystem.PainReceptor`
-    - `Rhizome.ConsolidationManager`
-  - the suite also measures cell apoptosis recovery with real XTDB-backed belief hydration using `app/core/config/genetics/base_stem_cell.yml`
-  - recorded recovery artifact `app/artifacts/benchmarks/phase6_recovery_20260317.json`
-  - latest measured results:
-    - `Core.MetabolicDaemon` restart recovery `51 ms`
-    - `NervousSystem.PainReceptor` restart recovery `51 ms`
-    - `Rhizome.ConsolidationManager` restart recovery `51 ms`
-    - cell apoptosis plus belief recovery `51 ms`
-  - validation commands:
-    - `cd app && mix compile`
-    - `cd app/core && mix test test/core/recovery_chaos_integration_test.exs --include external`
-  - run caveats:
-    - `PainReceptor` restart emits a transient `:eaddrinuse` bind retry on `tcp://127.0.0.1:5555` before the replacement `:pain_synapse` binds successfully
-    - `Rhizome.Native.optimize_graph/0` can still panic on current graph data, so the chaos suite validates `ConsolidationManager` restart and real service readiness rather than invoking the optimizer as part of recovery verification
-
-#### P6.3 Define production capacity and SLOs
-- Status: `[done]`
-- Scope:
-  - identify practical operating envelope
-  - define recovery and latency expectations
-- Dependencies:
-  - P6.1
-  - P6.2
-- Risks:
-  - SLOs may be set too early without enough workload realism
-- Definition of done:
-  - production limits and expectations are documented
-- Validation:
-  - docs review
-- Progress notes:
-  - added `docs/OPERATIONS/CAPACITY.md` to define the current validated operating envelope and initial SLOs
-  - anchored the production envelope to the measured artifacts:
-    - `app/artifacts/benchmarks/phase6_baseline_20260317.json`
-    - `app/artifacts/benchmarks/phase6_recovery_20260317.json`
-  - documented current minimum proven capacity on the measured four-scheduler node:
-    - `29.74 cells/s` spawn throughput
-    - `7085.46 msg/s` local synapse throughput at `141.13 us` average end-to-end latency
-    - `3147.62 ops/s` sensory parse throughput at `0.318 ms` average latency
-    - `51 ms` supervised child restart recovery
-    - `51 ms` cell apoptosis plus XTDB-backed belief recovery
-  - defined conservative initial SLOs:
-    - readiness availability `>= 99.5%`
-    - supervised restart and cell recovery `p95 <= 250 ms`
-    - cell spawn throughput floor `>= 20 cells/s`
-    - local synapse throughput floor `>= 5000 msg/s`
-    - average local synapse and sensory parse latency `<= 1 ms`
-  - documented the current limits of those SLOs:
-    - single-node local environment only
-    - consolidation numbers exclude real optimizer and external graph-service latency
-    - `Rhizome.Native.optimize_graph/0` remains unsafe on current live graph data
-    - `PainReceptor` restart still performs a transient bind retry on recovery
-
-## Parallel-Safe Work
-
-These tasks can run in parallel once their dependencies are satisfied:
-
-- P0.2 and P0.3
-- P1.7 and P1.1
-- P2.1 and service prerequisite documentation
-- P5.2 and P5.3 after runtime telemetry is stable
-
-Avoid parallel edits on the same files or the same app boundary without an explicit merge plan.
-
-## App-Specific Ready Checklists
-
-## Core
-- `[todo]` graph-backed planning replaces static plans
-- `[todo]` XTDB hydration uses the real Rhizome contract
-- `[todo]` sandbox execution path is authentic
-- `[todo]` engram payloads are meaningful and typed
-- `[todo]` preflight and metabolic logic enforce real constraints
-
-## Nervous System
-- `[todo]` unsupported transports are explicitly rejected
-- `[todo]` nociception path is reliable
-- `[todo]` transport faults emit telemetry
-- `[todo]` ZMQ and NATS integration are tested in supported topologies
-
-## Rhizome
-- `[todo]` query results are structured
-- `[todo]` XTDB contract is coherent
-- `[todo]` service endpoints are configurable
-- `[todo]` archival and consolidation are validated with real services
-
-## Sandbox
-- `[todo]` helper paths resolve correctly
-- `[todo]` Firecracker lifecycle is real
-- `[todo]` no app-layer privileged cleanup shortcuts remain
-- `[todo]` execution telemetry is authentic
-- `[todo]` mount and network isolation are verified
-
-## Sensory
-- `[todo]` parse and ingest flows share one authoritative schema
-- `[todo]` malformed input handling is robust
-- `[todo]` repository-scale ingest performance is measured
-
-## Dashboard
-- `[todo]` mocked metrics are removed
-- `[todo]` real runtime state is visible
-- `[todo]` production endpoint hardening exists
-
-## Docs
-- `[todo]` public-book reference issue is resolved
-- `[todo]` current-state versus target-state docs exist
-- `[todo]` production deployment guidance exists
-
-## Milestone Gates
-
-### Milestone A: Honest Baseline
-- Phase 0 complete
-
-### Milestone B: Correct Runtime Spine
-- Phase 1 complete
-
-### Milestone C: Real Service-Backed Organism
-- Phase 2 complete
-
-### Milestone D: Real Secure Execution
-- Phase 3 complete
-
-### Milestone E: Closed Cognitive Loop
-- Phase 4 complete
-
-### Milestone F: Production Candidate
-- Phase 5 complete
-
-### Milestone G: Production Validated
-- Phase 6 complete
-
-## Definition Of Done For The Entire Program
-
-Karyon is production-ready only when:
-
-- critical runtime behavior is real rather than simulated
-- app boundaries are stable and integration-tested
-- Memgraph, XTDB, NATS, and Firecracker are all exercised in supported environments
-- the dashboard and telemetry reflect real system state
-- secure execution boundaries are enforced and auditable
-- release, deployment, rollback, and operator runbooks exist
-- load, fault, and recovery characteristics are measured and documented
-
-## Recommended Immediate Next Task Sequence
-
-Start with:
-
-1. `P0.1`
-2. `P0.2`
-3. `P1.1`
-4. `P1.2`
-5. `P1.3`
-6. `P1.4`
-
-That sequence removes the biggest sources of false progress and unlocks the largest amount of real functionality across the current codebase.
+Service-backed parity phases must add the relevant integration command or manual verification for Memgraph, XTDB, NATS, and Firecracker.
+
+## Part I Milestone
+
+Milestone condition:
+Every Chapter 1 and Chapter 2 phase is `[done]`, chapter wrap-up conformance tests exist, and the app no longer depends on monolithic, stateless, or purely prompt-response assumptions for its core reasoning loop.
+
+## C01-S01 [todo] Chapter 1 / Section 1
+
+**Source**
+`docs/src/content/docs/part-1/chapter-1/1-introduction.md`
+
+**Book Claim**
+Karyon must replace monolithic, static, stateless AI behavior with a sovereign active-inference organism grounded in continuous state and topological memory.
+
+**Observed Code Reality**
+The umbrella structure matches the intended subsystem split, but the implementation still contains direct request-response flows and local shortcut logic that do not yet prove a closed active-inference loop.
+
+**Gap**
+There is no explicit executable parity rubric defining what counts as monolithic, stateless, or non-topological behavior across the app boundary.
+
+**Implementation Tasks**
+- Create a book-parity rubric module or test support package that defines forbidden monolithic or stateless patterns.
+- Add architecture conformance tests that assert stateful graph-backed operation for planning, memory, and execution paths.
+- Audit umbrella app boundaries for direct prompt-response style control flow and catalog all violations.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+An explicit parity rubric exists and failing tests catch monolithic or stateless regressions at the app boundary.
+
+## C01-S02 [todo] Chapter 1 / Section 2
+
+**Source**
+`docs/src/content/docs/part-1/chapter-1/2-the-statistical-dead-end.md`
+
+**Book Claim**
+The organism must not behave like a prompt-conditioned autocomplete engine. Planning and action should emerge from graph-backed state transitions rather than localized text-driven responses.
+
+**Observed Code Reality**
+`Core.MotorDriver` and `Core.StemCell` still use direct graph queries, stringly step generation, and immediate execution dispatch patterns.
+
+**Gap**
+Planning is not yet expressed as a typed, graph-native state transition system with explicit attractor and delta semantics.
+
+**Implementation Tasks**
+- Introduce typed planning contracts for attractors, graph steps, and execution deltas.
+- Remove remaining prompt-response style orchestration shortcuts from core planning paths.
+- Persist planning transitions as first-class graph entities instead of transient local maps.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/motor_driver_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/stem_cell_test.exs`
+
+**Exit Criteria**
+Core planning is graph-backed and typed, and direct request-response planning shortcuts are removed from runtime behavior.
+
+## C01-S03 [todo] Chapter 1 / Section 3
+
+**Source**
+`docs/src/content/docs/part-1/chapter-1/3-catastrophic-forgetting-hardware-economics.md`
+
+**Book Claim**
+The system must support durable local memory and hardware-aware operation rather than relying on ephemeral context or brute-force scale.
+
+**Observed Code Reality**
+Belief hydration exists through XTDB, and metabolism exists through `Core.MetabolicDaemon`, but durable recovery and hardware-driven execution budgeting remain incomplete and uneven across subsystems.
+
+**Gap**
+There is no unified durable memory and hardware-economics contract that forces all key loops to operate with bounded context and explicit resource budgets.
+
+**Implementation Tasks**
+- Standardize durable belief recovery for cells and planning state.
+- Tie execution admission and scheduling to metabolic resource budgets.
+- Add bounded-context recovery tests across core, rhizome, and sandbox edges.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/state_recovery_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/metabolic_stress_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+
+**Exit Criteria**
+Durable recovery and hardware-budget enforcement are explicit and validated across the main cognitive loop.
+
+## C01-S04 [todo] Chapter 1 / Section 4
+
+**Source**
+`docs/src/content/docs/part-1/chapter-1/4-the-predictive-coding-failure.md`
+
+**Book Claim**
+Adaptation must be driven by prediction error and structural graph update, not by ad hoc output handling.
+
+**Observed Code Reality**
+Prediction errors are emitted, but adaptation paths still include direct query mutation, placeholder edge weakening, and partial local handling that bypass a unified learning contract.
+
+**Gap**
+Prediction-error ingestion is not yet the single authoritative path for structural correction, and the current surprise path still depends on a hardcoded variational free energy calculation instead of a typed model grounded in expectations, precision, and observed outcomes.
+
+**Implementation Tasks**
+- Define a typed prediction-error ingestion pipeline from nervous system to rhizome update.
+- Replace the hardcoded variational free energy function with a typed surprise model that explicitly combines expectation precision, observed failure or success telemetry, and weighted priors from active objectives.
+- Remove ad hoc mutation branches that bypass the prediction-error path.
+- Ensure execution failures, compiler failures, and sensory contradictions all land in the same learning loop.
+- Persist surprise inputs and outputs so the computed free energy can be audited, replayed, and compared across runs.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/nervous_system/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/recovery_chaos_integration_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/stem_cell_test.exs`
+
+**Exit Criteria**
+Prediction error becomes the sole authoritative trigger for structural adaptation, and surprise is computed through a typed variational free energy model rather than a hardcoded placeholder.
+
+## C01-S05 [todo] Chapter 1 / Section 5
+
+**Source**
+`docs/src/content/docs/part-1/chapter-1/5-chapter-wrap-up.md`
+
+**Book Claim**
+The chapter’s rejection of transformer-like assumptions must remain enforceable as the system evolves.
+
+**Observed Code Reality**
+No chapter-level conformance suite exists.
+
+**Gap**
+Regression can reintroduce monolithic or stateless behavior without a dedicated guardrail.
+
+**Implementation Tasks**
+- Add Chapter 1 conformance tests.
+- Document forbidden architectural regressions derived from Chapter 1.
+- Require Chapter 1 tests in CI for affected apps.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+
+**Exit Criteria**
+Chapter 1 parity is executable and fails closed on regression.
+
+## C02-S01 [todo] Chapter 2 / Section 1
+
+**Source**
+`docs/src/content/docs/part-1/chapter-2/1-introduction.md`
+
+**Book Claim**
+The organism’s biology-first principles must be encoded as concrete runtime invariants.
+
+**Observed Code Reality**
+The codebase uses biological naming and subsystem mapping, but those invariants are not codified as shared executable rules across apps.
+
+**Gap**
+Biology-first architecture is descriptive rather than enforceable.
+
+**Implementation Tasks**
+- Add shared architecture invariants for biology-first behavior.
+- Expose those invariants to core, nervous system, rhizome, sandbox, and sensory tests.
+- Fail if shared-state, centralized-lock, or synchronous bottleneck patterns are introduced.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+
+**Exit Criteria**
+Biology-first rules are expressed as common executable invariants across the umbrella.
+
+## C02-S02 [todo] Chapter 2 / Section 2
+
+**Source**
+`docs/src/content/docs/part-1/chapter-2/2-the-cellular-state-machine.md`
+
+**Book Claim**
+The core runtime must be a cellular actor system with decentralized discovery and without central coordination bottlenecks.
+
+**Observed Code Reality**
+`Core.EpigeneticSupervisor`, `Core.StemCell`, and `:pg` routing exist, but differentiation and discovery remain simplistic and some paths still depend on named global processes.
+
+**Gap**
+The actor model exists structurally but not yet with the full decentralization and anti-bottleneck rigor described by the book.
+
+**Implementation Tasks**
+- Reduce dependency on globally named processes where decentralized discovery is more appropriate.
+- Formalize role groups and routing contracts through `:pg` and local message passing.
+- Add stress tests for spawn, routing, and apoptosis under high churn.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/stem_cell_property_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/epigenetic_supervisor_stress_test.exs`
+
+**Exit Criteria**
+Discovery and coordination are decentralized and validated under load.
+
+## C02-S03 [todo] Chapter 2 / Section 3
+
+**Source**
+`docs/src/content/docs/part-1/chapter-2/3-predictive-processing.md`
+
+**Book Claim**
+Predictive processing requires immediate surprise propagation, expectation management, and pain delivery as a closed loop.
+
+**Observed Code Reality**
+`NervousSystem.PainReceptor` and expectation handling exist, but telemetry attachment, metadata handling, and feedback propagation remain partial and inconsistent.
+
+**Gap**
+The closed loop from expectation to surprise to structural response is incomplete, and the expectation model does not yet encode how active objectives and values bias surprise calculation.
+
+**Implementation Tasks**
+- Harden `PainReceptor` recursion avoidance and event capture semantics.
+- Make expectations typed and traceable through execution and nociception.
+- Define how expectation precision and active objective weights contribute to variational free energy.
+- Persist prediction-error lineage into Rhizome for later consolidation.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/nervous_system/test/nervous_system/pain_receptor_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/stem_cell_test.exs`
+
+**Exit Criteria**
+Expectation formation, weighted surprise, and structural response form one reliable loop.
+
+## C02-S04 [todo] Chapter 2 / Section 4
+
+**Source**
+`docs/src/content/docs/part-1/chapter-2/4-abstract-state-prediction.md`
+
+**Book Claim**
+The organism must predict abstract structural states rather than literal token or string outputs.
+
+**Observed Code Reality**
+Planning and memory paths still rely on stringly IDs, direct Cypher, and implicit local maps.
+
+**Gap**
+Abstract state prediction is not represented by explicit typed contracts, and attractor states are not yet linked to weighted needs or values that can drive improvement selection.
+
+**Implementation Tasks**
+- Define typed abstract-state, expectation, and predicted-outcome schemas.
+- Define attractor-state schemas that include weighted needs, values, and objective priors.
+- Replace string-concatenated planning assumptions with structured state transitions.
+- Ensure sensory and execution telemetry project into abstract-state entities, not raw ad hoc strings.
+- Require planning to consume weighted attractors rather than flat goals.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/motor_driver_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+
+**Exit Criteria**
+Predictions and plans are modeled as typed abstract states across the loop, and attractors carry weighted priors that can drive improvement selection.
+
+## C02-S05 [todo] Chapter 2 / Section 5
+
+**Source**
+`docs/src/content/docs/part-1/chapter-2/5-continuous-local-plasticity.md`
+
+**Book Claim**
+Learning must be local, forward-only, and structurally specific, with safe strengthening and pruning semantics.
+
+**Observed Code Reality**
+Local pruning exists only as placeholder `create_pointer` and `weaken_edge` behavior keyed by synthetic IDs.
+
+**Gap**
+Plasticity is not yet grounded in real graph edges, typed local pathways, or explicit strengthen versus prune semantics.
+
+**Implementation Tasks**
+- Replace synthetic pointer-based weakening with real edge selection and mutation semantics.
+- Add strengthening paths for successful execution and perception reinforcement.
+- Enforce forward-only local plasticity and prohibit global retraining-style shortcuts.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/optimizer_complex_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/native_test.exs`
+
+**Exit Criteria**
+Plasticity operates on real local pathways with validated strengthen and prune behavior.
+
+## C02-S06 [todo] Chapter 2 / Section 6
+
+**Source**
+`docs/src/content/docs/part-1/chapter-2/6-chapter-wrap-up.md`
+
+**Book Claim**
+The biological shift must survive integration and regression.
+
+**Observed Code Reality**
+No chapter-level biological-shift conformance suite exists.
+
+**Gap**
+Forward-only local learning and actor-style cognition can regress silently.
+
+**Implementation Tasks**
+- Add Chapter 2 conformance tests for actor isolation, predictive processing, abstract-state prediction, and local plasticity.
+- Wire these tests into parity CI.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+
+**Exit Criteria**
+Chapter 2 biology-first behavior is enforced continuously by tests.
+
+## Part II Milestone
+
+Milestone condition:
+All Chapter 3 and Chapter 4 phases are `[done]`, subsystem boundaries are explicit, membrane behavior is documented against the conflict ledger, and cell lifecycle behavior is governed by validated DNA and epigenetic rules.
+
+## C03-S01 [todo] Chapter 3 / Section 1
+
+**Source**
+`docs/src/content/docs/part-2/chapter-3/1-introduction.md`
+
+**Book Claim**
+The physical organism must consist of a sterile nucleus, BEAM cytoplasm, Rust organelles, a hard membrane, and a nervous system.
+
+**Observed Code Reality**
+The umbrella app split broadly matches the book, but interfaces and responsibilities remain only partially explicit and are not defended by subsystem contracts.
+
+**Gap**
+Subsystem boundaries are conceptually present but not fully formalized.
+
+**Implementation Tasks**
+- Define subsystem contracts for nucleus, cytoplasm, organelles, membrane, and nervous system.
+- Add contract tests proving the intended ownership boundaries.
+- Document which runtime responsibilities are permitted in each app.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+
+**Exit Criteria**
+Subsystem boundaries are explicit, documented, and test-backed.
+
+## C03-S02 [todo] Chapter 3 / Section 2
+
+**Source**
+`docs/src/content/docs/part-2/chapter-3/2-the-microkernel-philosophy.md`
+
+**Book Claim**
+The microkernel core must remain mechanically powerful but topologically sterile and free of business or domain logic.
+
+**Observed Code Reality**
+Core modules still contain project-specific behavior and direct operational assumptions that should live in DNA, Rhizome, or explicit edge modules.
+
+**Gap**
+Sterility is not consistently preserved in `app/core`.
+
+**Implementation Tasks**
+- Audit `app/core/lib/core/**` for embedded project semantics and move them into DNA, Rhizome state, or bounded adapters.
+- Convert direct executors and action policies into declarative or graph-derived forms.
+- Add tests preventing future leakage of domain-specific logic into sterile modules.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+Core is reduced to orchestration, safety, and lifecycle mechanics with no hidden business logic.
+
+## C03-S03 [todo] Chapter 3 / Section 3
+
+**Source**
+`docs/src/content/docs/part-2/chapter-3/3-erlang-beam-cytoplasm.md`
+
+**Book Claim**
+The BEAM layer must provide crash-only, scalable, lock-free cellular concurrency and routing.
+
+**Observed Code Reality**
+OTP supervision exists and some scale or chaos tests exist, but large-scale routing and failure semantics are not yet proven end to end.
+
+**Gap**
+The BEAM cytoplasm is scaffolded but not yet verified as the exact organism substrate the book describes.
+
+**Implementation Tasks**
+- Extend supervision and recovery tests for high churn and localized failure.
+- Audit for synchronous bottlenecks and centralized chokepoints.
+- Add scale validation for process-group routing and message flow.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/tier5_global_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/chaos/resilience_test.exs`
+
+**Exit Criteria**
+BEAM-scale concurrency and crash-only recovery are validated as core runtime guarantees.
+
+## C03-S04 [todo] Chapter 3 / Section 4
+
+**Source**
+`docs/src/content/docs/part-2/chapter-3/4-rust-nifs-organelles.md`
+
+**Book Claim**
+Rust organelles must offload heavy work safely using dirty schedulers, explicit contracts, and safe memory boundaries.
+
+**Observed Code Reality**
+NIF crates exist for metabolism, rhizome, and sensory behavior, but dirty-scheduler usage, zero-copy assumptions, and panic containment are not yet comprehensively audited.
+
+**Gap**
+NIF safety and contract discipline are incomplete relative to the book.
+
+**Implementation Tasks**
+- Audit all Rust NIF exports for dirty-scheduler suitability.
+- Add explicit error and panic containment across the Elixir boundary.
+- Verify memory ownership and zero-copy assumptions where applicable.
+- Add contract tests for all cross-language interfaces.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/native_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/nif_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test/sensory/nif_test.exs`
+
+**Exit Criteria**
+All organelle boundaries are explicit, typed, and safe under stress.
+
+## C03-S05 [todo] Chapter 3 / Section 5
+
+**Source**
+`docs/src/content/docs/part-2/chapter-3/5-the-kvm-qemu-membrane.md`
+
+**Book Claim**
+All action must cross a hardware-isolated membrane backed by microVM execution and an explicit workspace bridge.
+
+**Observed Code Reality**
+Sandbox modules provision Firecracker and enforce helper-based networking, but workspace bridging, plan-driven execution, and the storage bridge contract remain incomplete.
+
+**Gap**
+The membrane exists operationally only in part, and the resolved `virtio-blk` plus overlay workspace model is not yet fully implemented end to end.
+
+**Implementation Tasks**
+- Document the resolved membrane bridge contract: immutable base rootfs plus `virtio-blk` plus overlay-backed writable workspace for each Firecracker VM.
+- Remove or rewrite stale `virtio-fs` assumptions in sandbox code comments, docs, and tests.
+- Implement mounted workspace policy and execution bridge semantics on top of the block-backed workspace model.
+- Implement the per-VM writable workspace lifecycle, including creation, attachment, isolation, and teardown.
+- Ensure all mutation or compile paths go through the membrane and never touch host state directly.
+- Add end-to-end membrane tests for boot, bridge, isolation, telemetry, and teardown.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sandbox/test`
+- Firecracker-backed sandbox smoke validation in a host environment with real kernel and rootfs assets.
+
+**Exit Criteria**
+All action crosses the membrane by policy and by verified runtime behavior using the resolved `virtio-blk` plus overlay workspace contract.
+
+## C03-S06 [todo] Chapter 3 / Section 6
+
+**Source**
+`docs/src/content/docs/part-2/chapter-3/6-the-nervous-system.md`
+
+**Book Claim**
+The nervous system must separate peer-to-peer signaling and global control-plane signaling with strict backpressure and low-latency rules.
+
+**Observed Code Reality**
+ZeroMQ synapses and NATS endocrine signaling exist, but role separation, buffer semantics, and telemetry around pressure and failure remain incomplete.
+
+**Gap**
+The nervous system exists, but not yet as a fully validated dual-plane signaling architecture.
+
+**Implementation Tasks**
+- Finalize transport role separation between ZeroMQ and NATS.
+- Enforce zero-buffer or bounded-buffer semantics consistently.
+- Add transport telemetry for backpressure, retries, and degraded modes.
+- Validate message contracts through protobuf or typed schemas end to end.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/nervous_system/test`
+
+**Exit Criteria**
+The nervous system behaves as a validated dual-plane signaling fabric under load and failure.
+
+## C03-S07 [todo] Chapter 3 / Section 7
+
+**Source**
+`docs/src/content/docs/part-2/chapter-3/7-chapter-wrap-up.md`
+
+**Book Claim**
+Physical synthesis across the organism layers must remain coherent.
+
+**Observed Code Reality**
+Cross-app contract tests are still sparse relative to the density of the interfaces.
+
+**Gap**
+Subsystem integration can drift without chapter-level physical synthesis checks.
+
+**Implementation Tasks**
+- Add cross-app runtime contract tests for core, sandbox, nervous system, and rhizome.
+- Enforce membrane and signaling expectations in CI.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+
+**Exit Criteria**
+Chapter 3 physical synthesis is guarded by cross-app contract validation.
+
+## C04-S01 [todo] Chapter 4 / Section 1
+
+**Source**
+`docs/src/content/docs/part-2/chapter-4/1-introduction.md`
+
+**Book Claim**
+DNA and epigenetics define the organism’s control plane for role, policy, and lifecycle.
+
+**Observed Code Reality**
+DNA files exist, but their schema and relationship to differentiation and supervision are informal.
+
+**Gap**
+The control plane is not yet explicit or strongly validated.
+
+**Implementation Tasks**
+- Define the control-plane model linking DNA, differentiation, metabolism, and apoptosis.
+- Add schema ownership and validation rules for all DNA assets.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+DNA and epigenetic control boundaries are explicit and test-backed.
+
+## C04-S02 [todo] Chapter 4 / Section 2
+
+**Source**
+`docs/src/content/docs/part-2/chapter-4/2-declarative-genetics.md`
+
+**Book Claim**
+Cell behavior must be described declaratively through structured DNA rather than embedded logic.
+
+**Observed Code Reality**
+YAML DNA is used, but schema rigor, inheritance, validation, and allowed-action policy are incomplete.
+
+**Gap**
+DNA remains partially declarative and partially ad hoc.
+
+**Implementation Tasks**
+- Define and validate DNA schema versions, inheritance, defaults, and allowed-actions semantics.
+- Prevent startup when DNA violates required policy.
+- Centralize DNA parsing and validation failures into testable error flows.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/preflight_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/tier1_cellular_test.exs`
+
+**Exit Criteria**
+DNA is authoritative, validated, and sufficient to govern cell behavior without embedded policy leakage.
+
+## C04-S03 [todo] Chapter 4 / Section 3
+
+**Source**
+`docs/src/content/docs/part-2/chapter-4/3-the-epigenetic-supervisor.md`
+
+**Book Claim**
+The epigenetic supervisor must transcribe DNA into differentiated cells based on environmental pressure.
+
+**Observed Code Reality**
+`Core.EpigeneticSupervisor` only gates spawning on coarse metabolic pressure and starts generic `Core.StemCell` children.
+
+**Gap**
+Differentiation and environmental transcription are too simplistic.
+
+**Implementation Tasks**
+- Expand the supervisor to choose differentiated roles based on environmental and graph context.
+- Allow dynamic transcription of DNA variants into specialized cells.
+- Persist differentiation decisions and outcomes into Rhizome.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/epigenetic_supervision_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/epigenetic_supervisor_stress_test.exs`
+
+**Exit Criteria**
+Cells are differentiated through validated environmental transcription rather than uniform spawning.
+
+## C04-S04 [todo] Chapter 4 / Section 4
+
+**Source**
+`docs/src/content/docs/part-2/chapter-4/4-apoptosis-digital-torpor.md`
+
+**Book Claim**
+The organism must shed cells, enter torpor, and preserve homeostasis based on metabolic survival calculus.
+
+**Observed Code Reality**
+`Core.MetabolicDaemon` and `Core.StemCell` perform targeted apoptosis and torpor-like behavior, but revival policy, scope, and semantics are incomplete.
+
+**Gap**
+Apoptosis and torpor exist, but not as a formalized lifecycle contract.
+
+**Implementation Tasks**
+- Define lifecycle states for active, torpor, shed, revived, and terminated cells.
+- Add selective pruning and recovery policy by cell role and pressure class.
+- Ensure torpor preserves safety-critical cells and revival is deterministic.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/cellular_resilience_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/chaos/apoptosis_test.exs`
+
+**Exit Criteria**
+Apoptosis and torpor are explicit lifecycle mechanisms with validated role-aware behavior.
+
+## C04-S05 [todo] Chapter 4 / Section 5
+
+**Source**
+`docs/src/content/docs/part-2/chapter-4/5-chapter-wrap-up.md`
+
+**Book Claim**
+The regulated organism must remain coherent as DNA and epigenetic features evolve.
+
+**Observed Code Reality**
+No chapter-level regression suite exists for DNA plus lifecycle regulation.
+
+**Gap**
+Regulation features can drift independently.
+
+**Implementation Tasks**
+- Add Chapter 4 conformance tests for DNA, differentiation, apoptosis, and torpor.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+Chapter 4 regulation behavior is protected by dedicated regression coverage.
+
+## Part III Milestone
+
+Milestone condition:
+All Chapter 5 and Chapter 6 phases are `[done]`, working memory and archive are clearly separated, and learning or consolidation behavior operates on real graph semantics with validated temporal consistency.
+
+## C05-S01 [todo] Chapter 5 / Section 1
+
+**Source**
+`docs/src/content/docs/part-3/chapter-5/1-introduction.md`
+
+**Book Claim**
+The Rhizome is the topological memory substrate for the organism.
+
+**Observed Code Reality**
+Rhizome apps and NIFs exist, but the full memory-topology contract is not yet expressed as one coherent standard.
+
+**Gap**
+The repo lacks a shared topological memory contract governing working memory, archive, and temporal access patterns.
+
+**Implementation Tasks**
+- Define memory-topology contracts for active graph state, archive state, and consolidation flow.
+- Add test helpers that assert those contracts in all memory-facing code.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+
+**Exit Criteria**
+Memory topology expectations are explicit and used across the Rhizome boundary.
+
+## C05-S02 [todo] Chapter 5 / Section 2
+
+**Source**
+`docs/src/content/docs/part-3/chapter-5/2-graph-vs-matrix.md`
+
+**Book Claim**
+The organism must reason and persist through graph topology, not through opaque matrix-like or blob interfaces.
+
+**Observed Code Reality**
+Memory code is graph-oriented, but several interfaces still pass opaque strings, ad hoc JSON blobs, or direct query strings.
+
+**Gap**
+Graph semantics are not enforced across all interfaces.
+
+**Implementation Tasks**
+- Replace opaque or stringly memory contracts with typed graph entities and operations.
+- Minimize direct query-string construction in high-level Elixir modules.
+- Add tests that reject unsupported opaque storage shortcuts.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/memory_test.exs`
+
+**Exit Criteria**
+High-level memory interfaces expose graph semantics directly and forbid opaque shortcuts.
+
+## C05-S03 [todo] Chapter 5 / Section 3
+
+**Source**
+`docs/src/content/docs/part-3/chapter-5/3-working-memory-vs-archive.md`
+
+**Book Claim**
+Working memory and archive must be separate tiers with distinct operational semantics.
+
+**Observed Code Reality**
+Memgraph and XTDB integrations both exist, but the boundary between active context and immutable archive is still porous in APIs and runtime usage.
+
+**Gap**
+Tier separation is incomplete and inconsistently enforced.
+
+**Implementation Tasks**
+- Define clear API boundaries for working-memory versus archive operations.
+- Ensure execution outcomes, beliefs, and consolidation artifacts are persisted in the correct tier.
+- Add tests that assert separation and correct projection between tiers.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/service_integration_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/bitemporal_test.exs`
+
+**Exit Criteria**
+Every memory path clearly targets working memory, archive, or projection between them.
+
+## C05-S04 [todo] Chapter 5 / Section 4
+
+**Source**
+`docs/src/content/docs/part-3/chapter-5/4-multi-version-concurrency-control.md`
+
+**Book Claim**
+Temporal graph access must remain lock-free and bitemporal under concurrency.
+
+**Observed Code Reality**
+`Rhizome.Xtdb` supports a minimal submit and query shape, but the semantics are simplified and do not yet prove robust MVCC behavior.
+
+**Gap**
+Bitemporal guarantees, version retention, and concurrency semantics are underpowered.
+
+**Implementation Tasks**
+- Strengthen XTDB-facing submit and query semantics.
+- Add version retention, bitemporal querying, and concurrent access tests.
+- Ensure archive operations never degrade into destructive update assumptions.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/temporal_query_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/property/memory_consistency_test.exs`
+
+**Exit Criteria**
+MVCC and bitemporal behavior are real, tested, and stable under concurrent access.
+
+## C05-S05 [todo] Chapter 5 / Section 5
+
+**Source**
+`docs/src/content/docs/part-3/chapter-5/5-chapter-wrap-up.md`
+
+**Book Claim**
+Temporal graph behavior must remain stable as the system grows.
+
+**Observed Code Reality**
+There is no single chapter-level temporal graph parity suite.
+
+**Gap**
+Topology and temporal guarantees can regress independently.
+
+**Implementation Tasks**
+- Add Chapter 5 conformance tests covering graph semantics, tier separation, and MVCC.
+- Require service-backed temporal validation in parity CI when the environment is available.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+
+**Exit Criteria**
+Chapter 5 temporal graph parity is enforced by dedicated tests.
+
+## C06-S01 [todo] Chapter 6 / Section 1
+
+**Source**
+`docs/src/content/docs/part-3/chapter-6/1-introduction.md`
+
+**Book Claim**
+Learning and consolidation must operate as an explicit synaptic plasticity loop.
+
+**Observed Code Reality**
+Relevant pieces exist across core, nervous system, and rhizome, but the full contract is not explicit.
+
+**Gap**
+The learning loop is fragmented and not defined end to end.
+
+**Implementation Tasks**
+- Define the end-to-end learning loop contract.
+- Bind successful perception, action, failure, and sleep-cycle consolidation into one system model.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+
+**Exit Criteria**
+The learning loop is documented, implemented, and validated as one flow.
+
+## C06-S02 [todo] Chapter 6 / Section 2
+
+**Source**
+`docs/src/content/docs/part-3/chapter-6/2-hebbian-wiring-spatial-pooling.md`
+
+**Book Claim**
+The organism must convert repeated co-occurrence into structural graph organization through spatial pooling and Hebbian wiring.
+
+**Observed Code Reality**
+Sensory quantization exists, but no real spatial-pooling or co-occurrence wiring layer is implemented.
+
+**Gap**
+Learning from repeated structure is missing at the algorithmic level.
+
+**Implementation Tasks**
+- Add a structural co-occurrence and pooling pipeline for sensory and execution-derived inputs.
+- Persist pooled abstractions into Rhizome with typed relations.
+- Test that repeated patterns strengthen structural pathways.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/optimizer_complex_test.exs`
+
+**Exit Criteria**
+Repeated structural patterns produce validated pooled graph organization.
+
+## C06-S03 [todo] Chapter 6 / Section 3
+
+**Source**
+`docs/src/content/docs/part-3/chapter-6/3-the-pain-receptor.md`
+
+**Book Claim**
+Pain must be an immediate, typed, mathematically meaningful prediction-error signal that drives pruning.
+
+**Observed Code Reality**
+Pain signaling exists but uses mixed timestamp units, simplified metadata, and incomplete downstream graph linkage.
+
+**Gap**
+Pain is not yet a complete typed failure-to-graph update mechanism.
+
+**Implementation Tasks**
+- Standardize prediction-error schema, timestamps, and metadata semantics.
+- Connect pain signals directly to typed graph update and pruning records.
+- Add failure-mode tests for recursion resistance, delivery guarantees, and pruning behavior.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/nervous_system/test/nervous_system/pain_receptor_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/recovery_chaos_integration_test.exs`
+
+**Exit Criteria**
+Pain signals are typed, reliable, and directly linked to graph correction.
+
+## C06-S04 [todo] Chapter 6 / Section 4
+
+**Source**
+`docs/src/content/docs/part-3/chapter-6/4-the-sleep-cycle-memory-consolidation.md`
+
+**Book Claim**
+Sleep must consolidate, abstract, prune, and archive memory rather than simply delete noisy structures.
+
+**Observed Code Reality**
+`Rhizome.ConsolidationManager` bridges to XTDB and optimizes the graph, but memory relief still performs coarse high-VFE deletion.
+
+**Gap**
+Consolidation is too destructive and not abstract enough.
+
+**Implementation Tasks**
+- Replace coarse deletion with abstraction, clustering, archival projection, and targeted pruning.
+- Define which memories become super-nodes, which are archived, and which are pruned.
+- Add replay and consolidation correctness tests.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/sleep_consolidation_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/consolidation_manager_test.exs`
+
+**Exit Criteria**
+Sleep produces validated abstraction and archival behavior instead of blunt deletion.
+
+## C06-S05 [todo] Chapter 6 / Section 5
+
+**Source**
+`docs/src/content/docs/part-3/chapter-6/5-chapter-wrap-up.md`
+
+**Book Claim**
+The adaptive map must remain coherent across live learning and offline consolidation.
+
+**Observed Code Reality**
+No chapter-level adaptive-map regression suite exists.
+
+**Gap**
+Learning and consolidation can drift apart.
+
+**Implementation Tasks**
+- Add Chapter 6 conformance tests covering Hebbian wiring, pain, and sleep-cycle consolidation.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/nervous_system/test`
+
+**Exit Criteria**
+Chapter 6 adaptive-map parity is defended by dedicated tests.
+
+## Part IV Milestone
+
+Milestone condition:
+All Chapter 7 and Chapter 8 phases are `[done]`, sensory and motor boundaries are deterministic and secure, and all physical action crosses a validated planning-to-action membrane.
+
+## C07-S01 [todo] Chapter 7 / Section 1
+
+**Source**
+`docs/src/content/docs/part-4/chapter-7/1-introduction.md`
+
+**Book Claim**
+Perception must be tightly bounded through explicit sensory organs with constrained ingest surfaces.
+
+**Observed Code Reality**
+Sensory support exists, but ingest surfaces and allowed modalities are not formalized.
+
+**Gap**
+The sensory perimeter is not explicitly defined or enforced.
+
+**Implementation Tasks**
+- Define allowed sensory organs and ingest surfaces.
+- Reject unsupported ingestion paths by policy and tests.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test`
+
+**Exit Criteria**
+The sensory perimeter is explicit and enforced.
+
+## C07-S02 [todo] Chapter 7 / Section 2
+
+**Source**
+`docs/src/content/docs/part-4/chapter-7/2-the-eyes-deterministic-parsing.md`
+
+**Book Claim**
+The Eyes must deterministically parse repositories into structural representations using Tree-sitter and project them into memory without hallucination.
+
+**Observed Code Reality**
+Tree-sitter and sensory NIF support exist, but `Sensory.StreamSupervisor` remains demo-like and does not implement a real deterministic repository parsing pipeline.
+
+**Gap**
+The Eyes are not yet a production deterministic parsing organ.
+
+**Implementation Tasks**
+- Build a repository parser pipeline using the sensory native layer and deterministic AST projection.
+- Persist AST and repository topology into Rhizome.
+- Add deterministic parsing and fidelity tests for repeated runs.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test/sensory/ast_accuracy_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test/sensory/perception_fidelity_test.exs`
+
+**Exit Criteria**
+Repository parsing is deterministic, structural, and graph-projected.
+
+## C07-S03 [todo] Chapter 7 / Section 3
+
+**Source**
+`docs/src/content/docs/part-4/chapter-7/3-the-ears-telemetry-events.md`
+
+**Book Claim**
+The Ears must ingest telemetry, logs, and event streams through passive typed listeners.
+
+**Observed Code Reality**
+The repo has event flows and telemetry, but no dedicated passive telemetry-organ layer in sensory.
+
+**Gap**
+Telemetry and event ingestion are not modeled as a first-class sensory organ.
+
+**Implementation Tasks**
+- Add passive event ingestion cells for logs, webhooks, and runtime telemetry.
+- Normalize events into typed sensory records before Rhizome projection.
+- Add tests for event normalization and ingestion resilience.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test`
+
+**Exit Criteria**
+Telemetry and events are ingested through a dedicated typed sensory path.
+
+## C07-S04 [todo] Chapter 7 / Section 4
+
+**Source**
+`docs/src/content/docs/part-4/chapter-7/4-the-skin-spatial-poolers.md`
+
+**Book Claim**
+The Skin must discover unknown binary or text protocols through generic spatial pooling.
+
+**Observed Code Reality**
+`Sensory.Quantizer` only performs simple byte quantization and dequantization.
+
+**Gap**
+The generic protocol-discovery layer does not exist.
+
+**Implementation Tasks**
+- Add a spatial-pooler subsystem for unknown protocol discovery.
+- Bind its output to Hebbian wiring and Rhizome abstraction.
+- Add tests for repeated-structure detection in opaque payloads.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test`
+
+**Exit Criteria**
+Unknown payload structures can be pooled and projected without ad hoc parsing shortcuts.
+
+## C07-S05 [todo] Chapter 7 / Section 5
+
+**Source**
+`docs/src/content/docs/part-4/chapter-7/5-chapter-wrap-up.md`
+
+**Book Claim**
+The perimeter must remain deterministic, bounded, and non-blocking.
+
+**Observed Code Reality**
+No chapter-level sensory conformance suite exists.
+
+**Gap**
+Sensory drift can reintroduce heuristic or blocking behavior.
+
+**Implementation Tasks**
+- Add Chapter 7 conformance tests for deterministic parsing, passive telemetry ingestion, and non-blocking sensory operation.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test`
+
+**Exit Criteria**
+Chapter 7 sensory parity is continuously validated.
+
+## C08-S01 [todo] Chapter 8 / Section 1
+
+**Source**
+`docs/src/content/docs/part-4/chapter-8/1-introduction.md`
+
+**Book Claim**
+The transition from planning to action must cross a strict validation membrane.
+
+**Observed Code Reality**
+Planning and execution are linked loosely; no unified planning-to-action contract exists.
+
+**Gap**
+There is no single authoritative boundary object for planned action.
+
+**Implementation Tasks**
+- Define typed execution intent schemas for all motor actions.
+- Require all motor execution to originate from those schemas and pass validation.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sandbox/test`
+
+**Exit Criteria**
+Every action is derived from and validated against a typed execution-intent contract.
+
+## C08-S02 [todo] Chapter 8 / Section 2
+
+**Source**
+`docs/src/content/docs/part-4/chapter-8/2-linguistic-motor-cells.md`
+
+**Book Claim**
+Operator-facing output should be generated through a constrained non-LLM linguistic motor surface.
+
+**Observed Code Reality**
+The repo has no GF-equivalent or constrained linguistic motor layer.
+
+**Gap**
+Human-facing output is not modeled as a dedicated motor organ.
+
+**Implementation Tasks**
+- Add a clinical, constrained operator-output layer for graph-to-language translation.
+- Ensure the output layer reads typed graph or plan state rather than free-form generation.
+- Add tests for deterministic phrasing and safety constraints.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+Human-facing output is produced by a bounded linguistic motor surface derived from internal state.
+
+## C08-S03 [todo] Chapter 8 / Section 3
+
+**Source**
+`docs/src/content/docs/part-4/chapter-8/3-the-sandbox.md`
+
+**Book Claim**
+The sandbox must enforce WRS-gated irreversible action through isolated microVM execution and telemetry ingestion.
+
+**Observed Code Reality**
+Firecracker provisioning and telemetry capture exist, but WRS gating, plan-driven patch application, and mounted workspace mutation loops are incomplete.
+
+**Gap**
+The sandbox is a partial membrane rather than the full planning Rubicon the book describes.
+
+**Implementation Tasks**
+- Implement WRS pre-commit authorization for execution intents.
+- Add plan-driven workspace mutation, compile, test, and telemetry loops inside the sandbox.
+- Ensure host mutation is impossible outside sandbox execution.
+- Expand audit and provenance capture for action decisions.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sandbox/test`
+- Firecracker-backed end-to-end action validation in a real host environment.
+
+**Exit Criteria**
+Irreversible action is gated, isolated, auditable, and telemetry-fed end to end.
+
+## C08-S04 [todo] Chapter 8 / Section 4
+
+**Source**
+`docs/src/content/docs/part-4/chapter-8/4-friction-mirror-neurons.md`
+
+**Book Claim**
+Human feedback and friction must prune socio-linguistic pathways without corrupting core architectural rigor.
+
+**Observed Code Reality**
+There is no dedicated feedback, friction, or mirror-neuron subsystem.
+
+**Gap**
+The alignment loop for human interaction is missing entirely.
+
+**Implementation Tasks**
+- Capture conversational friction and operator correction events as typed graph records.
+- Separate style adaptation from core architectural decisions.
+- Add pruning and reinforcement logic for operator-facing phrasing only.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+Human feedback affects bounded socio-linguistic pathways without contaminating core logic.
+
+## C08-S05 [todo] Chapter 8 / Section 5
+
+**Source**
+`docs/src/content/docs/part-4/chapter-8/5-chapter-wrap-up.md`
+
+**Book Claim**
+Action and feedback loops must remain safe and coherent.
+
+**Observed Code Reality**
+No chapter-level action conformance suite exists.
+
+**Gap**
+Planning, membrane, and operator feedback can drift independently.
+
+**Implementation Tasks**
+- Add Chapter 8 conformance tests covering execution intents, sandbox action, linguistic output, and friction handling.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sandbox/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test`
+
+**Exit Criteria**
+Chapter 8 action parity is protected by dedicated validation.
+
+## Part V Milestone
+
+Milestone condition:
+All Chapter 9 and Chapter 10 phases are `[done]`, metabolism is a real policy input, and sovereign directives plus cross-workspace behavior are implemented and validated.
+
+## C09-S01 [todo] Chapter 9 / Section 1
+
+**Source**
+`docs/src/content/docs/part-5/chapter-9/1-introduction.md`
+
+**Book Claim**
+Needs and metabolism must act as real internal drives for runtime behavior.
+
+**Observed Code Reality**
+Metabolism exists, but mainly as telemetry and coarse pressure reactions.
+
+**Gap**
+Needs are not yet a first-class runtime policy layer, and the system does not yet have a formal model for how needs and values become objective weights.
+
+**Implementation Tasks**
+- Define a metabolism policy model shared by planning, execution, and lifecycle systems.
+- Define a need and value model that maps metabolic pressure, sovereign objectives, and operator priorities into weighted priors.
+- Ensure scheduling and goal emergence can consume metabolic state.
+- Require the planning layer and surprise calculation layer to consume those weighted priors.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/metabolic_daemon_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+Metabolism is an authoritative runtime policy input, not just a monitor, and needs or values are represented as explicit weighted priors.
+
+## C09-S02 [todo] Chapter 9 / Section 2
+
+**Source**
+`docs/src/content/docs/part-5/chapter-9/2-the-atp-analogue.md`
+
+**Book Claim**
+ATP-like scarcity must shape scheduling, admission, pruning, and homeostasis.
+
+**Observed Code Reality**
+Pressure drives telemetry, apoptosis, and torpor, but not yet a broad admission-control and scheduling system.
+
+**Gap**
+Metabolic pressure is too reactive and not sufficiently integrated into all action paths, and ATP policy is not yet merged with need and value weighting for improvement prioritization.
+
+**Implementation Tasks**
+- Add admission control for cell spawning, sandbox execution, and planning based on ATP budget.
+- Expose ATP state as a policy input to nervous system, sandbox, and core planning.
+- Merge ATP policy with weighted need and value priors so improvement work is prioritized by both scarcity and objective importance.
+- Add deterministic thresholds and tests for scheduling decisions.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/metabolic_tier4_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/service_health_test.exs`
+
+**Exit Criteria**
+ATP pressure changes real scheduling and admission decisions across the organism, and those decisions are modulated by weighted needs and values.
+
+## C09-S03 [todo] Chapter 9 / Section 3
+
+**Source**
+`docs/src/content/docs/part-5/chapter-9/3-epistemic-foraging-curiosity.md`
+
+**Book Claim**
+Idle compute must probe low-confidence graph edges through bounded sandboxed exploration.
+
+**Observed Code Reality**
+No explicit epistemic-foraging subsystem exists.
+
+**Gap**
+Curiosity-driven low-confidence probing is missing.
+
+**Implementation Tasks**
+- Add low-confidence edge selection and idle-time exploration logic.
+- Route all exploratory execution through the sandbox membrane.
+- Persist exploratory outcomes as confidence updates in Rhizome.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sandbox/test`
+
+**Exit Criteria**
+Low-confidence edges can be safely and deterministically probed during idle periods.
+
+## C09-S04 [todo] Chapter 9 / Section 4
+
+**Source**
+`docs/src/content/docs/part-5/chapter-9/4-the-simulation-daemon-dreams.md`
+
+**Book Claim**
+The organism must dream by exploring hypothetical architectural permutations in isolated sandboxes using historical telemetry.
+
+**Observed Code Reality**
+No dedicated simulation-daemon subsystem exists.
+
+**Gap**
+Macro-architectural dreaming and permutation search are absent.
+
+**Implementation Tasks**
+- Build a simulation daemon process tree for hypothetical architecture permutations.
+- Feed it historical telemetry and Rhizome traces.
+- Execute permutations through isolated sandboxes and project results back into Rhizome.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- Firecracker-backed dream-state validation in a real host environment.
+
+**Exit Criteria**
+Idle dream-state permutation and consolidation behavior exists and is validated.
+
+## C09-S05 [todo] Chapter 9 / Section 5
+
+**Source**
+`docs/src/content/docs/part-5/chapter-9/5-chapter-wrap-up.md`
+
+**Book Claim**
+Drive and homeostasis must remain coherent across ATP, curiosity, and dreaming.
+
+**Observed Code Reality**
+No chapter-level drive conformance suite exists.
+
+**Gap**
+Metabolic policy features can drift apart.
+
+**Implementation Tasks**
+- Add Chapter 9 conformance tests for ATP policy, curiosity, and simulation-daemon behavior.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+Chapter 9 drive behavior is defended by dedicated validation.
+
+## C10-S01 [todo] Chapter 10 / Section 1
+
+**Source**
+`docs/src/content/docs/part-5/chapter-10/1-introduction.md`
+
+**Book Claim**
+The organism must operate under sovereign architecture and symbiotic law rather than ephemeral prompt control.
+
+**Observed Code Reality**
+No sovereignty control-plane implementation exists beyond local runtime config and DNA.
+
+**Gap**
+Persistent sovereign law and symbiotic governance are absent, and there is no formal representation of values that can influence attractor weighting and improvement choices.
+
+**Implementation Tasks**
+- Define sovereignty control-plane boundaries across objectives, attractors, plans, and refusal.
+- Define objective schemas that distinguish hard mandates, soft values, and evolving needs, each with explicit weights and precedence.
+- Add integration points from sovereign state into planning and metabolism.
+- Require sovereign values to flow into both attractor selection and variational free energy weighting.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+Sovereignty becomes an explicit runtime control plane with weighted mandates, values, and needs.
+
+## C10-S02 [todo] Chapter 10 / Section 2
+
+**Source**
+`docs/src/content/docs/part-5/chapter-10/2-sovereign-directives.md`
+
+**Book Claim**
+High-level goals must be loaded from persistent objective manifests and projected into localized `.nexical/plan.yml` execution blueprints.
+
+**Observed Code Reality**
+Neither `~/.karyon/objectives/` nor `.nexical/plan.yml` exists in the repo implementation.
+
+**Gap**
+Persistent objectives, attractor projection, and localized execution blueprints are missing, and there is no mechanism for turning declared needs or values into weighted attractor priors.
+
+**Implementation Tasks**
+- Implement objective manifest ingestion from `~/.karyon/objectives/`.
+- Project mandates into Rhizome attractor states.
+- Define objective manifest fields for hard constraints, soft values, evolving needs, and their weights or precedence.
+- Generate localized `.nexical/plan.yml` working-memory plans per workspace.
+- Ensure planning cells consume attractors instead of ephemeral textual control inputs.
+- Ensure modified objective weights measurably change attractor ranking, plan generation, and improvement prioritization.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- Manual verification of objective ingestion and plan generation in a local workspace.
+- Manual or automated verification that changing objective weights changes selected attractors and emitted plans.
+
+**Exit Criteria**
+Persistent objectives and localized execution blueprints exist, weighted priors are represented in Rhizome attractors, and changing objective weights changes planning behavior.
+
+## C10-S03 [todo] Chapter 10 / Section 3
+
+**Source**
+`docs/src/content/docs/part-5/chapter-10/3-defiance-and-homeostasis.md`
+
+**Book Claim**
+The organism must detect paradoxes, refuse destructive directives, and negotiate when commands violate sovereign law or homeostasis.
+
+**Observed Code Reality**
+There is no explicit paradox-detection, refusal, or negotiation subsystem.
+
+**Gap**
+The sovereignty safety loop is missing, and refusal policy cannot yet account for the relative weight of hard mandates, soft values, evolving needs, and metabolic risk.
+
+**Implementation Tasks**
+- Add paradox detection between mandates, plans, and metabolic limits.
+- Implement refusal thresholds and operator-visible negotiation output.
+- Define how weighted values and needs influence refusal versus compromise when hard mandates are not violated.
+- Persist paradox and refusal events into Rhizome.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test`
+
+**Exit Criteria**
+The system can refuse or renegotiate conflicting directives through explicit policy grounded in mandate precedence, weighted values, weighted needs, and metabolic risk.
+
+## C10-S04 [todo] Chapter 10 / Section 4
+
+**Source**
+`docs/src/content/docs/part-5/chapter-10/4-the-cross-workspace-architect.md`
+
+**Book Claim**
+The organism must coordinate persistent intelligence across multiple workspaces with localized execution limbs and shared memory.
+
+**Observed Code Reality**
+No cross-workspace architecture exists beyond a single repo-local implementation.
+
+**Gap**
+Multi-workspace planning and localized execution contracts are absent.
+
+**Implementation Tasks**
+- Define central versus local workspace boundaries.
+- Add shared-memory support for multiple repositories and localized `.nexical/plan.yml` outputs.
+- Implement cross-workspace planning and execution coordination.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- Manual multi-workspace integration verification.
+
+**Exit Criteria**
+Cross-workspace planning and localized limb execution are implemented and validated.
+
+## C10-S05 [todo] Chapter 10 / Section 5
+
+**Source**
+`docs/src/content/docs/part-5/chapter-10/5-chapter-wrap-up.md`
+
+**Book Claim**
+The sovereign organism must remain coherent across objectives, refusal, and multi-workspace action.
+
+**Observed Code Reality**
+No chapter-level sovereignty conformance suite exists.
+
+**Gap**
+Objectives, defiance, and cross-workspace behavior can drift apart.
+
+**Implementation Tasks**
+- Add Chapter 10 conformance tests covering objectives, blueprint generation, paradox handling, and cross-workspace planning.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+
+**Exit Criteria**
+Chapter 10 sovereignty parity is guarded by dedicated validation.
+
+## Part VI Milestone
+
+Milestone condition:
+All Chapter 11 and Chapter 12 phases are `[done]`, the organism has a validated bootstrapping and observability model, and curriculum plus memory distribution features operate as a closed lifecycle.
+
+## C11-S01 [todo] Chapter 11 / Section 1
+
+**Source**
+`docs/src/content/docs/part-6/chapter-11/1-introduction.md`
+
+**Book Claim**
+Theory must compile into a concrete bootstrapping and lifecycle system.
+
+**Observed Code Reality**
+Many components exist, but there is no unified operational maturity model tied to the book.
+
+**Gap**
+Bootstrapping targets are not expressed as a single implementation program.
+
+**Implementation Tasks**
+- Define the operational maturity model covering build, deploy, observe, and distribute.
+- Tie that model to later chapter validation.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
+
+**Exit Criteria**
+Bootstrapping and maturity targets are explicit and actionable.
+
+## C11-S02 [todo] Chapter 11 / Section 2
+
+**Source**
+`docs/src/content/docs/part-6/chapter-11/2-the-monorepo-pipeline.md`
+
+**Book Claim**
+The monorepo pipeline must preserve separation between the engine and target execution workspaces.
+
+**Observed Code Reality**
+The umbrella app and release flow exist, but engine-versus-target-workspace separation is not implemented as the book describes.
+
+**Gap**
+The repo behaves as the active workspace rather than clearly separating organism core from execution limbs.
+
+**Implementation Tasks**
+- Align bootstrap, release, and execution flow with the engine-versus-target-workspace model.
+- Ensure sandbox mutation always occurs in target workspaces rather than the core engine tree.
+- Add build and release checks that reflect the monorepo pipeline model.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
+- Release bootstrap and smoke validation.
+
+**Exit Criteria**
+The engine and target workspace model is explicit and enforced operationally.
+
+## C11-S03 [todo] Chapter 11 / Section 3
+
+**Source**
+`docs/src/content/docs/part-6/chapter-11/3-visualizing-the-rhizome.md`
+
+**Book Claim**
+Operators need real-time observability over the Rhizome and organism state, not only local health metrics.
+
+**Observed Code Reality**
+Dashboard health and telemetry bridges exist, but topology, temporal state, and graph visualization are absent.
+
+**Gap**
+Observability is much thinner than the book requires.
+
+**Implementation Tasks**
+- Expand dashboard data sources beyond metabolic snapshots.
+- Surface graph health, temporal memory state, active cells, and organism topology.
+- Add operator views for prediction errors, consolidation, and sovereign state.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test`
+
+**Exit Criteria**
+Dashboard observability reflects real Rhizome and organism state.
+
+## C11-S04 [todo] Chapter 11 / Section 4
+
+**Source**
+`docs/src/content/docs/part-6/chapter-11/4-the-distributed-experience-engram.md`
+
+**Book Claim**
+The organism must package and distribute portable, secure memory subsets as engrams.
+
+**Observed Code Reality**
+`Core.Engram` already supports portable capture and inject flows, but distribution semantics and real subset selection are still limited.
+
+**Gap**
+Engrams exist, but not yet as fully queryable, distributable memory products tied to real workflows.
+
+**Implementation Tasks**
+- Add selective subset extraction and import semantics.
+- Tie engram generation to real use cases, provenance, and compatibility guarantees.
+- Add validation for portable exchange and partial memory hydration.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/engram_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/tier5_global_test.exs`
+
+**Exit Criteria**
+Engrams are portable, selective, and safe for real distribution workflows.
+
+## C11-S05 [todo] Chapter 11 / Section 5
+
+**Source**
+`docs/src/content/docs/part-6/chapter-11/5-chapter-wrap-up.md`
+
+**Book Claim**
+Genesis architecture must remain coherent across pipeline, observability, and distributed memory.
+
+**Observed Code Reality**
+No chapter-level operational genesis conformance suite exists.
+
+**Gap**
+Release, observability, and engram behavior can drift apart.
+
+**Implementation Tasks**
+- Add Chapter 11 conformance tests for pipeline, observability, and engram flows.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+
+**Exit Criteria**
+Chapter 11 parity is enforced by operational conformance validation.
+
+## C12-S01 [todo] Chapter 12 / Section 1
+
+**Source**
+`docs/src/content/docs/part-6/chapter-12/1-introduction.md`
+
+**Book Claim**
+The organism requires a real maturation lifecycle rather than ad hoc operation.
+
+**Observed Code Reality**
+There is no unified curriculum subsystem.
+
+**Gap**
+Training and maturation are missing as a first-class operational capability.
+
+**Implementation Tasks**
+- Define the curriculum and maturation lifecycle model.
+- Tie the model to baseline ingestion, telemetry, teaching, and intent drift.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
+
+**Exit Criteria**
+The maturation lifecycle is explicit and implementable.
+
+## C12-S02 [todo] Chapter 12 / Section 2
+
+**Source**
+`docs/src/content/docs/part-6/chapter-12/2-the-baseline-diet.md`
+
+**Book Claim**
+The organism must ingest a curated deterministic AST baseline before higher-order action loops dominate.
+
+**Observed Code Reality**
+The repo contains baseline task scaffolding, but no complete baseline-diet ingestion workflow tied to AST curriculum guarantees.
+
+**Gap**
+The baseline diet is incomplete as a curriculum feature.
+
+**Implementation Tasks**
+- Build curated AST baseline ingestion into the sensory and Rhizome flow.
+- Define acceptance criteria for baseline completeness and quality.
+- Add tests proving the baseline establishes structural grammar before later action loops.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+
+**Exit Criteria**
+Baseline-diet ingestion exists and establishes the required deterministic structural substrate.
+
+## C12-S03 [todo] Chapter 12 / Section 3
+
+**Source**
+`docs/src/content/docs/part-6/chapter-12/3-execution-telemetry.md`
+
+**Book Claim**
+Compiler, test, and runtime execution telemetry must be formalized as training input and prediction-error evidence.
+
+**Observed Code Reality**
+Execution outcomes are persisted, but telemetry storage, tagging, replay, and training reuse are incomplete.
+
+**Gap**
+Execution telemetry exists only partially as a curriculum artifact.
+
+**Implementation Tasks**
+- Standardize execution telemetry schema, tags, provenance, and replay hooks.
+- Project telemetry into Rhizome and XTDB as curriculum-ready artifacts.
+- Add replay tests for telemetry-driven learning flows.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+
+**Exit Criteria**
+Execution telemetry is stored, replayable, and reusable as training input.
+
+## C12-S04 [todo] Chapter 12 / Section 4
+
+**Source**
+`docs/src/content/docs/part-6/chapter-12/4-the-synthetic-oracle-curriculum-the-teacher-daemon.md`
+
+**Book Claim**
+The organism must generate active exams from docs and specs through a teacher-daemon curriculum.
+
+**Observed Code Reality**
+No teacher-daemon subsystem exists.
+
+**Gap**
+Synthetic curriculum generation from documentation is absent.
+
+**Implementation Tasks**
+- Build a teacher daemon that converts docs and specs into active exercises.
+- Feed generated exercises through sandbox execution and telemetry.
+- Persist outcomes and performance traces into Rhizome.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- Manual or automated curriculum-run verification against docs sources.
+
+**Exit Criteria**
+Synthetic curriculum generation and evaluation exist and are persisted as organism learning data.
+
+## C12-S05 [todo] Chapter 12 / Section 5
+
+**Source**
+`docs/src/content/docs/part-6/chapter-12/5-abstract-intent.md`
+
+**Book Claim**
+The organism must learn architectural intent and drift by ingesting ADRs, history, and documentation deltas.
+
+**Observed Code Reality**
+No ADR or git-history ingestion pipeline exists.
+
+**Gap**
+Abstract intent and documentation drift are not represented in Rhizome.
+
+**Implementation Tasks**
+- Add ADR and git-history ingestion into Rhizome.
+- Represent intent drift and implementation drift as graph entities.
+- Add tests that compare declared intent to observed implementation state.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+
+**Exit Criteria**
+Architectural intent and drift are represented and testable in memory.
+
+## C12-S06 [todo] Chapter 12 / Section 6
+
+**Source**
+`docs/src/content/docs/part-6/chapter-12/6-chapter-wrap-up.md`
+
+**Book Claim**
+The architect must emerge through a closed-loop lifecycle from baseline through telemetry, synthetic curriculum, and abstract intent.
+
+**Observed Code Reality**
+No chapter-level closed-loop maturation suite exists.
+
+**Gap**
+Lifecycle features can remain fragmented and unproven as a system.
+
+**Implementation Tasks**
+- Add Chapter 12 conformance tests for baseline diet, execution telemetry, teacher daemon, and abstract-intent ingestion.
+- Require end-to-end lifecycle validation before whole-book parity can be declared.
+
+**Validation**
+- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+
+**Exit Criteria**
+Chapter 12 validates a full closed maturation loop from baseline to drift correction.
+
+## Final Milestones
+
+- `[todo]` Part I Complete: Chapters 1 and 2 are implemented and validated.
+- `[todo]` Part II Complete: Chapters 3 and 4 are implemented and validated.
+- `[todo]` Part III Complete: Chapters 5 and 6 are implemented and validated.
+- `[todo]` Part IV Complete: Chapters 7 and 8 are implemented and validated.
+- `[todo]` Part V Complete: Chapters 9 and 10 are implemented and validated.
+- `[todo]` Part VI Complete: Chapters 11 and 12 are implemented and validated.
+- `[todo]` Whole-Book Architectural Parity Complete: Every `Cxx-Syy` phase is `[done]`, all conflict-ledger items are either resolved or explicitly accepted, and the implementation matches the canonical book guidance with validated runtime behavior.
