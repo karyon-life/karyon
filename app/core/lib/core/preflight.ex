@@ -8,10 +8,10 @@ defmodule Core.Preflight do
   @doc """
   Runs all pre-flight checks. Returns :ok or {:error, reason}.
   """
-  def run_checks do
-    with :ok <- check_numa_topology(),
-         :ok <- check_memory_channels(),
-         :ok <- check_scheduler_affinity() do
+  def run_checks(opts \\ []) do
+    with :ok <- check_numa_topology(opts),
+         :ok <- check_memory_topology(opts),
+         :ok <- check_scheduler_affinity(opts) do
       Logger.info("[Preflight] Hardware and ERTS configuration VALIDATED. Safe to boot.")
       :ok
     else
@@ -21,8 +21,8 @@ defmodule Core.Preflight do
     end
   end
 
-  defp check_numa_topology do
-    case Core.Native.read_numa_node() do
+  defp check_numa_topology(opts) do
+    case native_module(opts).read_numa_node() do
       {:ok, node} ->
         if node == 0 do
           :ok
@@ -31,38 +31,43 @@ defmodule Core.Preflight do
         end
       unexpected ->
         # Handle :error or other unexpected results gracefully
-        if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"], do: :ok, else: {:error, "Unexpected NUMA node result: #{inspect(unexpected)}"}
+        if mock_hardware?(opts), do: :ok, else: {:error, "Unexpected NUMA node result: #{inspect(unexpected)}"}
     end
   end
 
-  defp check_memory_channels do
-    if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
+  defp check_memory_topology(opts) do
+    if mock_hardware?(opts) do
       :ok
     else
-      # Attempt to read memory info or dmidecode if available
-      # This usually require root, so we check /proc/meminfo or similar for basic verification
-      # For production readiness, we'd use a dedicated C/Rust util to probe DIMM slots.
-      case File.read("/proc/meminfo") do
-        {:ok, content} ->
-          if String.contains?(content, "MemTotal") do
-            :ok # Placeholder for real channel probing
-          else
-            {:error, "Unable to verify memory topology."}
-          end
-        _ -> {:error, "Cannot read /proc/meminfo"}
+      edac_dir = Keyword.get(opts, :edac_dir, "/sys/devices/system/edac/mc")
+      node_meminfo = Keyword.get(opts, :node_meminfo_path, "/sys/devices/system/node/node0/meminfo")
+      file_reader = Keyword.get(opts, :file_reader, &File.read/1)
+      dir_lister = Keyword.get(opts, :dir_lister, &File.ls/1)
+
+      cond do
+        edac_channels_present?(edac_dir, dir_lister) ->
+          :ok
+
+        node_meminfo_present?(node_meminfo, file_reader) ->
+          :ok
+
+        true ->
+          {:error, "Unable to verify memory topology evidence from EDAC or node meminfo."}
       end
     end
   end
 
-  defp check_scheduler_affinity do
+  defp check_scheduler_affinity(opts) do
     # Verify BEAM scheduler binding: +sbt tnnps
-    case :erlang.system_info(:scheduler_bind_type) do
+    scheduler_bind_type = Keyword.get(opts, :scheduler_bind_type_fun, &:erlang.system_info/1)
+
+    case scheduler_bind_type.(:scheduler_bind_type) do
       :thread_no_node_processor_spread -> 
-        validate_affinity_mask()
+        validate_affinity_mask(opts)
       :tnnps -> 
-        validate_affinity_mask()
+        validate_affinity_mask(opts)
       other -> 
-        if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
+        if mock_hardware?(opts) do
           :ok
         else
           {:error, "Invalid BEAM scheduler binding: #{inspect(other)}. Expected: tnnps"}
@@ -70,27 +75,54 @@ defmodule Core.Preflight do
     end
   end
 
-  defp validate_affinity_mask do
-    case Core.Native.get_affinity_mask() do
+  defp validate_affinity_mask(opts) do
+    logical_processors_fun = Keyword.get(opts, :logical_processors_fun, &:erlang.system_info/1)
+
+    case native_module(opts).get_affinity_mask() do
       {:ok, bits} ->
         # For a production organism, we expect specific pinning.
         # Minimal check: ensure we are pinned to SPECIFIC CPUs (not all of them)
-        if length(bits) > 0 and length(bits) < :erlang.system_info(:logical_processors) do
+        if length(bits) > 0 and length(bits) < logical_processors_fun.(:logical_processors) do
           Logger.info("[Preflight] Affinity mask validated: #{inspect(bits)}")
           :ok
         else
-          if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
+          if mock_hardware?(opts) do
              :ok
           else
              {:error, "Thread affinity too broad. Migration risks detected. Mask: #{inspect(bits)}"}
           end
         end
       {:error, _} ->
-        if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
+        if mock_hardware?(opts) do
           :ok
         else
           {:error, "Failed to retrieve CPU affinity mask."}
         end
     end
+  end
+
+  defp edac_channels_present?(path, dir_lister) do
+    case dir_lister.(path) do
+      {:ok, entries} -> Enum.any?(entries, &String.starts_with?(&1, "mc"))
+      _ -> false
+    end
+  end
+
+  defp node_meminfo_present?(path, file_reader) do
+    case file_reader.(path) do
+      {:ok, content} ->
+        String.contains?(content, "MemTotal") and String.contains?(content, "Node 0")
+
+      _ ->
+        false
+    end
+  end
+
+  defp native_module(opts), do: Keyword.get(opts, :native_module, Core.Native)
+
+  defp mock_hardware?(opts) do
+    Keyword.get_lazy(opts, :mock_hardware?, fn ->
+      System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"]
+    end)
   end
 end

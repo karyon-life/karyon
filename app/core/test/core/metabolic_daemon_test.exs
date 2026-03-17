@@ -2,6 +2,20 @@ defmodule Core.MetabolicDaemonTest do
   use ExUnit.Case
   alias Core.MetabolicDaemon
 
+  defmodule NativeStable do
+    def read_l3_misses, do: {:ok, 100}
+    def read_iops, do: {:ok, 50}
+    def read_numa_node, do: {:ok, 0}
+    def get_affinity_mask, do: {:ok, [0, 1]}
+  end
+
+  defmodule NativeHighIops do
+    def read_l3_misses, do: {:ok, 100}
+    def read_iops, do: {:ok, 5_000}
+    def read_numa_node, do: {:ok, 0}
+    def get_affinity_mask, do: {:ok, [0, 1]}
+  end
+
   setup do
     # Ensure supervisors are ready
     TestUtils.wait_for_process(Core.Supervisor)
@@ -119,5 +133,71 @@ defmodule Core.MetabolicDaemonTest do
 
     # Verify motor cell received apoptosis
     refute Process.alive?(motor_pid)
+  end
+
+  test "MetabolicDaemon starts in degraded pressure when preflight fails outside strict mode" do
+    {:ok, pid} =
+      MetabolicDaemon.start_link(
+        name: :degraded_preflight_daemon,
+        native_module: NativeStable,
+        preflight_opts: [
+          mock_hardware?: false,
+          file_reader: fn _ -> {:error, :enoent} end,
+          dir_lister: fn _ -> {:ok, []} end,
+          scheduler_bind_type_fun: fn :scheduler_bind_type -> :tnnps end,
+          logical_processors_fun: fn :logical_processors -> 8 end
+        ],
+        calibration_delay_ms: 10,
+        poll_interval_ms: 10
+      )
+
+    assert GenServer.call(pid, :get_pressure) == :medium
+    state = :sys.get_state(pid)
+    assert match?({:degraded, _}, state.preflight_status)
+  end
+
+  test "MetabolicDaemon refuses to boot when strict preflight fails" do
+    Process.flag(:trap_exit, true)
+
+    assert {:error, {:preflight_failed, reason}} =
+             MetabolicDaemon.start_link(
+               name: :strict_preflight_daemon,
+               strict_preflight: true,
+               native_module: NativeStable,
+               preflight_opts: [
+                 mock_hardware?: false,
+                 file_reader: fn _ -> {:error, :enoent} end,
+                 dir_lister: fn _ -> {:ok, []} end,
+                 scheduler_bind_type_fun: fn :scheduler_bind_type -> :tnnps end,
+                 logical_processors_fun: fn :logical_processors -> 8 end
+               ]
+             )
+
+    assert reason =~ "memory topology evidence"
+  end
+
+  test "MetabolicDaemon elevates pressure on high IOPS to enforce digital torpor pressure" do
+    {:ok, pid} =
+      MetabolicDaemon.start_link(
+        name: :high_iops_test_daemon,
+        native_module: NativeHighIops,
+        preflight_opts: [
+          mock_hardware?: false,
+          file_reader: fn
+            "/sys/devices/system/node/node0/meminfo" -> {:ok, "Node 0 MemTotal: 1234 kB"}
+            _ -> {:error, :enoent}
+          end,
+          dir_lister: fn _ -> {:ok, []} end,
+          scheduler_bind_type_fun: fn :scheduler_bind_type -> :tnnps end,
+          logical_processors_fun: fn :logical_processors -> 8 end
+        ],
+        calibration_delay_ms: 10,
+        poll_interval_ms: 10
+      )
+
+    Process.sleep(50)
+    send(pid, :poll_metrics)
+    Process.sleep(50)
+    assert GenServer.call(pid, :get_pressure) == :high
   end
 end

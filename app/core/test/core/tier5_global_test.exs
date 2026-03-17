@@ -32,11 +32,17 @@ defmodule Core.GlobalTier5Test do
     
     case MotorDriver.sequence_plan("attractor_001") do
       {:error, :attractor_not_found} -> :ok
-      plan ->
-        assert is_list(plan)
-        Enum.each(plan, fn step ->
-          assert Map.has_key?(step, :action)
-          assert Map.has_key?(step, :params)
+      {:error, :graph_plan_empty} -> :ok
+      {:ok, plan} ->
+        assert is_map(plan)
+        assert plan["attractor"] == "attractor_001"
+        assert is_list(plan["steps"])
+
+        Enum.each(plan["steps"], fn step ->
+          assert Map.has_key?(step, "action")
+          assert Map.has_key?(step, "params")
+          assert Map.has_key?(step, "id")
+          assert Map.has_key?(step, "predicted_outcome")
         end)
     end
   end

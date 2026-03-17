@@ -93,10 +93,18 @@ defmodule Core.StemCell do
       
       # Phase 1: Dynamic Dispatch based on DNA
       case dispatch_motor_action(state.dna_spec, action, params) do
-        {:ok, result} -> {:reply, {:ok, result}, state}
-        {:error, reason} -> {:reply, {:error, reason}, state}
+        {:ok, result} ->
+          persist_execution_outcome(state, action, params, {:ok, result})
+          {:reply, {:ok, result}, state}
+
+        {:error, reason} ->
+          persist_execution_outcome(state, action, params, {:error, reason})
+          {:reply, {:error, reason}, state}
+
         # Catch-all for dynamic dispatch safety
-        other -> {:reply, {:ok, other}, state}
+        other ->
+          persist_execution_outcome(state, action, params, {:ok, other})
+          {:reply, {:ok, other}, state}
       end
     else
       Logger.error("[StemCell] ACTION DENIED: #{action} not in DNA allowed_actions.")
@@ -285,4 +293,83 @@ defmodule Core.StemCell do
       Rhizome.Native.weaken_edge(resource)
     end)
   end
+
+  defp persist_execution_outcome(state, action, params, outcome) do
+    payload =
+      state
+      |> execution_outcome_base(action, params)
+      |> Map.merge(execution_outcome_payload(outcome))
+
+    case memory_module().submit_execution_outcome(payload) do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("[StemCell] Failed to persist execution outcome for #{action}: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp execution_outcome_base(state, action, params) do
+    cell_id = Map.get(state.dna_spec, "id", "unknown_cell")
+    executor = Map.get(state.dna_spec, "motor_executor", "none")
+    vm_id = extract_vm_id(params)
+
+    %{
+      "cell_id" => cell_id,
+      "action" => action,
+      "executor" => executor,
+      "vm_id" => vm_id,
+      "params" => normalize_execution_params(params),
+      "belief_snapshot" => stringify_nested(state.beliefs),
+      "recorded_at" => System.system_time(:second)
+    }
+  end
+
+  defp execution_outcome_payload({:ok, result}) when is_map(result) do
+    %{
+      "status" => "success",
+      "exit_code" => result[:exit_code] || result["exit_code"],
+      "result" => stringify_nested(result)
+    }
+  end
+
+  defp execution_outcome_payload({:ok, result}) do
+    %{
+      "status" => "success",
+      "exit_code" => 0,
+      "result" => stringify_nested(result)
+    }
+  end
+
+  defp execution_outcome_payload({:error, reason}) do
+    %{
+      "status" => "failure",
+      "exit_code" => failure_exit_code(reason),
+      "error" => stringify_nested(reason)
+    }
+  end
+
+  defp failure_exit_code(reason) when is_integer(reason), do: reason
+  defp failure_exit_code(_reason), do: -1
+
+  defp extract_vm_id(params) when is_list(params), do: Keyword.get(params, :vm_id, "default_vm")
+  defp extract_vm_id(params) when is_map(params), do: Map.get(params, :vm_id) || Map.get(params, "vm_id") || "default_vm"
+  defp extract_vm_id(_params), do: "default_vm"
+
+  defp normalize_execution_params(params) when is_list(params), do: params |> Enum.into(%{}) |> stringify_nested()
+  defp normalize_execution_params(params) when is_map(params), do: stringify_nested(params)
+  defp normalize_execution_params(other), do: %{"value" => stringify_nested(other)}
+
+  defp memory_module do
+    Application.get_env(:core, :memory_module, Rhizome.Memory)
+  end
+
+  defp stringify_nested(value) when is_map(value) do
+    Map.new(value, fn {key, nested} -> {to_string(key), stringify_nested(nested)} end)
+  end
+
+  defp stringify_nested(value) when is_list(value), do: Enum.map(value, &stringify_nested/1)
+  defp stringify_nested(value) when is_atom(value), do: Atom.to_string(value)
+  defp stringify_nested(value), do: value
 end

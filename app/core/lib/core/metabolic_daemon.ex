@@ -14,21 +14,36 @@ defmodule Core.MetabolicDaemon do
   end
 
   @impl true
-  def init(_opts) do
+  def init(opts) do
     Logger.info("[MetabolicDaemon] Heartbeat initialized. Monitoring ERTS schedulers.")
-    
-    # Run mandatory pre-flight checks
-    case Core.Preflight.run_checks() do
-      :ok -> 
-        # Schedule calibration after a short delay to allow system to settle
-        Process.send_after(self(), :calibrate, 2000)
-        schedule_poll()
-        {:ok, %{pressure: :low, baselines: %{l3_misses: 0, run_queue: 0, iops: 0}, calibrated: false}}
-      {:error, _reason} ->
-        # In production this might halt the system. For now we log and proceed with warning.
+
+    state = %{
+      pressure: :low,
+      baselines: %{l3_misses: 0, run_queue: 0, iops: 0},
+      calibrated: false,
+      preflight_status: :ok,
+      poll_interval_ms: Keyword.get(opts, :poll_interval_ms, @poll_interval_ms),
+      calibration_delay_ms: Keyword.get(opts, :calibration_delay_ms, 2000),
+      native_module: Keyword.get(opts, :native_module, Core.Native),
+      strict_preflight: Keyword.get(opts, :strict_preflight, strict_preflight?()),
+      preflight_opts: Keyword.get(opts, :preflight_opts, [])
+    }
+
+    case Core.Preflight.run_checks(Keyword.put(state.preflight_opts, :native_module, state.native_module)) do
+      :ok ->
+        Process.send_after(self(), :calibrate, state.calibration_delay_ms)
+        schedule_poll(state)
+        {:ok, state}
+
+      {:error, reason} when state.strict_preflight ->
+        Logger.error("[MetabolicDaemon] Pre-flight checks failed in strict mode. Refusing to boot.")
+        {:stop, {:preflight_failed, reason}}
+
+      {:error, reason} ->
         Logger.warning("[MetabolicDaemon] WARNING: Pre-flight checks failed. Proceeding in degraded state.")
-        schedule_poll()
-        {:ok, %{pressure: :low, baselines: %{l3_misses: 0, run_queue: 0, iops: 0}, calibrated: false}}
+        Process.send_after(self(), :calibrate, state.calibration_delay_ms)
+        schedule_poll(state)
+        {:ok, %{state | pressure: :medium, preflight_status: {:degraded, reason}}}
     end
   end
 
@@ -46,13 +61,13 @@ defmodule Core.MetabolicDaemon do
         {1337, 42}
       else
         l3_val = 
-          case Core.Native.read_l3_misses() do
+          case state.native_module.read_l3_misses() do
             {:ok, val} -> val
             _ -> 0
           end
         
         iops_val = 
-          case Core.Native.read_iops() do
+          case state.native_module.read_iops() do
             {:ok, val} -> val
             _ -> 0
           end
@@ -78,9 +93,9 @@ defmodule Core.MetabolicDaemon do
     check_cpu_starvation(pressure)
     check_l3_cache_constriction(state)
     check_digital_torpor(state)
-    check_numa_violation()
+    check_numa_violation(state)
 
-    schedule_poll()
+    schedule_poll(state)
     
     :telemetry.execute([:karyon, :metabolism, :poll], %{pressure: pressure_to_num(pressure)}, %{pressure: pressure})
     
@@ -94,12 +109,16 @@ defmodule Core.MetabolicDaemon do
   defp calculate_system_pressure(state) do
     run_queue_len = :erlang.statistics(:run_queue)
     baseline_rq = state.baselines.run_queue
+    iops_pressure = iops_pressure(state)
+    preflight_pressure = if match?({:degraded, _}, state.preflight_status), do: :medium, else: :low
+    run_queue_pressure =
+      cond do
+        run_queue_len > baseline_rq + 20 -> :high
+        run_queue_len > baseline_rq + 10 -> :medium
+        true -> :low
+      end
 
-    cond do
-      run_queue_len > baseline_rq + 20 -> :high
-      run_queue_len > baseline_rq + 10 -> :medium
-      true -> :low
-    end
+    max_pressure([run_queue_pressure, iops_pressure, preflight_pressure])
   end
 
   defp check_cpu_starvation(pressure) do
@@ -138,7 +157,7 @@ defmodule Core.MetabolicDaemon do
   end
 
   defp check_l3_cache_constriction(state) do
-    case Core.Native.read_l3_misses() do
+    case state.native_module.read_l3_misses() do
       {:ok, misses} when misses > state.baselines.l3_misses + 5000 ->
         Logger.warning("[MetabolicDaemon] L3 Cache Constriction detected. Inducing Motor Apoptosis.")
         induce_apoptosis(:motor)
@@ -148,16 +167,17 @@ defmodule Core.MetabolicDaemon do
   end
 
   defp check_digital_torpor(state) do
-    case Core.Native.read_iops() do
+    case state.native_module.read_iops() do
       {:ok, iops} when iops > state.baselines.iops + 1000 ->
         Logger.info("[MetabolicDaemon] High IOPS detected. Digital Torpor engaged.")
+        broadcast_spike("iops", iops, state.baselines.iops + 1000, "high")
       _ ->
         :ok
     end
   end
 
-  defp check_numa_violation do
-    case Core.Native.read_numa_node() do
+  defp check_numa_violation(state) do
+    case state.native_module.read_numa_node() do
       {:ok, node} when node > 0 ->
         Logger.warning("[MetabolicDaemon] NUMA VIOLATION: Current Node #{node}. Bitemporal latency risk.")
         induce_apoptosis(:numa_migration)
@@ -197,7 +217,23 @@ defmodule Core.MetabolicDaemon do
     end
   end
 
-  defp schedule_poll do
-    Process.send_after(self(), :poll_metrics, @poll_interval_ms)
+  defp iops_pressure(state) do
+    case state.native_module.read_iops() do
+      {:ok, iops} when iops > state.baselines.iops + 1000 -> :high
+      _ -> :low
+    end
+  end
+
+  defp max_pressure(pressures) do
+    Enum.max_by(pressures, &pressure_to_num/1, fn -> :low end)
+  end
+
+  defp schedule_poll(state) do
+    Process.send_after(self(), :poll_metrics, state.poll_interval_ms)
+  end
+
+  defp strict_preflight? do
+    Application.get_env(:core, :strict_preflight, false) or
+      System.get_env("KARYON_STRICT_PREFLIGHT") in ["1", "true"]
   end
 end
