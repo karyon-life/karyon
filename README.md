@@ -10,7 +10,7 @@ Karyon is a structurally discrete, biomimetic multi-agent ecosystem. It explicit
 *   **Organelles:** Optimized Rust NIFs for heavy computation.
 *   **DNA:** Declarative YAML schemas defining agent bounds.
 
-For more details, see [SPEC.md](SPEC.md) and [docs/public/book.md](docs/public/book.md).
+For more details, see [SPEC.md](SPEC.md), [PLAN.md](PLAN.md), and the docs source in [docs/src/content/docs/index.mdx](docs/src/content/docs/index.mdx).
 
 ## Getting Started
 
@@ -25,10 +25,21 @@ The easiest way to run the Karyon organism is using `make`. This ensures all bac
 
 ## Operations & Documentation
 
-- [Genetic Blueprint Guide](file:///home/adrian/Projects/nexical/karyon/docs/OPERATIONS/GENETICS.md) — How to author cellular DNA.
-- [Metabolic Operations Playbook](file:///home/adrian/Projects/nexical/karyon/docs/OPERATIONS/METABOLICS.md) — Monitoring, health, and apoptosis debugging.
-- [Developer & NIF Safety](file:///home/adrian/Projects/nexical/karyon/docs/DEVELOPER/NIF_SAFETY.md) — FFI architecture and native extension guide.
-- [Project Walkthrough](file:///home/adrian/.gemini/antigravity/brain/66d06a40-b9b4-4d78-8e5d-47e5f6398975/walkthrough.md) — Technical implementation summary.
+- [Genetic Blueprint Guide](docs/OPERATIONS/GENETICS.md) — How to author cellular DNA.
+- [Metabolic Operations Playbook](docs/OPERATIONS/METABOLICS.md) — Monitoring, health, and apoptosis debugging.
+- [Developer & NIF Safety](docs/DEVELOPER/NIF_SAFETY.md) — FFI architecture and native extension guide.
+- [Documentation Index](docs/src/content/docs/index.mdx) — The current documentation entry point used by the Astro docs site.
+
+## Current Status
+
+Karyon is currently an honest scaffold rather than a production-ready organism. The umbrella apps, OTP supervision, Rust NIF boundaries, and core documentation structure are present, but several production claims in the architecture are still in progress:
+
+- `core` and `rhizome` contracts are not yet fully aligned on structured query results.
+- Memgraph, XTDB, NATS, and Firecracker paths still require service-backed validation before they can be treated as production behavior.
+- The sandbox execution membrane is partially mocked outside explicitly configured test or mock environments.
+- Dashboard and operator surfaces are being brought in line with real telemetry rather than aspirational values.
+
+Use [PLAN.md](PLAN.md) and [TASKS.md](TASKS.md) as the execution source of truth for readiness work.
 
 ### Quick Start
 
