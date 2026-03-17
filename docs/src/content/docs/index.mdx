@@ -14,6 +14,15 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## Overview
 
+## System Status
+
+Karyon is in active production-readiness work. The documentation describes the intended organism, but the current repository still contains a mix of implemented runtime, partial integrations, and explicitly mocked development paths.
+
+- The umbrella app layout, OTP supervision, and Rust NIF boundaries are real.
+- Memgraph, XTDB, NATS, and Firecracker integrations still need service-backed validation before being treated as production-ready.
+- Runtime contracts across `core`, `rhizome`, and `nervous_system` are being normalized under the root `PLAN.md`.
+- Use the root `TASKS.md` to see which phases are complete, in flight, or blocked.
+
 <CardGrid stagger>
 	<Card title="Part I: The Biological Edge in Systems" icon="open-book">
 		Explore the core biological primitives required to build a reasoning, adapting organism. [Read Chapter 1](/part-1/chapter-1/1-introduction/)
