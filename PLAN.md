@@ -305,7 +305,7 @@ Remove ambiguity between implemented behavior and target behavior so later phase
 ### Tasks
 
 #### P0.1 Audit simulated success paths
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - inspect `core`, `sandbox`, and `dashboard` for simulated or placeholder success behavior
   - replace with explicit `{:error, :not_implemented}` or config-gated dev/mock behavior where appropriate
@@ -325,10 +325,16 @@ Remove ambiguity between implemented behavior and target behavior so later phase
   - `mix compile`
   - targeted tests for touched apps
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Replaced placeholder success in `Core.MotorDriver`, `Core.StemCell`, and `Sandbox.Provisioner.capture_output/1` with explicit not-ready errors or mock-gated behavior.
+    - Replaced randomized dashboard telemetry values with live BEAM/native readings, surfacing unavailable metrics honestly instead of fabricating values.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
+      - `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs test/core/motor_driver_test.exs`
+      - `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/provisioner_test.exs`
 
 #### P0.2 Repair documentation references
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - reconcile README and docs references to `docs/public/book.md`
   - either generate the artifact or update references to the real docs source/build output
@@ -345,10 +351,15 @@ Remove ambiguity between implemented behavior and target behavior so later phase
 - Validation:
   - manual link/path verification
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Updated top-level README links to point to real repo paths instead of missing `docs/public/book.md`, `file://` links, and an absent local walkthrough artifact.
+    - Made the docs-site book download button conditional on the generated file actually existing.
+    - Validation run:
+      - manual path verification against checked-in files
+      - `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
 
 #### P0.3 Add current-state note to docs
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - document target architecture versus implemented runtime
   - clarify which subsystems are MVP, partial, or production-grade
@@ -361,7 +372,10 @@ Remove ambiguity between implemented behavior and target behavior so later phase
 - Validation:
   - docs build or file inspection
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Added an honest current-state section to the root README, docs README, and docs landing page clarifying which parts of Karyon are implemented versus still being hardened.
+    - Validation run:
+      - file inspection of `README.md`, `docs/README.md`, and `docs/src/content/docs/index.mdx`
 
 ## Phase 1: Runtime Contract Correction
 
@@ -384,7 +398,7 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 ### Subphase 1A: Rhizome Contract Redesign
 
 #### P1.1 Define canonical Rhizome NIF return shapes
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - define structured Elixir-facing response contracts for:
     - `memgraph_query/1`
@@ -406,10 +420,14 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 - Validation:
   - `mix compile`
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Split the raw Rustler boundary into `Rhizome.Raw` and a public `Rhizome.Native` wrapper that now defines and documents canonical Elixir-facing contracts.
+    - Standardized public shapes to decoded row lists for `memgraph_query/1` and `xtdb_query/1`, metadata maps for `xtdb_submit/2`, `bridge_to_xtdb/0`, and `weaken_edge/1`, and explicit `{:error, reason}` failures.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
 
 #### P1.2 Implement real Memgraph query result decoding
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - replace string-only success responses with structured rows
   - preserve error tuples as explicit `{:error, reason}`
@@ -422,10 +440,14 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 - Validation:
   - `mix test apps/rhizome/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Reworked the native Memgraph client to execute queries as row streams and serialize decoded rows as JSON instead of returning string-only success markers.
+    - `Rhizome.Native.memgraph_query/1` now returns real row data, including aggregate maps such as `%{"count" => ...}` and graph payload rows used by `Engram`.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test`
 
 #### P1.3 Implement coherent XTDB submit/query behavior
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - make XTDB submit and query contracts consistent with caller expectations
   - reject malformed input explicitly
@@ -438,12 +460,16 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 - Validation:
   - `mix test apps/rhizome/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Normalized XTDB submit/query inputs to JSON payloads and normalized successful responses to decoded Elixir terms instead of ad hoc raw strings.
+    - Added explicit rejection for malformed query/document inputs through the wrapper contract and updated XTDB tests to use structured query payloads.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test`
 
 ### Subphase 1B: Core Caller Alignment
 
 #### P1.4 Update `StemCell` hydration and pruning callers
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - update XTDB hydration logic
   - update Rhizome pruning interactions to match real NIF return shapes
@@ -459,10 +485,15 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 - Validation:
   - `mix test apps/core/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Replaced the old XTDB hydration assumption in `StemCell` with structured XTDB query input and tolerant belief extraction from decoded query results.
+    - Kept pruning interactions aligned with the new `weaken_edge/1` contract while preserving fail-closed behavior when Rhizome data is absent.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs test/core/motor_driver_test.exs test/core/engram_test.exs`
+      - Broader `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core` was started but is dominated by long-running scale/stress coverage outside this contract slice, so focused contract tests were used for task validation.
 
 #### P1.5 Replace placeholder motor planning assumptions
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - stop depending on placeholder query values in `MotorDriver`
   - keep planning minimal if necessary, but contract-correct
@@ -477,10 +508,13 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 - Validation:
   - `mix test apps/core/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - `Core.MotorDriver` no longer depends on placeholder graph-step data. It now requires a real Rhizome attractor lookup and returns `{:error, :graph_planning_not_ready}` until graph-backed planning is implemented.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs`
 
 #### P1.6 Correct engram capture/injection assumptions
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - make `Engram` operate on actual graph result shapes
   - prevent serialization of placeholder query responses
@@ -495,12 +529,15 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 - Validation:
   - `mix test apps/core/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Updated `Core.Engram` to capture decoded graph rows and import from explicit `%{"n" => ..., "m" => ...}` row shapes rather than ambiguous nested list placeholders.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/engram_test.exs`
 
 ### Subphase 1C: Nervous System Stabilization
 
 #### P1.7 Restrict Synapse transport support
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - validate supported protocols explicitly
   - reject unsupported transports like `inproc` if not truly supported by the current implementation
@@ -515,10 +552,14 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 - Validation:
   - `mix test apps/nervous_system/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Restricted `NervousSystem.Synapse` to explicit supported transport parsing, returning `{:unsupported_protocol, ...}` for unsupported schemes instead of retry storms.
+    - Updated property tests to validate supported TCP topology and added an explicit unsupported-transport assertion.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/synapse_test.exs test/nervous_system/synapse_property_test.exs test/nervous_system/pain_receptor_test.exs`
 
 #### P1.8 Fix nociception delivery reliability
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - fix `PainReceptor` and publish/subscribe timing assumptions
   - ensure the pain-signal path is deterministic enough for tests
@@ -534,10 +575,14 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 - Validation:
   - `mix test apps/nervous_system/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Fixed `PainReceptor` telemetry attachment lifetime by using per-process handler ids and detaching them on terminate.
+    - Fixed `Synapse.start_link/1` to honor GenServer registration options such as `:name`, which stabilized the test setup and delivery path.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/synapse_test.exs test/nervous_system/synapse_property_test.exs test/nervous_system/pain_receptor_test.exs`
 
 #### P1.9 Add transport error telemetry
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - emit telemetry for bind failures, unsupported protocols, dropped payloads, and retries
 - Dependencies:
@@ -549,7 +594,10 @@ Fix the highest-ROI blocker: incorrect contracts across `core`, `rhizome`, and `
 - Validation:
   - targeted nervous-system tests
 - Progress notes:
-  - none yet
+  - 2026-03-16 / Codex
+    - Added telemetry emission for transport init failures, unsupported protocols, bind retries, bind/connect failures, send failures, and receiver shutdown.
+    - Validation run:
+      - `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/synapse_test.exs test/nervous_system/synapse_property_test.exs test/nervous_system/pain_receptor_test.exs`
 
 ## Phase 2: Real Infrastructure Integration
 
@@ -572,7 +620,7 @@ Make the architecture spine function against real services, not just local assum
 ### Tasks
 
 #### P2.1 Externalize service configuration
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - remove hardcoded `127.0.0.1` service assumptions from NIF and runtime code
   - move endpoints and credentials to app config/runtime env
@@ -589,10 +637,13 @@ Make the architecture spine function against real services, not just local assum
 - Validation:
   - `mix compile`
 - Progress notes:
-  - none yet
+  - 2026-03-16: Codex - centralized Memgraph, XTDB, and NATS endpoints under `:karyon, :services`; removed hardcoded service URLs from `NervousSystem.Endocrine`, `Rhizome.Native`/`Rhizome.Raw`, and the Sensory NIF boundary.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/endocrine_test.exs` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix test test/sensory/native_test.exs` -> passed
 
 #### P2.2 Add service health and readiness checks
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - implement dependency probes for Memgraph, XTDB, and NATS
   - gate startup or mark degraded state explicitly
@@ -605,10 +656,12 @@ Make the architecture spine function against real services, not just local assum
 - Validation:
   - targeted integration tests
 - Progress notes:
-  - none yet
+  - 2026-03-16: Codex - added `Core.ServiceHealth` with explicit Memgraph, XTDB, and NATS probes and gated service-backed harness flows in `Core.TestHarness` so critical integration paths fail closed on degraded dependencies.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/service_health_test.exs` -> passed
 
 #### P2.3 Create real integration suite for Rhizome
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - add integration tests for:
     - graph writes
@@ -626,10 +679,24 @@ Make the architecture spine function against real services, not just local assum
 - Validation:
   - `mix test apps/rhizome/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16: Codex - added `app/rhizome/test/rhizome/service_integration_test.exs` covering real Memgraph writes/reads, XTDB submit/query, archival bridge, and consolidation-manager pruning with controlled service probing.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/service_integration_test.exs --include external` -> failed; Memgraph-backed checks passed, but XTDB `/tx` and `/query` calls intermittently returned `channel closed` and `connection reset by peer`.
+  - 2026-03-16: Codex - verified root cause of the XTDB failures: `compose.yml` launches `ghcr.io/xtdb/xtdb:latest`, which is XTDB `2.1.0`; the running container exposes health on `8080` and PG-wire on `5432`, while the Rhizome client still targets the XTDB v1 HTTP `/tx` and `/query` API on `3000`.
+  - Validation: `curl -i --max-time 5 http://127.0.0.1:3000/` -> `Recv failure: Connection reset by peer`
+  - Validation: `curl -i --max-time 5 http://127.0.0.1:3000/status` -> `Recv failure: Connection reset by peer`
+  - Validation: `docker logs --tail 100 karyon_xtdb` -> XTDB `2.1.0`, health server on `8080`, PG-wire on `5432`
+  - Validation: `docker exec karyon_xtdb sh -lc 'curl -i --max-time 5 http://127.0.0.1:8080/'` -> XTDB Healthz HTML page
+  - Validation: `docker exec karyon_xtdb sh -lc 'curl -i --max-time 5 http://127.0.0.1:3000/'` -> connection refused inside container
+  - 2026-03-16: Codex - exposed XTDB `5432` and `8080` in `compose.yml` so the actual v2 service surface is inspectable during the eventual contract migration or harness pinning work.
+  - 2026-03-16: Codex - migrated the public XTDB path to XTDB v2 semantics by replacing the v1 HTTP client with an Elixir `Postgrex` adapter in `Rhizome.Xtdb`, switching the default XTDB config to `postgres://127.0.0.1:5432/xtdb`, recreating the XTDB container with `5432` exposed, and reimplementing `Rhizome.Native.bridge_to_xtdb/0` on the Elixir side while preserving the existing public return shapes.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix deps.get` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/bitemporal_test.exs` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/service_integration_test.exs --include external` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test` -> Rhizome tests passed; umbrella path emitted path-mismatch noise in other apps after the Rhizome run, so the effective validation was the Rhizome app suite plus the external service suite.
 
 #### P2.4 Create real integration suite for Nervous System
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - validate NATS publish/subscribe against a real broker
   - validate ZMQ transport with supported protocols only
@@ -643,10 +710,12 @@ Make the architecture spine function against real services, not just local assum
 - Validation:
   - `mix test apps/nervous_system/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16: Codex - converted NATS broker tests to explicit external integrations with broker-availability gating and kept supported TCP-only ZMQ transport validation in the standard suite.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/endocrine_gradient_test.exs --include external` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/synapse_test.exs test/nervous_system/synapse_property_test.exs` -> passed
 
 #### P2.5 Validate sensory -> rhizome -> core flow
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - ingest code via sensory
   - persist to graph
@@ -663,7 +732,10 @@ Make the architecture spine function against real services, not just local assum
 - Validation:
   - targeted integration suite
 - Progress notes:
-  - none yet
+  - 2026-03-16: Codex - not started because `P2.3` remains blocked on unstable XTDB-backed Rhizome integration, which is a declared prerequisite for end-to-end service-backed flow validation.
+  - 2026-03-16: Codex - tightened existing XTDB-dependent integration tests so they are tagged `:external` and no longer imply default-suite coverage while the XTDB service contract remains mismatched.
+  - 2026-03-16: Codex - strengthened `app/core/test/platform_integration_test.exs` so the end-to-end path now ingests code via `Sensory.Native`, persists and bridges graph state through Rhizome, hydrates a new `Core.StemCell` lineage from XTDB v2, and verifies downstream endocrine signaling by driving the cell into torpor from a real metabolic spike.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/platform_integration_test.exs --include external` -> passed
 
 ## Phase 3: Sandbox Membrane Hardening
 
@@ -687,7 +759,7 @@ Replace the current mock-heavy sandbox path with a real secure execution membran
 ### Tasks
 
 #### P3.1 Fix helper binary path resolution
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - correct `karyon-net-helper` path resolution from sandbox code
   - avoid brittle relative path assumptions
@@ -702,10 +774,13 @@ Replace the current mock-heavy sandbox path with a real secure execution membran
 - Validation:
   - `mix test apps/sandbox/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16: Codex - replaced brittle helper-path guessing with explicit `Sandbox.Provisioner.helper_path/0` resolution over sandbox config, environment, `$PATH`, and known app-root build outputs; missing helpers now return `{:error, :net_helper_not_found}` instead of raising.
+  - 2026-03-16: Codex - added sandbox test coverage for config-driven helper resolution and retained failure-path coverage through `verify_network/1`.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
 
 #### P3.2 Remove app-layer privileged cleanup assumptions
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - replace `sudo`-dependent cleanup with a safer host integration strategy
   - document the privilege boundary
@@ -720,10 +795,13 @@ Replace the current mock-heavy sandbox path with a real secure execution membran
 - Validation:
   - `mix test apps/sandbox/test`
 - Progress notes:
-  - none yet
+  - 2026-03-16: Codex - removed direct `sudo ip ...` cleanup from `Sandbox.VmmSupervisor`; tap-device teardown is now delegated exclusively to `karyon-net-helper` via the existing host-boundary resolution path.
+  - 2026-03-16: Codex - documented the privilege boundary in `Sandbox.VmmSupervisor` and added a focused test proving cleanup invokes the configured helper instead of shelling into privileged app-layer commands.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
 
 #### P3.3 Implement real Firecracker boot chain
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - wire kernel image, rootfs, machine config, and startup flow
   - ensure socket readiness reflects actual VM lifecycle
@@ -737,10 +815,39 @@ Replace the current mock-heavy sandbox path with a real secure execution membran
 - Validation:
   - integration validation in sandbox environment
 - Progress notes:
-  - none yet
+  - 2026-03-16: Codex - wired explicit Firecracker runtime prerequisite resolution into the non-mock sandbox path. `Sandbox.Firecracker.boot_requirements/0` now requires a real Firecracker binary, kernel image, and rootfs path; `Sandbox.Provisioner.provision_vm/1` now re-enables `set_boot_source/3` and `set_drive/3` and refuses to proceed without those prerequisites.
+  - 2026-03-16: Codex - updated `Sandbox.VmmSupervisor.start_vmm/3` to use the resolved Firecracker binary instead of a bare `"firecracker"` shell assumption, and added focused test coverage for fail-closed prerequisite handling.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs` -> passed
+  - 2026-03-16: Codex - verified a real Firecracker binary now exists at `/usr/local/bin/firecracker` and pinned that path into `app/config/config.exs` via `:sandbox, :firecracker_binary`.
+  - Validation: `ls -l /usr/local/bin/firecracker` -> present and executable
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - 2026-03-16: Codex - verified host kernel and rootfs artifacts were provided at `/opt/karyon/firecracker/vmlinux` and `/opt/karyon/firecracker/rootfs.ext4`.
+  - 2026-03-16: Codex - built the host network helper, broadened sandbox helper resolution to accept the actual built artifact name `net_helper`, and tightened the helper so failed TAP/iptables setup exits non-zero instead of reporting false success.
+  - 2026-03-16: Codex - executed the real non-mock provision path with `KARYON_MOCK_HARDWARE=0`, `KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux`, `KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4`, and `KARYON_NET_HELPER=/home/adrian/Projects/nexical/karyon/app/sandbox/native/net_helper/target/release/net_helper`. Firecracker started successfully and bound `/tmp/firecracker-vm-3.socket`, but host networking failed before a valid isolated VM launch completed.
+  - Validation: `env KARYON_MOCK_HARDWARE=0 KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4 KARYON_NET_HELPER=/home/adrian/Projects/nexical/karyon/app/sandbox/native/net_helper/target/release/net_helper mix run -e 'IO.inspect(Sandbox.Provisioner.provision_vm("/tmp/test_plan.json"))'` -> Firecracker API socket started, then provisioning failed with `{:error, :network_setup_failed}`
+  - Blocker: infrastructure - host TAP and firewall setup are not permitted for the helper in the current environment, and the configured bridge device `karyon0` does not exist.
+  - Validation: helper output during real run -> `ioctl(TUNSETIFF): Operation not permitted`
+  - Validation: helper output during real run -> `iptables ... Permission denied (you must be root)`
+  - Validation: helper output during real run -> `argument "karyon0" is wrong: Device does not exist`
+  - 2026-03-16: Codex - verified `/usr/local/bin/karyon-net-helper` now has `cap_net_admin=ep` and `karyon0` exists, then reran the real non-mock provision path. Firecracker still started and bound its API socket, but TAP and iptables setup failed with the same permission errors.
+  - Validation: `getcap /usr/local/bin/karyon-net-helper && ip link show karyon0` -> helper has `cap_net_admin=ep`, bridge exists
+  - Validation: `env KARYON_MOCK_HARDWARE=0 KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4 KARYON_NET_HELPER=/usr/local/bin/karyon-net-helper mix run -e 'IO.inspect(Sandbox.Provisioner.provision_vm("/tmp/test_plan.json"))'` -> Firecracker API socket started, then provisioning failed with `{:error, :network_setup_failed}`
+  - Blocker refinement: implementation/design - the helper currently shells out to `ip` and `iptables`, and the helper's file capability does not grant those child executables the needed privilege. To complete the real boot chain, the helper must perform TAP and firewall work directly (netlink/nftables or equivalent) or be executed through a truly privileged host boundary.
+  - 2026-03-16: Codex - refactored `app/sandbox/native/net_helper/src/main.rs` so the helper now manages TAP lifecycle directly with Linux ioctls instead of spawning `ip` or `iptables`. The helper now creates persistent TAP devices through `/dev/net/tun`, attaches them to the requested bridge with `SIOCBRADDIF`, brings them up with `SIOCSIFFLAGS`, and tears them down by clearing `TUNSETPERSIST`.
+  - 2026-03-16: Codex - replaced the old iptables-based verification path with structural bridge isolation checks. `verify` now requires the tap to exist, be up, be attached to a bridge, the bridge to contain only `tap-vm-*` members, and the bridge to have no IPv4 route in `/proc/net/route`.
+  - 2026-03-16: Codex - stabilized the sandbox test suite after the stricter helper validation by making the mock-network audit test set `KARYON_MOCK_HARDWARE` explicitly.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox/native/net_helper && cargo build --release` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
+  - 2026-03-16: Codex - after the rebuilt helper was reinstalled onto `/usr/local/bin/karyon-net-helper` with `CAP_NET_ADMIN`, the real non-mock provision path moved past host networking and exposed Firecracker API drift in the Elixir client. `init_vmm/1` was corrected to use `GET /version`, and the network-interface payload was aligned with Firecracker 1.15 by removing the unsupported `allow_mmds_requests` field.
+  - Validation: `getcap /usr/local/bin/karyon-net-helper` -> `/usr/local/bin/karyon-net-helper cap_net_admin=ep`
+  - Validation: `ip link show karyon0` -> bridge exists and is up for host use
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
+  - Validation: `env KARYON_MOCK_HARDWARE=0 KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4 KARYON_NET_HELPER=/usr/local/bin/karyon-net-helper mix run -e 'IO.inspect(Sandbox.Provisioner.provision_vm("/tmp/test_plan.json"))'` -> Firecracker initialized, accepted machine/network/boot/drive configuration, returned `204` on `InstanceStart`, and `Sandbox.Provisioner.provision_vm/1` completed with `{:ok, "vm-3042"}`
 
 #### P3.4 Implement real execution telemetry capture
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - replace fake success text with real stdout, stderr, and exit-code capture
   - pipe failure states back to the organism
@@ -753,10 +860,17 @@ Replace the current mock-heavy sandbox path with a real secure execution membran
 - Validation:
   - sandbox integration suite
 - Progress notes:
-  - none yet
+  - 2026-03-17: Codex - replaced the placeholder `capture_output/1` path with real file-backed runtime telemetry. `Sandbox.Provisioner` now registers per-VM runtime metadata, persists stdout/stderr paths in `Sandbox.RuntimeRegistry`, and `capture_output/1` returns actual captured output, status, and exit code instead of fabricated success text.
+  - 2026-03-17: Codex - refactored `Sandbox.VmmSupervisor` so Firecracker launches with stdout and stderr redirected into per-VM files, stores the supervised task pid in runtime metadata, and reports non-zero exits to `PainReceptor`.
+  - 2026-03-17: Codex - repointed `Sandbox.Console` from a nonexistent placeholder pipe to the real stdout stream and changed it to tail append-only files instead of only working against FIFOs, so VM boot/runtime failures can flow back into the organism.
+  - 2026-03-17: Codex - added focused coverage for `capture_output/1` returning persisted stdout/stderr/exit_code and for the missing-runtime error path.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs` -> passed
+  - Validation: `env KARYON_MOCK_HARDWARE=0 KARYON_FIRECRACKER_KERNEL=/opt/karyon/firecracker/vmlinux KARYON_FIRECRACKER_ROOTFS=/opt/karyon/firecracker/rootfs.ext4 KARYON_NET_HELPER=/usr/local/bin/karyon-net-helper mix run -e 'case Sandbox.Provisioner.provision_vm("/tmp/test_plan.json") do {:ok, vm_id} -> Process.sleep(500); IO.inspect({vm_id, Sandbox.Provisioner.capture_output(vm_id)}) ; {:error, reason} -> IO.inspect({:error, reason}) end'` -> returned `{:ok, %{mode: :firecracker, status: :running, stdout: ...guest boot/runtime log..., stderr: "", exit_code: nil, vm_id: "vm-1410"}}`
+  - Residual risk: host-side orphan tap cleanup is still imperfect when a VM is terminated outside the normal runtime path; that does not block real telemetry capture, but it should be addressed during Phase 3 isolation hardening.
 
 #### P3.5 Enforce mount and network isolation end to end
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - verify mount jail constraints
   - verify network isolation on the actual VM execution path
@@ -769,7 +883,16 @@ Replace the current mock-heavy sandbox path with a real secure execution membran
 - Validation:
   - `mix test apps/sandbox/test`
 - Progress notes:
-  - none yet
+  - 2026-03-17: Codex - hardened mount-jail enforcement in `Sandbox.Provisioner`. `verify_mount_safety/1` now rejects sibling-prefix escapes like `~/.karyon/sandboxes_evil/...`, and `verify_mount_isolation/1` rejects symlink-backed mount targets even when they live under the sandbox root.
+  - 2026-03-17: Codex - extended the privileged helper cleanup path to detach TAP devices from the bridge before clearing persistence, so network teardown can remove VM interfaces instead of leaving orphaned `tap-vm-*` devices behind.
+  - 2026-03-17: Codex - fixed the runtime cleanup boundary so VMM teardown stops the live Firecracker process before helper cleanup runs. `Sandbox.VmmSupervisor` now attempts managed runtime shutdown and falls back to a targeted `pkill` by `--api-sock` path to avoid leaked VMs keeping TAP devices busy.
+  - 2026-03-17: Codex - added focused test coverage for sibling-prefix jail bypasses, symlink mount rejection, and the real external cleanup path that provisions a non-mock VM and asserts its tap device is absent after cleanup.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox/native/net_helper && cargo build --release` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/firecracker_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs test/sandbox/security_isolation_test.exs` -> passed after test env isolation fixes
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/security_isolation_test.exs --include external` -> passed
+  - Validation: `pgrep -af firecracker` -> no remaining Firecracker processes after cleanup
+  - Validation: `ls /sys/class/net` -> no remaining `tap-vm-*` interfaces after cleanup
 
 ## Phase 4: Core Planning And Memory Loops
 

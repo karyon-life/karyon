@@ -6,55 +6,55 @@ Check off tasks and phases here as implementation work is completed and validate
 
 ## Phases
 
-- [ ] Phase 0: Truthfulness And Planning Hygiene
-- [ ] Phase 1: Runtime Contract Correction
-- [ ] Phase 2: Real Infrastructure Integration
-- [ ] Phase 3: Sandbox Membrane Hardening
+- [x] Phase 0: Truthfulness And Planning Hygiene
+- [x] Phase 1: Runtime Contract Correction
+- [x] Phase 2: Real Infrastructure Integration
+- [x] Phase 3: Sandbox Membrane Hardening
 - [ ] Phase 4: Core Planning And Memory Loops
 - [ ] Phase 5: Observability, Releases, And Operations
 - [ ] Phase 6: Scale, Resilience, And Production Validation
 
 ## Phase 0: Truthfulness And Planning Hygiene
 
-- [ ] P0.1 Audit simulated success paths
-- [ ] P0.2 Repair documentation references
-- [ ] P0.3 Add current-state note to docs
+- [x] P0.1 Audit simulated success paths
+- [x] P0.2 Repair documentation references
+- [x] P0.3 Add current-state note to docs
 
 ## Phase 1: Runtime Contract Correction
 
 ### Subphase 1A: Rhizome Contract Redesign
 
-- [ ] P1.1 Define canonical Rhizome NIF return shapes
-- [ ] P1.2 Implement real Memgraph query result decoding
-- [ ] P1.3 Implement coherent XTDB submit/query behavior
+- [x] P1.1 Define canonical Rhizome NIF return shapes
+- [x] P1.2 Implement real Memgraph query result decoding
+- [x] P1.3 Implement coherent XTDB submit/query behavior
 
 ### Subphase 1B: Core Caller Alignment
 
-- [ ] P1.4 Update `StemCell` hydration and pruning callers
-- [ ] P1.5 Replace placeholder motor planning assumptions
-- [ ] P1.6 Correct engram capture/injection assumptions
+- [x] P1.4 Update `StemCell` hydration and pruning callers
+- [x] P1.5 Replace placeholder motor planning assumptions
+- [x] P1.6 Correct engram capture/injection assumptions
 
 ### Subphase 1C: Nervous System Stabilization
 
-- [ ] P1.7 Restrict Synapse transport support
-- [ ] P1.8 Fix nociception delivery reliability
-- [ ] P1.9 Add transport error telemetry
+- [x] P1.7 Restrict Synapse transport support
+- [x] P1.8 Fix nociception delivery reliability
+- [x] P1.9 Add transport error telemetry
 
 ## Phase 2: Real Infrastructure Integration
 
-- [ ] P2.1 Externalize service configuration
-- [ ] P2.2 Add service health and readiness checks
-- [ ] P2.3 Create real integration suite for Rhizome
-- [ ] P2.4 Create real integration suite for Nervous System
-- [ ] P2.5 Validate sensory -> rhizome -> core flow
+- [x] P2.1 Externalize service configuration
+- [x] P2.2 Add service health and readiness checks
+- [x] P2.3 Create real integration suite for Rhizome
+- [x] P2.4 Create real integration suite for Nervous System
+- [x] P2.5 Validate sensory -> rhizome -> core flow
 
 ## Phase 3: Sandbox Membrane Hardening
 
-- [ ] P3.1 Fix helper binary path resolution
-- [ ] P3.2 Remove app-layer privileged cleanup assumptions
-- [ ] P3.3 Implement real Firecracker boot chain
-- [ ] P3.4 Implement real execution telemetry capture
-- [ ] P3.5 Enforce mount and network isolation end to end
+- [x] P3.1 Fix helper binary path resolution
+- [x] P3.2 Remove app-layer privileged cleanup assumptions
+- [x] P3.3 Implement real Firecracker boot chain
+- [x] P3.4 Implement real execution telemetry capture
+- [x] P3.5 Enforce mount and network isolation end to end
 
 ## Phase 4: Core Planning And Memory Loops
 
@@ -77,10 +77,10 @@ Check off tasks and phases here as implementation work is completed and validate
 
 ## Milestones
 
-- [ ] Milestone A: Honest Baseline
-- [ ] Milestone B: Correct Runtime Spine
-- [ ] Milestone C: Real Service-Backed Organism
-- [ ] Milestone D: Real Secure Execution
+- [x] Milestone A: Honest Baseline
+- [x] Milestone B: Correct Runtime Spine
+- [x] Milestone C: Real Service-Backed Organism
+- [x] Milestone D: Real Secure Execution
 - [ ] Milestone E: Closed Cognitive Loop
 - [ ] Milestone F: Production Candidate
 - [ ] Milestone G: Production Validated
