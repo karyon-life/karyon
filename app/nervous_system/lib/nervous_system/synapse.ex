@@ -11,7 +11,8 @@ defmodule NervousSystem.Synapse do
   """
   def start_link(opts \\ []) do
     opts = Keyword.put_new(opts, :owner, self())
-    GenServer.start_link(__MODULE__, opts)
+    {genserver_opts, init_opts} = Keyword.split(opts, [:name, :timeout, :debug, :spawn_opt])
+    GenServer.start_link(__MODULE__, init_opts, genserver_opts)
   end
 
   def send_signal(pid, payload, retries \\ 10) do
@@ -38,49 +39,14 @@ defmodule NervousSystem.Synapse do
     :chumak.set_socket_option(socket_pid, :sndhwm, hwm)
     :chumak.set_socket_option(socket_pid, :rcvhwm, hwm)
     
-    # Simple parsing logic
-    [protocol, rest] = String.split(bind_addr, "://")
-    
-    # Handle protocol which might not have a host:port structure
-    {host, port} = 
-      case String.split(rest, ":") do
-        [h, p] ->
-          case Integer.parse(p) do
-            {integer, ""} -> {h, integer}
-            _ -> {h, p} # Keep as string
-          end
-        [only_path] -> 
-          {only_path, 0}
-      end
-
-    action = Keyword.get(opts, :action, :bind)
-
-    case action do
-      :bind ->
-        # If port is 0, find a free one first because chumak.bind returns a PID instead of port
-        port_to_bind = if port == 0, do: get_free_port(), else: port
-        
-        case robust_bind(socket_pid, String.to_atom(protocol), ~c"#{host}", port_to_bind) do
-          {:ok, bind_res} ->
-            actual_port = 
-              case bind_res do
-                # Chumak bind might return a port or a PID
-                p when is_integer(p) -> p
-                _ -> port_to_bind
-              end
-            Logger.info("[Synapse] Bound to #{protocol}://#{host}:#{actual_port}")
-            if type in [:sub, :pull], do: start_receiver(socket_pid)
-            {:ok, %{socket: socket_pid, port: actual_port, type: type, owner: owner, protocol: protocol}}
-          {:error, reason} -> {:stop, reason}
-        end
-      :connect ->
-        case :chumak.connect(socket_pid, String.to_atom(protocol), ~c"#{host}", port) do
-          {:ok, _conn_pid} ->
-            Logger.info("[Synapse] Connected to #{protocol}://#{host}:#{port}")
-            if type in [:sub, :pull], do: start_receiver(socket_pid)
-            {:ok, %{socket: socket_pid, port: port, type: type, owner: owner, protocol: protocol}}
-          {:error, reason} -> {:stop, reason}
-        end
+    with {:ok, %{protocol: protocol, host: host, port: port}} <- parse_bind_addr(bind_addr),
+         action <- Keyword.get(opts, :action, :bind),
+         {:ok, state} <- initialize_socket(socket_pid, type, owner, protocol, host, port, action) do
+      {:ok, state}
+    else
+      {:error, reason} ->
+        emit_transport_event(:init_failed, %{bind: bind_addr, type: type, reason: reason})
+        {:stop, reason}
     end
   end
 
@@ -94,13 +60,18 @@ defmodule NervousSystem.Synapse do
   defp robust_bind(socket, protocol, host, port, retries \\ 20) do
     case :chumak.bind(socket, protocol, host, port) do
       {:ok, res} -> {:ok, res}
+      {:error, {:unsupported_protocol, _} = reason} ->
+        emit_transport_event(:unsupported_protocol, %{protocol: protocol, port: port, reason: reason})
+        {:error, reason}
       {:error, reason} when retries > 0 ->
-        # If we hit collision or any other bind error, try a different random port
+        emit_transport_event(:bind_retry, %{protocol: protocol, port: port, reason: reason, retries_left: retries})
         Logger.debug("[Synapse] Bind failed for #{protocol}://#{host}:#{port} reason: #{inspect(reason)}. Retrying...")
         new_port = if port == 0, do: get_free_port(), else: Enum.random(20000..60000)
         Process.sleep(100)
         robust_bind(socket, protocol, host, new_port, retries - 1)
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        emit_transport_event(:bind_failed, %{protocol: protocol, port: port, reason: reason})
+        {:error, reason}
     end
   end
 
@@ -116,7 +87,8 @@ defmodule NervousSystem.Synapse do
       {:ok, payload} ->
         send(parent, {:synapse_recv_internal, payload})
         receiver_loop(socket_pid, parent)
-      {:error, _reason} ->
+      {:error, reason} ->
+        emit_transport_event(:recv_stopped, %{reason: reason})
         :ok # Socket might be closed
     end
   end
@@ -134,7 +106,9 @@ defmodule NervousSystem.Synapse do
   def handle_call({:send, payload}, _from, state) do
     case :chumak.send(state.socket, payload) do
       :ok -> {:reply, :ok, state}
-      {:error, reason} -> {:reply, {:error, reason}, state}
+      {:error, reason} ->
+        emit_transport_event(:send_failed, %{protocol: state.protocol, port: state.port, reason: reason})
+        {:reply, {:error, reason}, state}
     end
   end
 
@@ -159,5 +133,71 @@ defmodule NervousSystem.Synapse do
       # or we can try to unbind if supported.
       :ok
     end
+  end
+
+  defp parse_bind_addr(bind_addr) do
+    case String.split(bind_addr, "://", parts: 2) do
+      [protocol, rest] when protocol in ["tcp"] ->
+        {host, port} =
+          case String.split(rest, ":", parts: 2) do
+            [h, p] ->
+              case Integer.parse(p) do
+                {integer, ""} -> {h, integer}
+                _ -> {h, p}
+              end
+
+            [only_host] ->
+              {only_host, 0}
+          end
+
+        {:ok, %{protocol: protocol, host: host, port: port}}
+
+      [protocol, _rest] ->
+        {:error, {:unsupported_protocol, String.to_atom(protocol)}}
+
+      _ ->
+        {:error, :invalid_bind_address}
+    end
+  end
+
+  defp initialize_socket(socket_pid, type, owner, protocol, host, port, :bind) do
+    port_to_bind = if port == 0, do: get_free_port(), else: port
+
+    case robust_bind(socket_pid, String.to_atom(protocol), ~c"#{host}", port_to_bind) do
+      {:ok, bind_res} ->
+        actual_port =
+          case bind_res do
+            p when is_integer(p) -> p
+            _ -> port_to_bind
+          end
+
+        Logger.info("[Synapse] Bound to #{protocol}://#{host}:#{actual_port}")
+        if type in [:sub, :pull], do: start_receiver(socket_pid)
+        {:ok, %{socket: socket_pid, port: actual_port, type: type, owner: owner, protocol: protocol}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp initialize_socket(socket_pid, type, owner, protocol, host, port, :connect) do
+    case :chumak.connect(socket_pid, String.to_atom(protocol), ~c"#{host}", port) do
+      {:ok, _conn_pid} ->
+        Logger.info("[Synapse] Connected to #{protocol}://#{host}:#{port}")
+        if type in [:sub, :pull], do: start_receiver(socket_pid)
+        {:ok, %{socket: socket_pid, port: port, type: type, owner: owner, protocol: protocol}}
+
+      {:error, {:unsupported_protocol, _} = reason} ->
+        emit_transport_event(:unsupported_protocol, %{protocol: protocol, port: port, reason: reason})
+        {:error, reason}
+
+      {:error, reason} ->
+        emit_transport_event(:connect_failed, %{protocol: protocol, port: port, reason: reason})
+        {:error, reason}
+    end
+  end
+
+  defp emit_transport_event(event, metadata) do
+    :telemetry.execute([:karyon, :nervous_system, :synapse, event], %{}, metadata)
   end
 end

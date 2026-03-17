@@ -1,22 +1,28 @@
 defmodule NervousSystem.EndocrineGradientTest do
   use ExUnit.Case, async: false
+  @moduletag :external
   require Logger
 
   alias NervousSystem.Endocrine
 
-  test "broadcasts metabolic spikes to multiple cellular subscribers via NATS" do
+  setup_all do
+    case Endocrine.start_connection("gradient_test") do
+      {:ok, pid} ->
+        on_exit(fn ->
+          if Process.alive?(pid), do: GenServer.stop(pid)
+          if Process.whereis(:endocrine_gnat) == pid, do: Process.unregister(:endocrine_gnat)
+        end)
+
+        if is_nil(Process.whereis(:endocrine_gnat)), do: Process.register(pid, :endocrine_gnat)
+        {:ok, gnat_pid: pid}
+
+      {:error, reason} ->
+        {:ok, skip: "NATS broker unavailable for gradient integration test: #{inspect(reason)}"}
+    end
+  end
+
+  test "broadcasts metabolic spikes to multiple cellular subscribers via NATS", %{gnat_pid: gnat_pid} do
     topic = "test.metabolic.spike"
-    
-    # Ensure NATS connection is started
-    gnat_pid = 
-      case Endocrine.get_gnat() do
-        nil -> 
-          {:ok, pid} = Endocrine.start_connection("gradient_test")
-          # Register it so get_gnat works later if needed
-          if is_nil(Process.whereis(:endocrine_gnat)), do: Process.register(pid, :endocrine_gnat)
-          pid
-        pid -> pid
-      end
 
     # Create multiple subscribers
     subscribers = for i <- 1..5 do

@@ -10,14 +10,14 @@ defmodule NervousSystem.SynapsePropertyTest do
   @tag timeout: 120_000
   property "synapse preserves message integrity across randomized payloads" do
     check all payload <- string(:printable), max_runs: 5 do
-      addr = "inproc://synapse_#{:rand.uniform(100000)}"
-      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: addr, owner: self())
+      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:0", owner: self())
+      %{port: port} = :sys.get_state(pull_pid)
       
       # Allow listener to stabilize longer
       Process.sleep(20)
 
       # Start a PUSH synapse (sender)
-      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: addr, action: :connect)
+      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}", action: :connect)
 
       # Send the randomized signal
       :ok = NervousSystem.Synapse.send_signal(push_pid, payload)
@@ -34,12 +34,12 @@ defmodule NervousSystem.SynapsePropertyTest do
   @tag timeout: 120_000
   property "synapse handles rapid bursts without corruption (HWM=1 exercise)" do
     check all payloads <- list_of(string(:alphanumeric), min_length: 5, max_length: 20), max_runs: 5 do
-      addr = "inproc://burst_#{:rand.uniform(100000)}"
-      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: addr, owner: self())
+      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:0", owner: self())
+      %{port: port} = :sys.get_state(pull_pid)
       
       Process.sleep(20)
 
-      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: addr, action: :connect)
+      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}", action: :connect)
 
       # Rapidly fire payloads
       for p <- payloads do
@@ -55,10 +55,9 @@ defmodule NervousSystem.SynapsePropertyTest do
   @tag :property
   property "Synapse correctly handles arbitrary binary payloads including oversized messages" do
     check all payload <- binary(min_length: 1, max_length: 5000) do
-      addr = "inproc://binary_#{:rand.uniform(100000)}"
-      
-      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: addr, owner: self(), action: :bind)
-      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: addr, action: :connect)
+      {:ok, pull_pid} = NervousSystem.Synapse.start_link(type: :pull, bind: "tcp://127.0.0.1:0", owner: self(), action: :bind)
+      %{port: port} = :sys.get_state(pull_pid)
+      {:ok, push_pid} = NervousSystem.Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:#{port}", action: :connect)
 
       Process.sleep(20)
 
@@ -69,5 +68,14 @@ defmodule NervousSystem.SynapsePropertyTest do
       GenServer.stop(push_pid)
       GenServer.stop(pull_pid)
     end
+  end
+
+  test "rejects unsupported transports explicitly" do
+    previous = Process.flag(:trap_exit, true)
+
+    assert {:error, {:unsupported_protocol, :inproc}} =
+             NervousSystem.Synapse.start_link(type: :pull, bind: "inproc://unsupported", owner: self())
+
+    Process.flag(:trap_exit, previous)
   end
 end

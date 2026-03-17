@@ -26,17 +26,20 @@ defmodule NervousSystem.PainReceptor do
       port when is_integer(port) -> "tcp://127.0.0.1:#{port}"
     end
 
-    {:ok, synapse_pid} = NervousSystem.Synapse.start_link(type: :pub, bind: bind_uri, name: :pain_synapse, hwm: 500)
+    {:ok, synapse_pid} =
+      NervousSystem.Synapse.start_link(type: :pub, bind: bind_uri, name: :pain_synapse, hwm: 500)
+
+    handler_id = "pain-receptor-handler-#{inspect(self())}"
 
     # Attach to standard OTP crash events using Telemetry.
     :telemetry.attach(
-      "pain-receptor-handler",
+      handler_id,
       [:logger, :error],
       &__MODULE__.handle_pain_signal/4,
       %{synapse: synapse_pid}
     )
 
-    {:ok, %{synapse: synapse_pid, original_opts: opts}}
+    {:ok, %{synapse: synapse_pid, original_opts: opts, telemetry_handler_id: handler_id}}
   end
 
   def handle_pain_signal(_event, _measurements, metadata, %{synapse: synapse_pid}) do
@@ -120,6 +123,12 @@ defmodule NervousSystem.PainReceptor do
   def handle_cast({:trigger_nociception, metadata}, state) do
     handle_pain_signal(nil, nil, metadata, %{synapse: state.synapse})
     {:noreply, state}
+  end
+
+  @impl true
+  def terminate(_reason, state) do
+    :telemetry.detach(state.telemetry_handler_id)
+    :ok
   end
 
   defp sanitize_metadata(metadata) do

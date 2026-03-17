@@ -7,12 +7,11 @@ defmodule NervousSystem.Endocrine do
   @doc """
   Connects to the global NATS network.
   """
-  def start_connection(_client_id, url \\ "nats://localhost:4222") do
-    # In NATS, we don't necessarily need a client_id in the same way as MQTT for basic pub/sub.
-    # We'll use Gnat.start_link/1 for now.
-    [_protocol, host_port] = String.split(url, "://")
-    [host, port] = String.split(host_port, ":")
-    Gnat.start_link(%{host: host, port: String.to_integer(port)})
+  def start_connection(_client_id, url \\ nil) do
+    url
+    |> service_url()
+    |> connection_options()
+    |> Gnat.start_link()
   end
 
   @doc """
@@ -37,5 +36,38 @@ defmodule NervousSystem.Endocrine do
   """
   def get_gnat() do
     Process.whereis(:endocrine_gnat)
+  end
+
+  defp service_url(nil) do
+    :karyon
+    |> Application.get_env(:services, [])
+    |> Keyword.get(:nats, [])
+    |> Keyword.get(:url, "nats://127.0.0.1:4222")
+  end
+
+  defp service_url(url), do: url
+
+  defp connection_options(url) do
+    uri = URI.parse(url)
+
+    %{
+      host: uri.host || "127.0.0.1",
+      port: uri.port || 4222
+    }
+    |> maybe_put_credentials(uri.userinfo)
+  end
+
+  defp maybe_put_credentials(options, nil), do: options
+
+  defp maybe_put_credentials(options, userinfo) do
+    case String.split(userinfo, ":", parts: 2) do
+      [username, password] ->
+        options
+        |> Map.put(:username, username)
+        |> Map.put(:password, password)
+
+      [username] ->
+        Map.put(options, :username, username)
+    end
   end
 end

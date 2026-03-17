@@ -1,21 +1,22 @@
 defmodule NervousSystem.EndocrineResilienceTest do
   use ExUnit.Case, async: false
+  @moduletag :external
   alias NervousSystem.Endocrine
 
   @topic "metabolic.spike"
 
   setup do
-    # Start a local NATS server mock or connect to a real one if available.
-    # For CI, we assume a local NATS is running (nats://localhost:4222).
-    # If not, we'll mock the Gnat connection.
-    
-    {:ok, gnat} = Endocrine.start_connection("test_client")
-    
-    on_exit(fn ->
-      if Process.alive?(gnat), do: GenServer.stop(gnat)
-    end)
-    
-    {:ok, gnat: gnat}
+    case Endocrine.start_connection("test_client") do
+      {:ok, gnat} ->
+        on_exit(fn ->
+          if Process.alive?(gnat), do: GenServer.stop(gnat)
+        end)
+
+        {:ok, gnat: gnat}
+
+      {:error, reason} ->
+        {:ok, skip: "NATS broker unavailable for resilience integration test: #{inspect(reason)}"}
+    end
   end
 
   test "connection recovery and subscription", %{gnat: gnat} do
