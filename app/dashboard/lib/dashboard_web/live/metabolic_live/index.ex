@@ -12,7 +12,7 @@ defmodule DashboardWeb.MetabolicLive.Index do
       Phoenix.PubSub.subscribe(Dashboard.PubSub, "metabolic_flux")
     end
 
-    {:ok, assign(socket, metrics: %{l3_misses: 0, run_queue: 0, iops: 0, pressure: :low, atp: 1.0})}
+    {:ok, assign(socket, metrics: %{l3_misses: nil, run_queue: 0, iops: nil, pressure: :low, atp: 1.0})}
   end
 
   @impl true
@@ -34,7 +34,7 @@ defmodule DashboardWeb.MetabolicLive.Index do
       <div class="metrics-grid">
         <div class="metric-card glass">
           <h3>L3 Cache Misses</h3>
-          <div class="value"><%= assigns.metrics.l3_misses %></div>
+          <div class="value"><%= metric_value(assigns.metrics.l3_misses) %></div>
           <p>Baseline: 15k</p>
         </div>
 
@@ -46,7 +46,7 @@ defmodule DashboardWeb.MetabolicLive.Index do
 
         <div class="metric-card glass">
           <h3>SSD IOPS</h3>
-          <div class="value"><%= assigns.metrics.iops %></div>
+          <div class="value"><%= metric_value(assigns.metrics.iops) %></div>
           <p>Virtio-blk Throughput</p>
         </div>
 
@@ -145,4 +145,7 @@ defmodule DashboardWeb.MetabolicLive.Index do
     </style>
     """
   end
+
+  defp metric_value(nil), do: "unavailable"
+  defp metric_value(value), do: value
 end
