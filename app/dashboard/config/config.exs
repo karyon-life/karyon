@@ -7,6 +7,8 @@
 # General application configuration
 import Config
 
+config :protox, :protoc, System.get_env("PROTOC_PATH") || System.find_executable("protoc") || "/tmp/protoc/bin/protoc"
+
 config :dashboard,
   generators: [timestamp_type: :utc_datetime]
 

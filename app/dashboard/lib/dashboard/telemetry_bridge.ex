@@ -1,7 +1,5 @@
 defmodule Dashboard.TelemetryBridge do
   use GenServer
-  require Logger
-  alias Core.Native
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -18,28 +16,16 @@ defmodule Dashboard.TelemetryBridge do
   end
 
   def handle_event([:karyon, :metabolism, :poll], measurements, metadata, _config) do
-    l3_misses =
-      case Native.read_l3_misses() do
-        {:ok, value} -> value
-        _ -> nil
-      end
-
-    iops =
-      case Native.read_iops() do
-        {:ok, value} -> value
-        _ -> nil
-      end
-
-    # Broadcast to Phoenix PubSub
     Phoenix.PubSub.broadcast(
       Dashboard.PubSub,
       "metabolic_flux",
       {:metabolic_update, %{
-        l3_misses: l3_misses,
-        run_queue: :erlang.statistics(:run_queue),
-        iops: iops,
+        l3_misses: Map.get(metadata, :l3_misses),
+        run_queue: Map.get(metadata, :run_queue, 0),
+        iops: Map.get(metadata, :iops),
         pressure: metadata.pressure,
-        atp: 1.0 - (measurements.pressure * 0.3)
+        atp: Map.get(metadata, :atp, 1.0 - measurements.pressure * 0.3),
+        preflight_status: Map.get(metadata, :preflight_status, :ok)
       }}
     )
   end

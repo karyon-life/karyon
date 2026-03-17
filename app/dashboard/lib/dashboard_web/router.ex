@@ -21,10 +21,13 @@ defmodule DashboardWeb.Router do
     live "/metabolism", MetabolicLive.Index, :index
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", DashboardWeb do
-  #   pipe_through :api
-  # end
+  scope "/health", DashboardWeb do
+    pipe_through :api
+
+    get "/live", HealthController, :live
+    get "/ready", HealthController, :ready
+    get "/status", HealthController, :status
+  end
 
   # Enable LiveDashboard in development
   if Application.compile_env(:dashboard, :dev_routes) do
