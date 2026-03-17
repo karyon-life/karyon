@@ -36,6 +36,7 @@ config/*.secret.exs
 .DS_Store
 
 # Misc
+artifacts/
 coverage/
 .temp/
 .cache/
