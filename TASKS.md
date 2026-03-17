@@ -10,7 +10,7 @@ Check off tasks and phases here as implementation work is completed and validate
 - [x] Phase 1: Runtime Contract Correction
 - [x] Phase 2: Real Infrastructure Integration
 - [x] Phase 3: Sandbox Membrane Hardening
-- [ ] Phase 4: Core Planning And Memory Loops
+- [x] Phase 4: Core Planning And Memory Loops
 - [ ] Phase 5: Observability, Releases, And Operations
 - [ ] Phase 6: Scale, Resilience, And Production Validation
 
@@ -58,10 +58,10 @@ Check off tasks and phases here as implementation work is completed and validate
 
 ## Phase 4: Core Planning And Memory Loops
 
-- [ ] P4.1 Implement graph-backed motor planning
-- [ ] P4.2 Wire execution outcomes back into Rhizome
-- [ ] P4.3 Tighten engram import and export semantics
-- [ ] P4.4 Strengthen preflight and metabolic enforcement
+- [x] P4.1 Implement graph-backed motor planning
+- [x] P4.2 Wire execution outcomes back into Rhizome
+- [x] P4.3 Tighten engram import and export semantics
+- [x] P4.4 Strengthen preflight and metabolic enforcement
 
 ## Phase 5: Observability, Releases, And Operations
 
@@ -81,6 +81,6 @@ Check off tasks and phases here as implementation work is completed and validate
 - [x] Milestone B: Correct Runtime Spine
 - [x] Milestone C: Real Service-Backed Organism
 - [x] Milestone D: Real Secure Execution
-- [ ] Milestone E: Closed Cognitive Loop
+- [x] Milestone E: Closed Cognitive Loop
 - [ ] Milestone F: Production Candidate
 - [ ] Milestone G: Production Validated

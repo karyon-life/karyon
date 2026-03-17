@@ -914,7 +914,7 @@ Replace cognitive placeholders with real graph-backed planning and feedback loop
 ### Tasks
 
 #### P4.1 Implement graph-backed motor planning
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - replace static dependency lists in `MotorDriver`
   - derive plan steps from real graph topology
@@ -930,10 +930,15 @@ Replace cognitive placeholders with real graph-backed planning and feedback loop
 - Validation:
   - `mix test apps/core/test`
 - Progress notes:
-  - none yet
+  - 2026-03-17: Codex - replaced the `MotorDriver.fetch_causal_chain/1` placeholder with a real Memgraph traversal over `(:SuperNode)<-[:MEMBER_OF]-(:TaskNode|:Cell|:ASTNode|...)`. Planning now derives ordered step maps from actual Rhizome topology instead of hardcoded failure returns.
+  - 2026-03-17: Codex - normalized graph member nodes into stable motor-plan steps with `id`, `action`, `params`, and `predicted_outcome`, while preserving the existing structured plan envelope used by `dispatch_plan/2`.
+  - 2026-03-17: Codex - aligned the stale tier-5 core test with the structured plan contract and added a real external planning test that seeds a `SuperNode` plus `MEMBER_OF`/`SYNAPSE` topology in Memgraph and verifies ordered step derivation.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs test/core/tier5_global_test.exs` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs --include external` -> passed
 
 #### P4.2 Wire execution outcomes back into Rhizome
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - persist real success and failure outcomes
   - use them to inform future planning and pruning
@@ -947,10 +952,16 @@ Replace cognitive placeholders with real graph-backed planning and feedback loop
 - Validation:
   - targeted core and rhizome integration tests
 - Progress notes:
-  - none yet
+  - 2026-03-17: Codex - added `Rhizome.Memory.submit_execution_outcome/1` as the canonical Phase 4 outcome write path. It persists normalized execution-outcome documents into XTDB and projects a summary `(:Cell)-[:EMITTED]->(:ExecutionOutcome)` edge back into Memgraph.
+  - 2026-03-17: Codex - wired `Core.StemCell.handle_call({:execute, ...})` to persist both success and failure outcomes after motor dispatch without changing the caller-visible reply contract. Outcome records now include cell identity, action, executor, vm id, params, belief snapshot, status, exit code, and result/error payloads.
+  - 2026-03-17: Codex - added a stubbed unit test proving `StemCell.execute` emits an execution-outcome persistence request, a real external core test proving a `StemCell` execution stores an outcome in XTDB, and a real Rhizome test proving `submit_execution_outcome/1` is queryable from XTDB.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome_test.exs --include external` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs --include external` -> passed
 
 #### P4.3 Tighten engram import and export semantics
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - define portable engram payload semantics
   - ensure export and import round-trip meaningful structure
@@ -964,10 +975,14 @@ Replace cognitive placeholders with real graph-backed planning and feedback loop
 - Validation:
   - `mix test apps/core/test`
 - Progress notes:
-  - none yet
+  - 2026-03-17: Codex - replaced the opaque Erlang-term engram dump with a versioned portable envelope in `Core.Engram`. Captured engrams now contain explicit node and edge payloads, format/version metadata, counts, and a SHA-256 digest, then serialize as gzipped JSON instead of unsafe `binary_to_term` blobs.
+  - 2026-03-17: Codex - tightened import semantics to validate engram name safety, payload schema, and digest integrity before any Rhizome mutation. `inject/1` now reconstructs nodes and typed edges from explicit payload semantics rather than collapsing everything into anonymous `KNOWLEDGE_LINK` edges.
+  - 2026-03-17: Codex - added focused tests for invalid names, malformed payload rejection, valid schema import, and preserved the higher-level capture/inject cycle test against the new portable format.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/engram_test.exs test/core/tier5_global_test.exs` -> passed
 
 #### P4.4 Strengthen preflight and metabolic enforcement
-- Status: `[todo]`
+- Status: `[done]`
 - Scope:
   - replace placeholder hardware topology checks where feasible
   - better define failure behavior when environment violates constraints
@@ -980,7 +995,12 @@ Replace cognitive placeholders with real graph-backed planning and feedback loop
 - Validation:
   - `mix test apps/core/test`
 - Progress notes:
-  - none yet
+  - 2026-03-17: Codex - replaced the permissive non-mock memory-channel placeholder in `Core.Preflight` with actual topology evidence checks. Preflight now accepts either EDAC controller presence under `/sys/devices/system/edac/mc` or NUMA node memory evidence from `/sys/devices/system/node/node0/meminfo`, and it supports explicit test/runtime injection of the native module and filesystem probes.
+  - 2026-03-17: Codex - tightened scheduler and NUMA enforcement by routing preflight through injected native-module reads, preserving hard failure semantics outside mock mode while allowing explicit `mock_hardware?: false` coverage under the core test harness.
+  - 2026-03-17: Codex - strengthened `Core.MetabolicDaemon` boot behavior so failed preflight now either stops startup in strict mode or starts in a degraded metabolic state with elevated pressure when strict mode is disabled. Pressure calculation now folds in preflight degradation and high IOPS pressure instead of relying only on run-queue deltas.
+  - 2026-03-17: Codex - added focused tests for memory-topology failure, NUMA violation failure, degraded-start behavior, strict preflight refusal, and high-IOPS pressure elevation.
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed
+  - Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/preflight_test.exs test/core/metabolic_daemon_test.exs test/core/metabolic_stress_test.exs` -> passed
 
 ## Phase 5: Observability, Releases, And Operations
 
