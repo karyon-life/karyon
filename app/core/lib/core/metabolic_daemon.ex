@@ -88,16 +88,28 @@ defmodule Core.MetabolicDaemon do
 
   @impl true
   def handle_info(:poll_metrics, state) do
-    pressure = calculate_system_pressure(state)
+    snapshot = collect_metric_snapshot(state)
+    pressure = calculate_system_pressure(state, snapshot)
     
     check_cpu_starvation(pressure)
-    check_l3_cache_constriction(state)
-    check_digital_torpor(state)
-    check_numa_violation(state)
+    check_l3_cache_constriction(state, snapshot)
+    check_digital_torpor(state, snapshot)
+    check_numa_violation(state, snapshot)
 
     schedule_poll(state)
     
-    :telemetry.execute([:karyon, :metabolism, :poll], %{pressure: pressure_to_num(pressure)}, %{pressure: pressure})
+    :telemetry.execute(
+      [:karyon, :metabolism, :poll],
+      %{pressure: pressure_to_num(pressure)},
+      %{
+        pressure: pressure,
+        l3_misses: snapshot.l3_misses,
+        run_queue: snapshot.run_queue,
+        iops: snapshot.iops,
+        atp: atp_level(pressure),
+        preflight_status: state.preflight_status
+      }
+    )
     
     {:noreply, %{state | pressure: pressure}}
   end
@@ -106,10 +118,10 @@ defmodule Core.MetabolicDaemon do
   defp pressure_to_num(:medium), do: 1
   defp pressure_to_num(:high), do: 2
 
-  defp calculate_system_pressure(state) do
-    run_queue_len = :erlang.statistics(:run_queue)
+  defp calculate_system_pressure(state, snapshot) do
+    run_queue_len = snapshot.run_queue
     baseline_rq = state.baselines.run_queue
-    iops_pressure = iops_pressure(state)
+    iops_pressure = iops_pressure(state, snapshot)
     preflight_pressure = if match?({:degraded, _}, state.preflight_status), do: :medium, else: :low
     run_queue_pressure =
       cond do
@@ -156,9 +168,9 @@ defmodule Core.MetabolicDaemon do
     end
   end
 
-  defp check_l3_cache_constriction(state) do
-    case state.native_module.read_l3_misses() do
-      {:ok, misses} when misses > state.baselines.l3_misses + 5000 ->
+  defp check_l3_cache_constriction(state, snapshot) do
+    case snapshot.l3_misses do
+      misses when is_integer(misses) and misses > state.baselines.l3_misses + 5000 ->
         Logger.warning("[MetabolicDaemon] L3 Cache Constriction detected. Inducing Motor Apoptosis.")
         induce_apoptosis(:motor)
       _ ->
@@ -166,9 +178,9 @@ defmodule Core.MetabolicDaemon do
     end
   end
 
-  defp check_digital_torpor(state) do
-    case state.native_module.read_iops() do
-      {:ok, iops} when iops > state.baselines.iops + 1000 ->
+  defp check_digital_torpor(state, snapshot) do
+    case snapshot.iops do
+      iops when is_integer(iops) and iops > state.baselines.iops + 1000 ->
         Logger.info("[MetabolicDaemon] High IOPS detected. Digital Torpor engaged.")
         broadcast_spike("iops", iops, state.baselines.iops + 1000, "high")
       _ ->
@@ -176,9 +188,9 @@ defmodule Core.MetabolicDaemon do
     end
   end
 
-  defp check_numa_violation(state) do
-    case state.native_module.read_numa_node() do
-      {:ok, node} when node > 0 ->
+  defp check_numa_violation(_state, snapshot) do
+    case snapshot.numa_node do
+      node when is_integer(node) and node > 0 ->
         Logger.warning("[MetabolicDaemon] NUMA VIOLATION: Current Node #{node}. Bitemporal latency risk.")
         induce_apoptosis(:numa_migration)
       _ ->
@@ -217,11 +229,31 @@ defmodule Core.MetabolicDaemon do
     end
   end
 
-  defp iops_pressure(state) do
-    case state.native_module.read_iops() do
-      {:ok, iops} when iops > state.baselines.iops + 1000 -> :high
+  defp iops_pressure(state, snapshot) do
+    case snapshot.iops do
+      iops when is_integer(iops) and iops > state.baselines.iops + 1000 -> :high
       _ -> :low
     end
+  end
+
+  defp collect_metric_snapshot(state) do
+    %{
+      l3_misses: metric_value(fn -> state.native_module.read_l3_misses() end),
+      run_queue: :erlang.statistics(:run_queue),
+      iops: metric_value(fn -> state.native_module.read_iops() end),
+      numa_node: metric_value(fn -> state.native_module.read_numa_node() end)
+    }
+  end
+
+  defp metric_value(reader_fun) do
+    case reader_fun.() do
+      {:ok, value} -> value
+      _ -> nil
+    end
+  end
+
+  defp atp_level(pressure) do
+    max(0.0, 1.0 - pressure_to_num(pressure) * 0.3)
   end
 
   defp max_pressure(pressures) do
