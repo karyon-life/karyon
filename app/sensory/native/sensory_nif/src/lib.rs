@@ -30,6 +30,13 @@ pub struct MemgraphClient {
     pub graph: Graph,
 }
 
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct MemgraphConfig {
+    pub url: String,
+    pub username: String,
+    pub password: String,
+}
+
 impl MemgraphClient {
     pub async fn new(uri: &str, user: &str, pass: &str) -> Result<Self, Error> {
         let config = ConfigBuilder::new()
@@ -167,12 +174,21 @@ fn serialize_node(node: Node, source: &str) -> Value {
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-pub fn ingest_to_memgraph(lang_name: String, code: String) -> NifResult<(rustler::Atom, rustler::ResourceArc<GraphResource>)> {
+pub fn ingest_to_memgraph(
+    lang_name: String,
+    code: String,
+    service_config: String
+) -> NifResult<(rustler::Atom, rustler::ResourceArc<GraphResource>)> {
     RUNTIME.block_on(async {
+        let config: MemgraphConfig = match serde_json::from_str(&service_config) {
+            Ok(config) => config,
+            Err(error) => return Err(rustler::Error::Term(Box::new(format!("Invalid service config: {}", error)))),
+        };
+
         let mut client_lock = CLIENT.lock().await;
         
         if client_lock.is_none() {
-            match MemgraphClient::new("bolt://127.0.0.1:7687", "memgraph", "").await {
+            match MemgraphClient::new(&config.url, &config.username, &config.password).await {
                 Ok(c) => *client_lock = Some(Arc::new(c)),
                 Err(e) => return Err(rustler::Error::Term(Box::new(format!("Connection Error: {}", e)))),
             }
@@ -317,7 +333,7 @@ fn load(env: Env, _info: Term) -> bool {
     true
 }
 
-rustler::init!("Elixir.Sensory.Native", [parse_code, parse_to_graph, ingest_to_memgraph, zmq_publish_tensor, zmq_subscribe_sensory], load = load);
+rustler::init!("Elixir.Sensory.Raw", [parse_code, parse_to_graph, ingest_to_memgraph, zmq_publish_tensor, zmq_subscribe_sensory], load = load);
 
 #[cfg(test)]
 mod tests {
