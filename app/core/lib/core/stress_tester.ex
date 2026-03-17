@@ -12,7 +12,7 @@ defmodule Core.StressTester do
 
   @impl true
   def init(_opts) do
-    {:ok, %{active_count: 0, test_id: nil}}
+    {:ok, %{active_count: 0, test_id: nil, pids: []}}
   end
 
   @doc """
@@ -52,22 +52,15 @@ defmodule Core.StressTester do
     
     # Store PIDs in a dedicated PG group or process list
     # For now we'll just return the count and track in state
-    {:reply, {:ok, new_count}, %{state | active_count: state.active_count + new_count}}
+    {:reply, {:ok, new_count}, %{state | active_count: state.active_count + new_count, pids: state.pids ++ pids}}
   end
 
   @impl true
   def handle_call(:purge, _from, state) do
-    # In a real test, we'd need the PIDs. 
-    # For a benchmark, we might just kill all GenServers under StemCell module
-    # or rely on :pg to find victims.
-    
-    # Simplified purge via pg
-    members = :pg.get_members(:undifferentiated) ++ :pg.get_members(:motor) ++ :pg.get_members(:sensory)
-    
-    Enum.each(members, fn pid -> 
+    Enum.each(state.pids, fn pid ->
       if Process.alive?(pid), do: GenServer.stop(pid)
     end)
 
-    {:reply, :ok, %{state | active_count: 0}}
+    {:reply, :ok, %{state | active_count: 0, pids: []}}
   end
 end
