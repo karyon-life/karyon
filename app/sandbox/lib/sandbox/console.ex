@@ -21,40 +21,68 @@ defmodule Sandbox.Console do
     
     Logger.info("[Sandbox.Console] Piping logs for #{vm_id} from #{pipe_path} to ZMQ port #{port}")
     
-    # Open pipe in a separate task to avoid blocking init
-    Task.start_link(fn -> pipe_loop(pipe_path, synapse) end)
+    # Tail the log source in a separate task to avoid blocking init
+    Task.start_link(fn -> pipe_loop(pipe_path, synapse, 0, "") end)
     
     {:ok, %{pipe: pipe_path, synapse: synapse, port: port}}
   end
 
-  defp pipe_loop(pipe_path, synapse) do
-    # Wait for pipe to exist
+  defp pipe_loop(pipe_path, synapse, offset, buffered) do
     case File.exists?(pipe_path) do
       true ->
-        try do
-          File.stream!(pipe_path)
-          |> Enum.each(fn line ->
-            NervousSystem.Synapse.send_signal(synapse, "LOG:#{line}")
-            
-            # Detect high-severity errors for Active Inference feedback
-            if String.contains?(line, ["ERROR", "PANIC", "Exception", "Kernel panic"]) do
-              Logger.error("[Sandbox.Console] Sandbox CRITICAL failure detected! Signaling PainReceptor.")
-              NervousSystem.PainReceptor.trigger_nociception(%{
-                origin: "firecracker",
-                log_segment: String.trim(line),
-                severity: :high
-              })
-            end
-          end)
-        rescue
-          e ->
-            Logger.error("[Sandbox.Console] Error streaming pipe: #{inspect(e)}")
+        case File.read(pipe_path) do
+          {:ok, contents} ->
+            total_bytes = byte_size(contents)
+            safe_offset = min(offset, total_bytes)
+            delta = binary_part(contents, safe_offset, total_bytes - safe_offset)
+            new_buffered = emit_lines(delta, synapse, buffered)
+
+            Process.sleep(100)
+            pipe_loop(pipe_path, synapse, total_bytes, new_buffered)
+
+          {:error, reason} ->
+            Logger.error("[Sandbox.Console] Error streaming pipe: #{inspect(reason)}")
             Process.sleep(1000)
-            pipe_loop(pipe_path, synapse)
+            pipe_loop(pipe_path, synapse, offset, buffered)
         end
+
       false ->
         Process.sleep(100)
-        pipe_loop(pipe_path, synapse)
+        pipe_loop(pipe_path, synapse, offset, buffered)
+    end
+  end
+
+  defp emit_lines(delta, synapse, buffered) do
+    combined = buffered <> delta
+
+    case String.split(combined, "\n", trim: false) do
+      [] ->
+        combined
+
+      segments ->
+        {complete, remainder} = Enum.split(segments, -1)
+
+        Enum.each(complete, fn line ->
+          emit_line(line, synapse)
+        end)
+
+        List.first(remainder) || ""
+    end
+  end
+
+  defp emit_line("", _synapse), do: :ok
+
+  defp emit_line(line, synapse) do
+    NervousSystem.Synapse.send_signal(synapse, "LOG:#{line}\n")
+
+    if String.contains?(line, ["ERROR", "PANIC", "Exception", "Kernel panic"]) do
+      Logger.error("[Sandbox.Console] Sandbox CRITICAL failure detected! Signaling PainReceptor.")
+
+      NervousSystem.PainReceptor.trigger_nociception(%{
+        origin: "firecracker",
+        log_segment: String.trim(line),
+        severity: :high
+      })
     end
   end
 

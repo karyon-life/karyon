@@ -6,6 +6,7 @@ defmodule Sandbox.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      {Sandbox.RuntimeRegistry, []},
       {Sandbox.VmmSupervisor, []}
     ]
 

@@ -1,6 +1,6 @@
 defmodule Sandbox.SecurityIsolationTest do
   use ExUnit.Case, async: false
-  alias Sandbox.{Provisioner, Firecracker}
+  alias Sandbox.Provisioner
 
   setup do
     on_exit(fn ->
@@ -15,9 +15,6 @@ defmodule Sandbox.SecurityIsolationTest do
   end
 
   test "VM machine configuration enforces strict resource limits (vCPU, RAM)" do
-    vm_id = "resource_test_vm"
-    socket_path = "/tmp/firecracker_resource.socket"
-    
     # We use a mock to verify the machine config payload
     # In a real environment, we would inspect the running VMM
     
@@ -67,4 +64,36 @@ defmodule Sandbox.SecurityIsolationTest do
     assert String.contains?(socket_path_1, vm_id_1)
     assert String.contains?(socket_path_2, vm_id_2)
   end
+
+  @tag :external
+  test "real provision cleanup removes the VM tap device" do
+    original_mock = System.get_env("KARYON_MOCK_HARDWARE")
+    original_kernel = System.get_env("KARYON_FIRECRACKER_KERNEL")
+    original_rootfs = System.get_env("KARYON_FIRECRACKER_ROOTFS")
+    original_helper = System.get_env("KARYON_NET_HELPER")
+
+    System.put_env("KARYON_MOCK_HARDWARE", "0")
+    System.put_env("KARYON_FIRECRACKER_KERNEL", "/opt/karyon/firecracker/vmlinux")
+    System.put_env("KARYON_FIRECRACKER_ROOTFS", "/opt/karyon/firecracker/rootfs.ext4")
+    System.put_env("KARYON_NET_HELPER", "/usr/local/bin/karyon-net-helper")
+
+    on_exit(fn ->
+      restore_env("KARYON_MOCK_HARDWARE", original_mock)
+      restore_env("KARYON_FIRECRACKER_KERNEL", original_kernel)
+      restore_env("KARYON_FIRECRACKER_ROOTFS", original_rootfs)
+      restore_env("KARYON_NET_HELPER", original_helper)
+    end)
+
+    assert {:ok, vm_id} = Provisioner.provision_vm("/tmp/test_plan.json")
+    assert :ok = Provisioner.verify_network(vm_id)
+
+    socket_path = "/tmp/firecracker-#{vm_id}.socket"
+    assert :ok = Sandbox.VmmSupervisor.cleanup_resources(vm_id, socket_path)
+
+    Process.sleep(200)
+    assert Provisioner.tap_absent?(vm_id)
+  end
+
+  defp restore_env(key, nil), do: System.delete_env(key)
+  defp restore_env(key, value), do: System.put_env(key, value)
 end

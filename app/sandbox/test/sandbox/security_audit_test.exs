@@ -1,5 +1,5 @@
 defmodule Sandbox.SecurityAuditTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   alias Sandbox.Provisioner
 
   test "verify_mount_safety prevents directory traversal" do
@@ -23,6 +23,17 @@ defmodule Sandbox.SecurityAuditTest do
     # We've already verified this in previous stabilization, 
     # but we'll add a structured test for it.
     # This shouldn't crash or attempt to run sudo
+    original_mock = System.get_env("KARYON_MOCK_HARDWARE")
+    System.put_env("KARYON_MOCK_HARDWARE", "1")
+
+    on_exit(fn ->
+      if original_mock do
+        System.put_env("KARYON_MOCK_HARDWARE", original_mock)
+      else
+        System.delete_env("KARYON_MOCK_HARDWARE")
+      end
+    end)
+
     assert :ok = Provisioner.setup_network("test-vm")
   end
 
