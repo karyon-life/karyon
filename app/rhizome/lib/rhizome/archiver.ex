@@ -24,7 +24,7 @@ defmodule Rhizome.Archiver do
     Logger.info("[Rhizome.Archiver] Commencing bitemporal ledger synchronization...")
     
     case Native.bridge_to_xtdb() do
-      {:ok, info} ->
+      {:ok, %{message: info}} ->
         Logger.info("[Rhizome.Archiver] #{info}")
 
       {:error, reason} ->

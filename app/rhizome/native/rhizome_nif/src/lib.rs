@@ -10,7 +10,7 @@ use rustler::{Env, Term};
 use crate::resource::GraphResource;
 
 rustler::init!(
-    "Elixir.Rhizome.Native",
+    "Elixir.Rhizome.Raw",
     [
         crate::resource::create_pointer,
         crate::resource::get_pointer_id,

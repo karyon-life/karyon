@@ -1,4 +1,5 @@
 use neo4rs::*;
+use serde_json::Value;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
@@ -13,6 +14,24 @@ pub struct MemgraphClient {
     pub graph: Graph,
 }
 
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct MemgraphConfig {
+    pub url: String,
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct XtdbConfig {
+    pub url: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct ServiceConfig {
+    pub memgraph: MemgraphConfig,
+    pub xtdb: XtdbConfig,
+}
+
 impl MemgraphClient {
     pub async fn new(uri: &str, user: &str, pass: &str) -> Result<Self, Error> {
         let config = ConfigBuilder::new()
@@ -25,9 +44,22 @@ impl MemgraphClient {
         Ok(Self { graph })
     }
 
-    pub async fn execute_query(&self, q: &str) -> Result<(), Error> {
-        self.graph.run(query(q)).await?;
-        Ok(())
+    pub async fn execute_query(&self, q: &str) -> Result<Vec<Value>, String> {
+        let mut result = self
+            .graph
+            .execute(query(q))
+            .await
+            .map_err(|e| format!("Query Error: {}", e))?;
+
+        let mut rows = Vec::new();
+        while let Ok(Some(row)) = result.next().await {
+            let value: Value = row
+                .to()
+                .map_err(|e| format!("Decode Error: {}", e))?;
+            rows.push(value);
+        }
+
+        Ok(rows)
     }
 }
 
@@ -47,7 +79,7 @@ impl XtdbClient {
         Self { url }
     }
 
-    pub async fn submit_tx(&self, id: String, data: serde_json::Value) -> Result<String, reqwest::Error> {
+    pub async fn submit_tx(&self, id: String, data: serde_json::Value) -> Result<Value, reqwest::Error> {
         let payload = XtdbPayload { id, data };
         let body = serde_json::json!({
             "tx-ops": [["put", payload]]
@@ -56,19 +88,25 @@ impl XtdbClient {
         let res = XTDB_REQ_CLIENT.post(format!("{}/tx", self.url))
             .json(&body)
             .send()
-            .await?;
-        
-        Ok(res.text().await?)
+            .await?
+            .error_for_status()?;
+
+        res.json().await
     }
 
-    pub async fn query(&self, query: serde_json::Value) -> Result<String, reqwest::Error> {
+    pub async fn query(&self, query: serde_json::Value) -> Result<Value, reqwest::Error> {
         let res = XTDB_REQ_CLIENT.post(format!("{}/query", self.url))
             .json(&query)
             .header("Accept", "application/json")
             .header("Content-Type", "application/json")
             .send()
-            .await?;
-        
-        Ok(res.text().await?)
+            .await?
+            .error_for_status()?;
+
+        res.json().await
     }
+}
+
+pub fn parse_service_config(config_json: &str) -> Result<ServiceConfig, String> {
+    serde_json::from_str(config_json).map_err(|e| format!("Invalid service config: {}", e))
 }

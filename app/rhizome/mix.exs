@@ -32,6 +32,8 @@ defmodule Rhizome.MixProject do
 
   defp deps do
     [
+      {:jason, "~> 1.4"},
+      {:postgrex, "~> 0.19"},
       {:rustler, "~> 0.37.0", runtime: false},
       {:stream_data, "~> 1.0", only: [:test]}
     ]

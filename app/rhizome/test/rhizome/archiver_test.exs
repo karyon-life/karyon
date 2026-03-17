@@ -5,7 +5,7 @@ defmodule Rhizome.ArchiverTest do
   test "bridge_to_xtdb executes without crashing" do
     # Even if XTDB/Memgraph are down, the NIF should return an error tuple, not crash
     case Native.bridge_to_xtdb() do
-      {:ok, info} -> assert String.contains?(info, "Successfully bridged")
+      {:ok, %{message: info}} -> assert String.contains?(info, "Successfully bridged")
       {:error, reason} -> 
         assert String.contains?(reason, "Memgraph Query Error") or 
                String.contains?(reason, "Connection Error") or

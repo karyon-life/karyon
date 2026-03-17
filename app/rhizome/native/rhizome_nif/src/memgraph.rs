@@ -1,4 +1,4 @@
-use crate::client::{CLIENT, RUNTIME, MemgraphClient};
+use crate::client::{parse_service_config, CLIENT, MemgraphClient, RUNTIME};
 use rustler::NifResult;
 use std::sync::Arc;
 
@@ -11,13 +11,21 @@ mod atoms {
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-pub fn memgraph_query(query: String) -> NifResult<(rustler::Atom, String)> {
+pub fn memgraph_query(query: String, service_config: String) -> NifResult<(rustler::Atom, String)> {
     RUNTIME.block_on(async {
+        let config = match parse_service_config(&service_config) {
+            Ok(config) => config,
+            Err(error) => return Ok((atoms::error(), error)),
+        };
+
         let mut client_lock = CLIENT.lock().await;
         
         if client_lock.is_none() {
-            // Default connection params for MVP; in production these would come from config
-            match MemgraphClient::new("bolt://127.0.0.1:7687", "memgraph", "").await {
+            match MemgraphClient::new(
+                &config.memgraph.url,
+                &config.memgraph.username,
+                &config.memgraph.password
+            ).await {
                 Ok(c) => *client_lock = Some(Arc::new(c)),
                 Err(e) => return Ok((atoms::error(), format!("Connection Error: {}", e))),
             }
@@ -25,19 +33,31 @@ pub fn memgraph_query(query: String) -> NifResult<(rustler::Atom, String)> {
 
         let client = client_lock.as_ref().unwrap().clone();
         match client.execute_query(&query).await {
-            Ok(_) => Ok((atoms::ok(), "Query executed successfully".to_string())),
-            Err(e) => Ok((atoms::error(), format!("Query Error: {}", e))),
+            Ok(rows) => Ok((atoms::ok(), serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()))),
+            Err(e) => Ok((atoms::error(), e)),
         }
     })
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-pub fn weaken_edge(resource: rustler::ResourceArc<crate::resource::GraphResource>) -> NifResult<(rustler::Atom, String)> {
+pub fn weaken_edge(
+    resource: rustler::ResourceArc<crate::resource::GraphResource>,
+    service_config: String
+) -> NifResult<(rustler::Atom, String)> {
     RUNTIME.block_on(async {
+        let config = match parse_service_config(&service_config) {
+            Ok(config) => config,
+            Err(error) => return Ok((atoms::error(), error)),
+        };
+
         let mut client_lock = CLIENT.lock().await;
         
         if client_lock.is_none() {
-            match MemgraphClient::new("bolt://127.0.0.1:7687", "memgraph", "").await {
+            match MemgraphClient::new(
+                &config.memgraph.url,
+                &config.memgraph.username,
+                &config.memgraph.password
+            ).await {
                 Ok(c) => *client_lock = Some(Arc::new(c)),
                 Err(e) => return Ok((atoms::error(), format!("Connection Error: {}", e))),
             }
@@ -59,19 +79,28 @@ pub fn weaken_edge(resource: rustler::ResourceArc<crate::resource::GraphResource
     })
 }
 #[rustler::nif(schedule = "DirtyIo")]
-pub fn bridge_to_xtdb() -> NifResult<(rustler::Atom, String)> {
+pub fn bridge_to_xtdb(service_config: String) -> NifResult<(rustler::Atom, String)> {
     RUNTIME.block_on(async {
+        let config = match parse_service_config(&service_config) {
+            Ok(config) => config,
+            Err(error) => return Ok((atoms::error(), error)),
+        };
+
         let mut client_lock = CLIENT.lock().await;
         
         if client_lock.is_none() {
-            match MemgraphClient::new("bolt://127.0.0.1:7687", "memgraph", "").await {
+            match MemgraphClient::new(
+                &config.memgraph.url,
+                &config.memgraph.username,
+                &config.memgraph.password
+            ).await {
                 Ok(c) => *client_lock = Some(Arc::new(c)),
                 Err(e) => return Ok((atoms::error(), format!("Connection Error: {}", e))),
             }
         }
 
         let client = client_lock.as_ref().unwrap().clone();
-        let xtdb = crate::client::XtdbClient::new("http://127.0.0.1:3000".to_string());
+        let xtdb = crate::client::XtdbClient::new(config.xtdb.url.clone());
 
         // 1. Fetch unarchived nodes
         let query_str = "MATCH (n) WHERE NOT n.archived = true RETURN id(n) as id, properties(n) as props";

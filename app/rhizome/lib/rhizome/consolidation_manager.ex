@@ -48,7 +48,7 @@ defmodule Rhizome.ConsolidationManager do
     
     # 1. Trigger the bridge to XTDB to archive working state
     case Rhizome.Native.bridge_to_xtdb() do
-      {:ok, msg} -> Logger.info("[Rhizome.ConsolidationManager] XTDB Bridge: #{msg}")
+      {:ok, %{message: msg}} -> Logger.info("[Rhizome.ConsolidationManager] XTDB Bridge: #{msg}")
       {:error, reason} -> Logger.error("[Rhizome.ConsolidationManager] XTDB Bridge failed: #{inspect(reason)}")
     end
 

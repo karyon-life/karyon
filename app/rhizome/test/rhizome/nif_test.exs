@@ -22,7 +22,7 @@ defmodule Rhizome.NifTest do
     # This might fail if Memgraph isn't running, but we check the NIF call itself
     result = Native.weaken_edge(resource)
     case result do
-      {:ok, _msg} -> assert true
+      {:ok, %{message: _msg}} -> assert true
       {:error, reason} -> 
         # Connection errors are acceptable for unit testing the NIF interface
         assert String.contains?(reason, "Connection Error") or String.contains?(reason, "Query Error")

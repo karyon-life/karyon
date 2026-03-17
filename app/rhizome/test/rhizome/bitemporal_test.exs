@@ -4,26 +4,28 @@ defmodule Rhizome.BitemporalTest do
 
   test "XTDB bitemporal submission" do
     id = "agent_state_1"
-    data = Jason.encode!(%{
+    data = %{
       "attr" => "energy",
       "value" => 100
-    })
+    }
     
     case Native.xtdb_submit(id, data) do
-      {:ok, _tx_id} -> assert true
+      {:ok, %{raw: _raw}} -> assert true
       {:error, reason} -> 
         assert String.contains?(reason, "XTDB Error") or String.contains?(reason, "Connection refused")
     end
   end
 
   test "XTDB query with temporal context" do
-    query = Jason.encode!(%{
-      "find" => ["e"],
-      "where" => [["e", "attr", "energy"]]
-    })
+    query = %{
+      "query" => %{
+        "find" => ["(pull ?e [*])"],
+        "where" => [["?e", "attr", "energy"]]
+      }
+    }
     
     case Native.xtdb_query(query) do
-      {:ok, _results} -> assert true
+      {:ok, results} when is_list(results) -> assert true
       {:error, reason} ->
         assert String.contains?(reason, "XTDB Error") or String.contains?(reason, "Connection refused")
     end

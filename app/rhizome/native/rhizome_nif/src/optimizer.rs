@@ -92,14 +92,14 @@ pub fn optimize_graph() -> NifResult<(rustler::Atom, String)> {
                 let confidence = ((community.len() as f64).log2() / 10.0).min(1.0);
 
                 // Create SuperNode with confidence
-                let _ = client.graph.execute(query("CREATE (s:SuperNode {id: $id, type: 'COMMUNITY', confidence: $conf})")
+                let _ = client.graph.run(query("CREATE (s:SuperNode {id: $id, type: 'COMMUNITY', confidence: $conf})")
                     .param("id", super_node_id.clone())
                     .param("conf", confidence)).await;
 
                 for internal_id in community {
                     if let Some(external_id) = internal_id_to_external.get(internal_id) {
                         // Link member to SuperNode
-                        let _ = client.graph.execute(query("MATCH (s:SuperNode {id: $sn_id}), (m) WHERE id(m) = $m_id CREATE (m)-[:MEMBER_OF]->(s)")
+                        let _ = client.graph.run(query("MATCH (s:SuperNode {id: $sn_id}), (m) WHERE id(m) = $m_id CREATE (m)-[:MEMBER_OF]->(s)")
                             .param("sn_id", super_node_id.clone())
                             .param("m_id", *external_id as i64)).await;
                     }
