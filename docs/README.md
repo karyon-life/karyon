@@ -1,12 +1,15 @@
-# Starlight Starter Kit: Basics
+# Karyon Docs
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+This site contains the architecture book and operator-facing documentation for Karyon.
 
-```
-npm create astro@latest -- --template starlight
-```
+## Current State
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+The docs describe both the target organism and the codebase that exists today. Treat the codebase as the source of truth for runtime behavior:
+
+- the docs book is maintained in `src/content/docs/`
+- `public/book.md` is optional generated output, not a guaranteed checked-in artifact
+- production-facing integrations such as XTDB, NATS, and Firecracker are still being hardened
+- use the root `PLAN.md` and `TASKS.md` to track readiness work
 
 ## 🚀 Project Structure
 
@@ -44,6 +47,14 @@ All commands are run from the root of the project, from a terminal:
 | `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
 | `npm run astro -- --help` | Get help using the Astro CLI                     |
 
-## 👀 Want to learn more?
+## Build
 
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+Run docs commands from `docs/`:
+
+| Command | Action |
+| :------ | :----- |
+| `npm install` | Install docs dependencies |
+| `npm run dev` | Start the docs site locally |
+| `npm run build` | Build the static docs output |
+
+The optional aggregated markdown book can be produced with `node scripts/aggregate-book.mjs`.
