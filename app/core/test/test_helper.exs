@@ -1,4 +1,4 @@
-ExUnit.start()
+ExUnit.start(exclude: [:external])
 System.put_env("KARYON_MOCK_HARDWARE", "1")
 # Ensure :pg is started for stigmergy/process groups
 case :pg.start_link() do

@@ -7,6 +7,13 @@ defmodule Core.TestHarness do
 
   def genesis_boot do
     Logger.info("[Harness] Starting Genesis Boot Sequence...")
+
+    with :ok <- Core.ServiceHealth.ensure_ready([:memgraph, :xtdb, :nats]) do
+      do_genesis_boot()
+    end
+  end
+
+  defp do_genesis_boot do
     
     # Boot the various umbrella "organelles" if not already started
     Enum.each([:telemetry, :jason, :core, :nervous_system, :rhizome, :sensory], fn app ->
@@ -78,19 +85,21 @@ defmodule Core.TestHarness do
   """
   def simulate_perception(_organism, lang, code) do
     Logger.info("[Harness] Injecting Perception: #{lang}")
-    
-    # 1. Parse code into AST graph
-    ast_json = Sensory.Native.parse_code(lang, code)
-    
-    # 2. Submit to Rhizome Memory
-    Rhizome.Native.xtdb_submit("perception_#{System.unique_integer([:positive])}", ast_json)
 
-    # 3. Simulate environment feedback (e.g. pain signal from a failing expectation)
-    # This verifies the nociception loop is live.
-    Logger.error("[Harness] Simulated failure in Perception loop")
-    
-    # 4. Assertions would happen in the test caller
-    :ok
+    with :ok <- Core.ServiceHealth.ensure_ready([:memgraph, :xtdb]) do
+      # 1. Parse code into AST graph
+      ast_json = Sensory.Native.parse_code(lang, code)
+      
+      # 2. Submit to Rhizome Memory
+      Rhizome.Native.xtdb_submit("perception_#{System.unique_integer([:positive])}", ast_json)
+
+      # 3. Simulate environment feedback (e.g. pain signal from a failing expectation)
+      # This verifies the nociception loop is live.
+      Logger.error("[Harness] Simulated failure in Perception loop")
+      
+      # 4. Assertions would happen in the test caller
+      :ok
+    end
   end
 
   @doc """
@@ -232,9 +241,9 @@ defmodule Core.TestHarness do
         "where" => [["?e", "xt/id", params["id"]]]
       }
     }
-    case Rhizome.Native.xtdb_query(Jason.encode!(query)) do
-      resp when is_binary(resp) ->
-        Logger.info("[Harness] Causal Trace Result: #{resp}")
+    case Rhizome.Native.xtdb_query(query) do
+      {:ok, rows} ->
+        Logger.info("[Harness] Causal Trace Result: #{inspect(rows)}")
         :ok
       error ->
         Logger.error("[Harness] Causal Trace Failed: #{inspect(error)}")

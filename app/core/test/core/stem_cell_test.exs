@@ -113,11 +113,7 @@ defmodule Core.StemCellTest do
 
     {:ok, pid} = StemCell.start_link(specialized_dna)
     
-    # We can't easily verify the side effect of Sandbox.Provisioner.capture_output 
-    # if it's not mocked, but for unit testing we verify the return value 
-    # which we know is "Success: Compilation complete. No errors found." from provisioner.ex
-    
-    assert {:ok, "Success: Compilation complete. No errors found."} == 
+    assert {:ok, %{exit_code: 0, mode: :mock, vm_id: "test_vm", stdout: "mock execution", stderr: ""}} ==
            GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "test_vm"]})
   end
 

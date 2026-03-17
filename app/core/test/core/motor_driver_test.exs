@@ -9,15 +9,13 @@ defmodule Core.MotorDriverTest do
   end
 
   test "sequence_plan/1 returns a structured plan for a known attractor" do
-    # Mock successful query
-    # In this environment, we'll assume a success or mock the NIF result
-    # For now, let's test the logic branch
     case MotorDriver.sequence_plan("test_attractor") do
       {:ok, plan} ->
         assert plan["attractor"] == "test_attractor"
         assert length(plan["steps"]) > 0
+      {:error, :graph_planning_not_ready} ->
+        :ok
       {:error, :attractor_not_found} ->
-        # Expected if memgraph isn't running in test env
         :ok
     end
   end

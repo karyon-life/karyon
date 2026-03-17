@@ -65,11 +65,7 @@ defmodule Core.StemCell do
     
     # Phase 6: Bitemporal State Hydration (XTDB Recovery)
     # We use the dna_path as a stable identifier for this cell's "lineage"
-    recovered_beliefs = 
-      case Rhizome.Native.xtdb_query("MATCH (s {id: '#{dna_path}'}) RETURN s.beliefs") do
-        {:ok, [[beliefs]]} -> beliefs
-        _ -> %{}
-      end
+    recovered_beliefs = hydrate_beliefs(dna_path)
 
     state = %{
       dna_spec: dna_spec,
@@ -133,13 +129,13 @@ defmodule Core.StemCell do
         # Dispatch to Sandbox application
         Sandbox.Provisioner.capture_output(params[:vm_id] || "default_vm")
       "none" ->
-        Logger.debug("[StemCell] No specialized motor_executor defined. Executing generic action.")
-        {:ok, :executed_generically}
+        Logger.warning("[StemCell] No specialized motor_executor defined for this cell.")
+        {:error, :motor_executor_not_configured}
       "error_test" ->
         {:error, :simulated_failure}
       other ->
-        Logger.warning("[StemCell] Unknown motor_executor: #{other}. Falling back to generic.")
-        {:ok, :executed_with_fallback}
+        Logger.warning("[StemCell] Unknown motor_executor: #{other}.")
+        {:error, {:unknown_motor_executor, other}}
     end
   end
 
@@ -250,6 +246,22 @@ defmodule Core.StemCell do
     id = Map.get(dna_spec, "id", "unknown_cell")
     query = "MERGE (c:Cell {id: '#{id}'}) SET c.vfe = #{vfe}, c.atp = #{atp}, c.last_update = #{System.system_time(:second)}"
     Rhizome.Native.memgraph_query(query)
+  end
+
+  defp hydrate_beliefs(dna_path) do
+    query = %{
+      "query" => %{
+        "find" => ["(pull ?e [beliefs])"],
+        "where" => [["?e", "xt/id", dna_path]]
+      }
+    }
+
+    case Rhizome.Native.xtdb_query(query) do
+      {:ok, [%{"beliefs" => beliefs} | _]} when is_map(beliefs) -> beliefs
+      {:ok, [[%{"beliefs" => beliefs}] | _]} when is_map(beliefs) -> beliefs
+      {:ok, [%{"data" => %{"beliefs" => beliefs}} | _]} when is_map(beliefs) -> beliefs
+      _ -> %{}
+    end
   end
 
   defp prune_rhizome_pathways(expectations) do

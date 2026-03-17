@@ -1,35 +1,74 @@
 defmodule Core.PlatformIntegrationTest do
   use ExUnit.Case, async: false # Integration tests usually aren't async due to global shared resources
+  @moduletag :external
   require Logger
 
+  alias NervousSystem.Endocrine
+
   setup_all do
-    # This would ideally boot the whole umbrella, but we use the harness
-    {:ok, organism} = Core.TestHarness.genesis_boot()
-    {:ok, organism: organism}
+    case Core.ServiceHealth.ensure_ready([:memgraph, :xtdb, :nats]) do
+      :ok ->
+        {:ok, organism} = Core.TestHarness.genesis_boot()
+        {:ok, organism: organism}
+
+      {:error, {:dependencies_unready, blocked, report}} ->
+        {:ok, skip: "Platform integration dependencies unavailable: #{inspect(blocked)} #{inspect(report)}"}
+    end
   end
 
   test "End-to-end flow: Sensory -> Orchestrator -> Motor -> Archive", %{organism: _organism} do
-    # 1. Start a Sensory Cell
-    # 2. Start an Orchestrator Cell
-    # 3. Start a Motor Cell
-    # 4. Trigger Sensory ingestion
-    # 5. Verify the state reaches Rhizome
-    
-    # Since boot is complex, we use the harness to ensure components are up.
-    # We verify that a code snippet can be parsed and archived.
-    
     code = "function test() { return 42; }"
     lang = "javascript"
-    
-    # Phase 3 Integration: Direct ingestion to Memgraph
+    dna_path = Path.expand("../config/genetics/base_stem_cell.yml", __DIR__)
+
+    {:ok, gnat_pid} = Endocrine.start_connection("platform_integration")
+
+    if is_nil(Process.whereis(:endocrine_gnat)) do
+      Process.register(gnat_pid, :endocrine_gnat)
+    end
+
+    on_exit(fn ->
+      if Process.whereis(:endocrine_gnat) == gnat_pid, do: Process.unregister(:endocrine_gnat)
+      if Process.alive?(gnat_pid), do: GenServer.stop(gnat_pid)
+    end)
+
+    # 1. Ingest code through the sensory layer into Memgraph.
     assert {:ok, _resource} = Sensory.Native.ingest_to_memgraph(lang, code)
-    
-    # Phase 2 Integration: Verify it exists in Memgraph
-    assert {:ok, _} = Rhizome.Native.memgraph_query("MATCH (n:ASTNode {type: 'program'}) RETURN n")
-    
-    # Phase 1 Integration: Bridge to XTDB
-    assert {:ok, msg} = Rhizome.Native.bridge_to_xtdb()
-    assert String.contains?(msg, "bridge")
+
+    # 2. Verify sensory output persisted in the graph layer.
+    assert {:ok, [%{"count" => count}]} =
+             Rhizome.Native.memgraph_query("MATCH (n:ASTNode {type: 'program'}) RETURN count(n) AS count")
+
+    assert count >= 1
+
+    # 3. Bridge graph state into XTDB v2 and seed beliefs for a new cell lineage.
+    assert {:ok, %{message: msg}} = Rhizome.Native.bridge_to_xtdb()
+    assert String.contains?(msg, "bridged")
+
+    assert {:ok, %{raw: _}} =
+             Rhizome.Native.xtdb_submit(dna_path, %{
+               "beliefs" => %{"source" => "platform_integration"}
+             })
+
+    # 4. Spawn a new cell and verify it hydrates beliefs from XTDB.
+    {:ok, cell_pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
+    state = :sys.get_state(cell_pid)
+    assert state.beliefs["source"] == "platform_integration"
+
+    # 5. Drive a real endocrine signal through the new cell and verify the response.
+    spike = %Karyon.NervousSystem.MetabolicSpike{
+      severity: "high",
+      metric_type: "platform_integration"
+    }
+
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
+    payload = IO.iodata_to_binary(iodata)
+
+    Process.sleep(200)
+    :ok = Endocrine.publish_gradient(gnat_pid, "metabolic.spike", payload)
+    Process.sleep(300)
+
+    assert GenServer.call(cell_pid, :get_status) == :torpor
   end
 
   @tag :chaos
