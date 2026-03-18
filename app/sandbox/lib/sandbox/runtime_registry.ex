@@ -22,4 +22,8 @@ defmodule Sandbox.RuntimeRegistry do
       {updated, Map.put(state, vm_id, updated)}
     end)
   end
+
+  def delete(vm_id) do
+    Agent.update(__MODULE__, &Map.delete(&1, vm_id))
+  end
 end

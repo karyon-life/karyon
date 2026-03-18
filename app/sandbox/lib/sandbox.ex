@@ -1,6 +1,7 @@
 defmodule Sandbox do
   @moduledoc """
   The Membrane for Karyon.
-  Orchestrates the isolation bridging execution commands to AWS Firecracker microVMs over Virtio-fs socket bindings.
+  Orchestrates execution across Firecracker microVMs using an immutable
+  `virtio-blk` rootfs plus an overlay-backed writable workspace disk for each VM.
   """
 end

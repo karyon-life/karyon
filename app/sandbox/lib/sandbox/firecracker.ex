@@ -45,14 +45,9 @@ defmodule Sandbox.Firecracker do
   @doc """
   Configures a drive (rootfs).
   """
-  def set_drive(socket_path, drive_id, path) do
+  def set_drive(socket_path, drive_id, path, opts \\ []) do
     Logger.info("[Sandbox.Firecracker] Setting drive #{drive_id}: #{path}")
-    body = %{
-      drive_id: drive_id,
-      path_on_host: Path.expand(path),
-      is_root_device: drive_id == "rootfs",
-      is_read_only: false
-    }
+    body = drive_request(drive_id, path, opts)
     request(socket_path, "PUT", "/drives/#{drive_id}", body)
   end
 
@@ -95,6 +90,16 @@ defmodule Sandbox.Firecracker do
   def set_metadata(socket_path, metadata) do
     Logger.info("[Sandbox.Firecracker] Setting MMDS metadata")
     request(socket_path, "PUT", "/mmds", metadata)
+  end
+
+  @doc false
+  def drive_request(drive_id, path, opts \\ []) do
+    %{
+      drive_id: drive_id,
+      path_on_host: Path.expand(path),
+      is_root_device: Keyword.get(opts, :root_device, drive_id == "rootfs"),
+      is_read_only: Keyword.get(opts, :read_only, drive_id == "rootfs")
+    }
   end
 
   defp firecracker_binary_path do

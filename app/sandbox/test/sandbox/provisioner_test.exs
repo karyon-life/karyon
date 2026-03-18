@@ -70,7 +70,39 @@ defmodule Sandbox.ProvisionerTest do
     test "skips real setup when KARYON_MOCK_HARDWARE is 1" do
       System.put_env("KARYON_MOCK_HARDWARE", "1")
       # This test just verifies it doesn't crash or attempt real System.cmd
-      assert {:ok, _} = Provisioner.provision_vm("any_plan")
+      assert {:ok, vm_id} = Provisioner.provision_vm("any_plan")
+      runtime = Sandbox.RuntimeRegistry.get(vm_id)
+      assert :ok = Sandbox.VmmSupervisor.cleanup_resources(vm_id, runtime.socket_path)
+    end
+
+    test "provision_vm builds a writable workspace membrane and manifests in mock mode" do
+      original_mock = System.get_env("KARYON_MOCK_HARDWARE")
+      System.put_env("KARYON_MOCK_HARDWARE", "1")
+
+      on_exit(fn ->
+        if original_mock do
+          System.put_env("KARYON_MOCK_HARDWARE", original_mock)
+        else
+          System.delete_env("KARYON_MOCK_HARDWARE")
+        end
+      end)
+
+      assert {:ok, vm_id} = Provisioner.provision_vm("tmp/plan.json")
+      runtime = Sandbox.RuntimeRegistry.get(vm_id)
+
+      assert runtime.workspace_mount_target == "/mnt/workspace"
+      assert runtime.workspace_image_path =~ "/.karyon/sandboxes/#{vm_id}/workspace.ext4"
+      assert File.exists?(runtime.workspace_image_path)
+      assert File.exists?(runtime.execution_manifest_path)
+      assert File.exists?(runtime.overlay_manifest_path)
+
+      assert {:ok, manifest} = File.read(runtime.execution_manifest_path)
+      assert {:ok, decoded} = Jason.decode(manifest)
+      assert decoded["contract"] == "virtio-blk-overlay"
+      assert decoded["policy"]["rootfs"]["immutable"] == true
+      assert decoded["policy"]["workspace"]["mount_target"] == "/mnt/workspace"
+
+      assert :ok = Sandbox.VmmSupervisor.cleanup_resources(vm_id, runtime.socket_path)
     end
   end
 
@@ -111,6 +143,8 @@ defmodule Sandbox.ProvisionerTest do
       assert result.status == :exited
       assert result.mode == :firecracker
       assert result.vm_id == vm_id
+      assert result.workspace_mount_target == nil
+      assert result.workspace_image_path == nil
     end
 
     test "returns an error when runtime telemetry does not exist" do
@@ -175,6 +209,32 @@ defmodule Sandbox.ProvisionerTest do
 
       assert :ok = Sandbox.VmmSupervisor.cleanup_resources("vm-cleanup", "/tmp/non-existent.socket")
       assert File.read!(marker_path) == "cleanup tap-vm-cleanup"
+    end
+
+    test "cleanup_resources tears down the per-vm workspace root" do
+      root_dir = Path.expand("~/.karyon/sandboxes/vm-cleanup-runtime")
+      stdout_path = Path.join(root_dir, "stdout.log")
+      stderr_path = Path.join(root_dir, "stderr.log")
+      socket_path = Path.join(root_dir, "firecracker.socket")
+      workspace_image_path = Path.join(root_dir, "workspace.ext4")
+
+      File.mkdir_p!(root_dir)
+      File.write!(stdout_path, "")
+      File.write!(stderr_path, "")
+      File.write!(socket_path, "")
+      File.write!(workspace_image_path, "")
+
+      Sandbox.RuntimeRegistry.put("vm-cleanup-runtime", %{
+        root_dir: root_dir,
+        stdout_path: stdout_path,
+        stderr_path: stderr_path,
+        socket_path: socket_path,
+        workspace_image_path: workspace_image_path
+      })
+
+      assert :ok = Sandbox.VmmSupervisor.cleanup_resources("vm-cleanup-runtime", socket_path)
+      refute File.exists?(root_dir)
+      assert Sandbox.RuntimeRegistry.get("vm-cleanup-runtime") == nil
     end
   end
 end

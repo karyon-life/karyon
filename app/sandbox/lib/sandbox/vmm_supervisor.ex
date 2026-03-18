@@ -33,8 +33,6 @@ defmodule Sandbox.VmmSupervisor do
   end
 
   defp spawn_firecracker(id, socket_path, boot_requirements, runtime) do
-    # Ensure cleanup before starting
-    _ = cleanup_resources(id, socket_path)
     runtime = prepare_runtime(id, runtime)
     
     # In a real environment, this would call the firecracker binary.
@@ -44,6 +42,7 @@ defmodule Sandbox.VmmSupervisor do
 
       # Mock: create the socket so Sandbox.Firecracker doesn't error
       # In reality, Firecracker creates this immediately on start
+      File.mkdir_p!(Path.dirname(socket_path))
       File.touch!(socket_path)
       Process.sleep(:infinity)
     else
@@ -58,15 +57,20 @@ defmodule Sandbox.VmmSupervisor do
   Cleans up VMM resources.
   """
   def cleanup_resources(id, socket_path) do
+    runtime = Sandbox.RuntimeRegistry.get(id)
     stop_vmm(id)
     terminate_firecracker(socket_path)
     File.rm(socket_path)
+    cleanup_runtime_files(runtime)
 
     if System.get_env("KARYON_MOCK_HARDWARE") != "1" do
       cleanup_tap_device("tap-#{id}")
     else
       :ok
     end
+
+    Sandbox.RuntimeRegistry.delete(id)
+    :ok
   end
 
   defp cleanup_tap_device(tap_device) do
@@ -93,9 +97,13 @@ defmodule Sandbox.VmmSupervisor do
   end
 
   defp default_runtime(id) do
+    root_dir = Path.expand("~/.karyon/sandboxes/#{id}")
+
     %{
-      stdout_path: "/tmp/firecracker-#{id}.stdout.log",
-      stderr_path: "/tmp/firecracker-#{id}.stderr.log",
+      root_dir: root_dir,
+      socket_path: Path.join(root_dir, "firecracker.socket"),
+      stdout_path: Path.join(root_dir, "stdout.log"),
+      stderr_path: Path.join(root_dir, "stderr.log"),
       status: :starting,
       exit_code: nil,
       pain_reported: false
@@ -107,6 +115,19 @@ defmodule Sandbox.VmmSupervisor do
     File.write!(runtime.stdout_path, "")
     File.write!(runtime.stderr_path, "")
   end
+
+  defp cleanup_runtime_files(%{root_dir: root_dir}) when is_binary(root_dir) do
+    File.rm_rf(root_dir)
+    :ok
+  end
+
+  defp cleanup_runtime_files(%{stdout_path: stdout_path, stderr_path: stderr_path}) do
+    File.rm(stdout_path)
+    File.rm(stderr_path)
+    :ok
+  end
+
+  defp cleanup_runtime_files(_runtime), do: :ok
 
   defp run_firecracker(id, socket_path, boot_requirements, runtime) do
     port =

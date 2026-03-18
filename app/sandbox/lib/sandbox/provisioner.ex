@@ -1,7 +1,8 @@
 defmodule Sandbox.Provisioner do
   @moduledoc """
   High-level VM provisioner for Karyon Motor execution.
-  Enforces 2 vCPUs, 512MB RAM, and air-gapped networking.
+  Enforces 2 vCPUs, 512MB RAM, air-gapped networking, and an immutable
+  `virtio-blk` rootfs plus overlay-backed writable workspace membrane.
   """
   import Bitwise
   require Logger
@@ -9,22 +10,22 @@ defmodule Sandbox.Provisioner do
   @doc """
   Provisions an isolated microVM for a specific execution plan.
   """
-  def provision_vm(_plan_path) do
+  def provision_vm(plan_path) do
     vm_id = "vm-#{:erlang.unique_integer([:positive])}"
-    socket_path = "/tmp/firecracker-#{vm_id}.socket"
-    runtime = runtime_paths(vm_id)
+    runtime = runtime_paths(vm_id, plan_path)
+    socket_path = runtime.socket_path
     Sandbox.RuntimeRegistry.put(vm_id, runtime)
     
     # 1. Enforce SPEC.md constraints (2 vCPUs, 512MB RAM)
     vcpus = 2
     mem_size_mib = 512
     
-    # 2. Setup air-gapped networking
-    setup_network(vm_id)
     tap_device = "tap-#{vm_id}"
 
     # 3. Call Firecracker API to configure and start
     with {:ok, boot_requirements} <- firecracker_boot_requirements(),
+         {:ok, runtime} <- prepare_workspace(runtime, plan_path),
+         :ok <- persist_runtime(vm_id, runtime),
          {:ok, vmm_pid} <- Sandbox.VmmSupervisor.start_vmm(vm_id, socket_path, boot_requirements, runtime),
          :ok <- wait_for_socket(socket_path),
          :ok <- setup_network(vm_id),
@@ -33,7 +34,9 @@ defmodule Sandbox.Provisioner do
          :ok <- Sandbox.Firecracker.set_machine_config(socket_path, vcpus, mem_size_mib),
          :ok <- Sandbox.Firecracker.set_network_interface(socket_path, "eth0", tap_device),
          :ok <- Sandbox.Firecracker.set_boot_source(socket_path, boot_requirements.kernel_image_path, boot_args()),
-         :ok <- Sandbox.Firecracker.set_drive(socket_path, "rootfs", boot_requirements.rootfs_path),
+         :ok <- Sandbox.Firecracker.set_drive(socket_path, "rootfs", boot_requirements.rootfs_path, root_device: true, read_only: true),
+         :ok <- Sandbox.Firecracker.set_drive(socket_path, "workspace", runtime.workspace_image_path, root_device: false, read_only: false),
+         :ok <- Sandbox.Firecracker.set_metadata(socket_path, membrane_metadata(vm_id, runtime)),
          :ok <- Sandbox.Firecracker.start_vm(socket_path) do
       # 4. Start log pipe
       Sandbox.RuntimeRegistry.update(vm_id, &Map.put(&1, :vmm_pid, vmm_pid))
@@ -117,7 +120,7 @@ defmodule Sandbox.Provisioner do
   # Production systems must use karyon-net-helper with restricted privileges.
 
   @doc """
-  Verifies that a workspace path is safe to mount via virtio-fs.
+  Verifies that a workspace path is safe to stage within the writable workspace membrane.
   Ensures it is trapped within the ~/.karyon/sandboxes/ directory.
   """
   def verify_mount_safety(path) do
@@ -189,7 +192,9 @@ defmodule Sandbox.Provisioner do
             exit_code: runtime[:exit_code],
             vm_id: vm_id,
             mode: :firecracker,
-            status: runtime[:status] || :unknown
+            status: runtime[:status] || :unknown,
+            workspace_mount_target: runtime[:workspace_mount_target],
+            workspace_image_path: runtime[:workspace_image_path]
           }
 
           maybe_signal_capture_failure(vm_id, runtime, result)
@@ -265,14 +270,141 @@ defmodule Sandbox.Provisioner do
     end
   end
 
-  defp runtime_paths(vm_id) do
+  defp runtime_paths(vm_id, plan_path) do
+    root_dir = Path.expand("~/.karyon/sandboxes/#{vm_id}")
+    host_workspace_path = Path.join(root_dir, "workspace")
+    overlay_dir = Path.join(root_dir, "overlay")
+
     %{
-      stdout_path: "/tmp/firecracker-#{vm_id}.stdout.log",
-      stderr_path: "/tmp/firecracker-#{vm_id}.stderr.log",
+      root_dir: root_dir,
+      socket_path: Path.join(root_dir, "firecracker.socket"),
+      stdout_path: Path.join(root_dir, "stdout.log"),
+      stderr_path: Path.join(root_dir, "stderr.log"),
+      host_workspace_path: host_workspace_path,
+      overlay_dir: overlay_dir,
+      workspace_image_path: Path.join(root_dir, "workspace.ext4"),
+      workspace_mount_target: "/mnt/workspace",
+      workspace_size_mib: workspace_size_mib(),
+      execution_manifest_path: Path.join(root_dir, "execution_manifest.json"),
+      overlay_manifest_path: Path.join(root_dir, "overlay_manifest.json"),
+      plan_path: Path.expand(plan_path),
       status: :starting,
       exit_code: nil,
       pain_reported: false
     }
+  end
+
+  defp prepare_workspace(runtime, plan_path) do
+    with :ok <- File.mkdir_p(runtime.root_dir),
+         {:ok, _} <- verify_mount_isolation(runtime.host_workspace_path),
+         :ok <- File.mkdir_p(runtime.host_workspace_path),
+         :ok <- File.mkdir_p(runtime.overlay_dir),
+         :ok <- create_sparse_image(runtime.workspace_image_path, runtime.workspace_size_mib),
+         :ok <- format_workspace_image(runtime.workspace_image_path),
+         :ok <- write_json(runtime.execution_manifest_path, execution_manifest(plan_path, runtime)),
+         :ok <- write_json(runtime.overlay_manifest_path, overlay_manifest(runtime)) do
+      {:ok, Map.put(runtime, :status, :workspace_ready)}
+    end
+  end
+
+  defp persist_runtime(vm_id, runtime) do
+    Sandbox.RuntimeRegistry.put(vm_id, runtime)
+    :ok
+  end
+
+  defp execution_manifest(plan_path, runtime) do
+    %{
+      "plan_path" => Path.expand(plan_path),
+      "workspace_mount_target" => runtime.workspace_mount_target,
+      "workspace_image_path" => runtime.workspace_image_path,
+      "host_workspace_path" => runtime.host_workspace_path,
+      "contract" => "virtio-blk-overlay",
+      "policy" => %{
+        "rootfs" => %{"immutable" => true, "transport" => "virtio-blk"},
+        "workspace" => %{"writable" => true, "transport" => "virtio-blk", "mount_target" => runtime.workspace_mount_target}
+      }
+    }
+  end
+
+  defp overlay_manifest(runtime) do
+    %{
+      "contract" => "virtio-blk-overlay",
+      "host_workspace_path" => runtime.host_workspace_path,
+      "overlay_dir" => runtime.overlay_dir,
+      "workspace_image_path" => runtime.workspace_image_path,
+      "workspace_size_mib" => runtime.workspace_size_mib
+    }
+  end
+
+  defp membrane_metadata(vm_id, runtime) do
+    %{
+      vm_id: vm_id,
+      membrane: %{
+        contract: "virtio-blk-overlay",
+        rootfs: %{immutable: true, transport: "virtio-blk"},
+        workspace: %{
+          mount_target: runtime.workspace_mount_target,
+          image_path: runtime.workspace_image_path,
+          transport: "virtio-blk",
+          writable: true
+        }
+      },
+      execution: %{
+        plan_manifest_path: runtime.execution_manifest_path
+      }
+    }
+  end
+
+  defp create_sparse_image(path, size_mib) when is_integer(size_mib) and size_mib > 0 do
+    bytes = size_mib * 1_048_576
+    File.mkdir_p!(Path.dirname(path))
+
+    case File.open(path, [:write, :binary]) do
+      {:ok, file} ->
+        result =
+          with {:ok, _position} <- :file.position(file, bytes - 1),
+               :ok <- IO.binwrite(file, <<0>>) do
+            :ok
+          end
+
+        File.close(file)
+        result
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp format_workspace_image(path) do
+    if System.get_env("KARYON_MOCK_HARDWARE") in ["1", "true"] do
+      :ok
+    else
+      case System.find_executable("mkfs.ext4") do
+        nil ->
+          {:error, :mkfs_ext4_not_found}
+
+        mkfs ->
+          case System.cmd(mkfs, ["-F", path]) do
+            {_, 0} -> :ok
+            {_output, _status} -> {:error, :workspace_format_failed}
+          end
+      end
+    end
+  end
+
+  defp write_json(path, payload) do
+    path
+    |> Path.dirname()
+    |> File.mkdir_p()
+
+    case Jason.encode(payload) do
+      {:ok, encoded} -> File.write(path, encoded)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp workspace_size_mib do
+    Application.get_env(:sandbox, :workspace_size_mib, 64)
   end
 
   defp read_output(path) when is_binary(path) do

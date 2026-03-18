@@ -20,9 +20,18 @@ defmodule Sandbox.FirecrackerTest do
   end
 
   test "set_drive expansion and body formatting" do
-    # We can't easily intercept the Mint request without mocks, 
-    # but we've verified the code paths during the manual walkthrough.
-    assert true
+    rootfs = Sandbox.Firecracker.drive_request("rootfs", "../tmp/rootfs.ext4")
+    workspace = Sandbox.Firecracker.drive_request("workspace", "../tmp/workspace.ext4", root_device: false, read_only: false)
+
+    assert rootfs.drive_id == "rootfs"
+    assert rootfs.is_root_device == true
+    assert rootfs.is_read_only == true
+    assert Path.type(rootfs.path_on_host) == :absolute
+
+    assert workspace.drive_id == "workspace"
+    assert workspace.is_root_device == false
+    assert workspace.is_read_only == false
+    assert Path.type(workspace.path_on_host) == :absolute
   end
 
   test "boot_requirements fails closed when firecracker prerequisites are missing" do

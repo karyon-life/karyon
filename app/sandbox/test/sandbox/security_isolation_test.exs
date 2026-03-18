@@ -33,7 +33,9 @@ defmodule Sandbox.SecurityIsolationTest do
   test "air-gap isolation logic executes without error in mock mode" do
     System.put_env("KARYON_MOCK_HARDWARE", "1")
     # We verify that provision_vm (which calls setup_network) works fine
-    assert {:ok, _vm_id} = Provisioner.provision_vm("/tmp/test_plan.json")
+    assert {:ok, vm_id} = Provisioner.provision_vm("/tmp/test_plan.json")
+    runtime = Sandbox.RuntimeRegistry.get(vm_id)
+    assert :ok = Sandbox.VmmSupervisor.cleanup_resources(vm_id, runtime.socket_path)
   end
 
   test "verify_mount_safety prevents path traversal and enforces jail" do
@@ -87,7 +89,7 @@ defmodule Sandbox.SecurityIsolationTest do
     assert {:ok, vm_id} = Provisioner.provision_vm("/tmp/test_plan.json")
     assert :ok = Provisioner.verify_network(vm_id)
 
-    socket_path = "/tmp/firecracker-#{vm_id}.socket"
+    socket_path = Path.join(System.user_home!(), ".karyon/sandboxes/#{vm_id}/firecracker.socket")
     assert :ok = Sandbox.VmmSupervisor.cleanup_resources(vm_id, socket_path)
 
     Process.sleep(200)
