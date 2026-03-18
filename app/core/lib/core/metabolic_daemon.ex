@@ -58,6 +58,17 @@ defmodule Core.MetabolicDaemon do
   end
 
   @impl true
+  def handle_call(:get_runtime_status, _from, state) do
+    {:reply,
+     %{
+       pressure: state.pressure,
+       preflight_status: state.preflight_status,
+       calibrated: state.calibrated,
+       strict_preflight: state.strict_preflight
+     }, state}
+  end
+
+  @impl true
   def handle_info(:calibrate, state) do
     Logger.info("[MetabolicDaemon] Calibrating metabolic baselines...")
     

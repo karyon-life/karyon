@@ -408,12 +408,26 @@ defmodule Core.StemCell do
       |> Map.merge(execution_outcome_payload(outcome))
       |> Core.LearningLoop.annotate_execution_outcome()
 
+    telemetry = Core.ExecutionTelemetry.from_execution_outcome(payload)
+
     case memory_module().submit_execution_outcome(payload) do
       {:ok, _} ->
+        persist_execution_telemetry(telemetry)
         :ok
 
       {:error, reason} ->
         Logger.warning("[StemCell] Failed to persist execution outcome for #{intent.action}: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp persist_execution_telemetry(payload) when is_map(payload) do
+    case memory_module().submit_execution_telemetry(payload) do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("[StemCell] Failed to persist execution telemetry for #{payload["action"]}: #{inspect(reason)}")
         :ok
     end
   end

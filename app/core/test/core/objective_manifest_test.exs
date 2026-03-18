@@ -210,5 +210,46 @@ defmodule Core.ObjectiveManifestTest do
     assert [%{"id" => "repair-attractor"}] = projection["projected_attractors"]
     assert File.read!(path) =~ "schema: \"karyon.workspace-plan.v1\""
     assert File.read!(path) =~ "objective_manifest_ids:"
+    assert blueprint["workspace_role"] == "target_workspace"
+    assert blueprint["engine_manifest"]["schema"] == "karyon.monorepo-pipeline.v1"
+  end
+
+  test "project_workspace_plan/3 rejects engine workspaces even when the planner points at the repo", %{root_dir: root_dir} do
+    File.write!(
+      Path.join(root_dir, "engine-objective.yml"),
+      """
+      id: engine-objective
+      workspace_match:
+        - #{Sandbox.MonorepoPipeline.engine_root()}
+      objective_priors:
+        repair: 1.1
+      """
+    )
+
+    plan = %Plan{
+      attractor: %Attractor{
+        id: "repair-attractor",
+        kind: "SuperNode",
+        properties: %{},
+        target_state: %AbstractState{
+          entity: "repair-attractor",
+          phase: "target",
+          summary: "target_state:repair-attractor",
+          attributes: %{},
+          needs: %{},
+          values: %{},
+          objective_priors: %{"repair" => 1.0}
+        },
+        objective_priors: %{"repair" => 1.0},
+        needs: %{},
+        values: %{}
+      },
+      steps: [],
+      transition_delta: %{},
+      created_at: 1_710_000_011
+    }
+
+    assert {:error, :engine_workspace_forbidden} =
+             ObjectiveManifest.project_workspace_plan(plan, Sandbox.MonorepoPipeline.engine_root())
   end
 end

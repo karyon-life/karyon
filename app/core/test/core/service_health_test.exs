@@ -9,7 +9,10 @@ defmodule Core.ServiceHealthTest do
         memgraph_probe: fn -> :ok end,
         xtdb_probe: fn -> {:ok, :reachable} end,
         nats_probe: fn -> :ok end,
-        metabolism_policy: fn -> Core.MetabolismPolicy.build_policy(:medium) end
+        metabolism_policy: fn -> Core.MetabolismPolicy.build_policy(:medium) end,
+        runtime_probe: fn ->
+          %{preflight_status: :ok, calibrated: true, strict_preflight: true}
+        end
       )
 
     assert report.overall == :ok
@@ -18,6 +21,9 @@ defmodule Core.ServiceHealthTest do
     assert report.services.nats.status == :up
     assert report.runtime.metabolism["pressure"] == "medium"
     assert report.runtime.admission["spawn_budget"] == 0.7
+    assert report.runtime.preflight_status == :ok
+    assert report.runtime.calibrated
+    assert report.runtime.strict_preflight
   end
 
   test "ensure_ready returns blocked services and degraded report" do

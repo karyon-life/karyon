@@ -7,6 +7,7 @@ defmodule Core.ObjectiveManifest do
   alias Core.Plan.AbstractState
   alias Core.Plan.Attractor
   alias Core.Sovereignty
+  alias Sandbox.MonorepoPipeline
 
   @plan_schema "karyon.workspace-plan.v1"
 
@@ -125,7 +126,8 @@ defmodule Core.ObjectiveManifest do
   end
 
   def project_workspace_plan(%Plan{} = plan, workspace_path, opts \\ []) do
-    with {:ok, manifests} <- manifests_for_workspace(workspace_path, opts),
+    with {:ok, workspace_path} <- MonorepoPipeline.validate_target_workspace(workspace_path),
+         {:ok, manifests} <- manifests_for_workspace(workspace_path, opts),
          {:ok, sovereignty} <- sovereignty_for_workspace(workspace_path, opts),
          {:ok, enriched_plan} <- enrich_plan(plan, workspace_path, opts),
          :ok <- persist_projection(enriched_plan, workspace_path, manifests, sovereignty, opts),
@@ -170,6 +172,8 @@ defmodule Core.ObjectiveManifest do
     blueprint = %{
       "schema" => @plan_schema,
       "workspace_root" => workspace,
+      "workspace_role" => "target_workspace",
+      "engine_manifest" => MonorepoPipeline.engine_manifest(),
       "generated_at" => plan.created_at,
       "objective_manifest_ids" => Enum.map(manifests, & &1.id),
       "sovereignty" => sovereignty_to_map(sovereignty),

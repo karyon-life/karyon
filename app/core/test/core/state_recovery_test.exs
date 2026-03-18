@@ -38,6 +38,14 @@ defmodule Core.StateRecoveryTest do
     def submit_execution_outcome(outcome) do
       {:ok, %{id: outcome["cell_id"]}}
     end
+
+    def submit_execution_telemetry(telemetry) do
+      {:ok, %{id: telemetry["telemetry_id"] || "execution_telemetry"}}
+    end
+
+    def submit_differentiation_event(event) do
+      {:ok, %{id: event["lineage_id"] || "differentiation_event"}}
+    end
   end
 
   @dna_path "/tmp/state_recovery_cell.yml"

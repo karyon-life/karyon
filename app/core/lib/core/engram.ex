@@ -5,6 +5,7 @@ defmodule Core.Engram do
   """
 
   alias Rhizome.Native
+  alias Sandbox.MonorepoPipeline
   require Logger
 
   @engram_path "priv/engrams/"
@@ -14,12 +15,15 @@ defmodule Core.Engram do
   @doc """
   Exports the current Rhizome state to a versioned, compressed engram file.
   """
-  def capture(name) when is_binary(name) do
+  def capture(name, opts \\ [])
+
+  def capture(name, opts) when is_binary(name) and is_list(opts) do
     Logger.info("[Engram] Capturing topological state as: #{name}")
 
     with :ok <- validate_name(name),
-         {:ok, rows} <- Native.memgraph_query(capture_query()),
-         {:ok, envelope} <- build_engram(name, rows),
+         {:ok, subset} <- normalize_subset_selector(Keyword.get(opts, :subset, %{})),
+         {:ok, rows} <- native_module(opts).memgraph_query(capture_query()),
+         {:ok, envelope} <- build_engram(name, rows, subset, opts),
          {:ok, binary} <- encode_engram(envelope),
          path <- engram_file_path(name),
          :ok <- File.mkdir_p(@engram_path),
@@ -29,28 +33,62 @@ defmodule Core.Engram do
     end
   end
 
-  def capture(_name), do: {:error, :invalid_engram_name}
+  def capture(_name, _opts), do: {:error, :invalid_engram_name}
 
   @doc """
   Injects an engram's topological state into the local Rhizome.
   """
-  def inject(name) when is_binary(name) do
+  def inject(name, opts \\ [])
+
+  def inject(name, opts) when is_binary(name) and is_list(opts) do
     path = engram_file_path(name)
     Logger.info("[Engram] Injecting topological state from: #{path}")
 
     with :ok <- validate_name(name),
+         {:ok, subset} <- normalize_subset_selector(Keyword.get(opts, :subset, %{})),
          true <- File.exists?(path) or {:error, :engram_not_found},
          {:ok, binary} <- File.read(path),
          {:ok, envelope} <- decode_engram(binary),
          :ok <- validate_engram(envelope),
-         :ok <- inject_nodes(envelope["nodes"]),
-         :ok <- inject_edges(envelope["edges"]) do
+         :ok <- validate_compatibility(envelope),
+         {:ok, {nodes, edges}} <- select_subset(envelope["nodes"], envelope["edges"], subset),
+         :ok <- inject_nodes(nodes, opts),
+         :ok <- inject_edges(edges, opts) do
       Logger.info("[Engram] Injection complete.")
       :ok
     end
   end
 
-  def inject(_name), do: {:error, :invalid_engram_name}
+  def inject(_name, _opts), do: {:error, :invalid_engram_name}
+
+  @doc """
+  Returns a queryable metadata summary for a captured engram without hydrating it.
+  """
+  def describe(name, opts \\ [])
+
+  def describe(name, opts) when is_binary(name) and is_list(opts) do
+    path = engram_file_path(name)
+
+    with :ok <- validate_name(name),
+         true <- File.exists?(path) or {:error, :engram_not_found},
+         {:ok, binary} <- File.read(path),
+         {:ok, envelope} <- decode_engram(binary),
+         :ok <- validate_engram(envelope) do
+      {:ok,
+       %{
+         "name" => envelope["name"],
+         "format" => envelope["format"],
+         "engram_version" => envelope["engram_version"],
+         "node_count" => envelope["node_count"],
+         "edge_count" => envelope["edge_count"],
+         "subset" => envelope["subset"],
+         "provenance" => envelope["provenance"],
+         "compatibility" => envelope["compatibility"]
+       }}
+    end
+  end
+
+  def describe(_name, _opts), do: {:error, :invalid_engram_name}
 
   defp capture_query do
     """
@@ -65,8 +103,9 @@ defmodule Core.Engram do
     """
   end
 
-  defp build_engram(name, rows) when is_list(rows) do
+  defp build_engram(name, rows, subset, opts) when is_list(rows) do
     with {:ok, {nodes, edges}} <- normalize_rows(rows),
+         {:ok, {nodes, edges}} <- select_subset(nodes, edges, subset),
          digest <- compute_digest(nodes, edges) do
       {:ok,
        %{
@@ -78,12 +117,15 @@ defmodule Core.Engram do
          "edge_count" => length(edges),
          "nodes" => nodes,
          "edges" => edges,
-         "digest" => digest
+         "digest" => digest,
+         "subset" => subset,
+         "provenance" => provenance(name, opts),
+         "compatibility" => compatibility()
        }}
     end
   end
 
-  defp build_engram(_name, _rows), do: {:error, :invalid_engram_rows}
+  defp build_engram(_name, _rows, _subset, _opts), do: {:error, :invalid_engram_rows}
 
   defp normalize_rows(rows) do
     Enum.reduce_while(rows, {:ok, {%{}, []}}, fn row, {:ok, {nodes, edges}} ->
@@ -158,6 +200,29 @@ defmodule Core.Engram do
          "format" => @engram_format,
          "nodes" => nodes,
          "edges" => edges,
+         "digest" => digest,
+         "subset" => subset,
+         "provenance" => provenance,
+         "compatibility" => compatibility
+       })
+       when is_list(nodes) and is_list(edges) and is_binary(digest) and is_map(subset) and is_map(provenance) and is_map(compatibility) do
+    cond do
+      digest != compute_digest(nodes, edges) ->
+        {:error, :engram_digest_mismatch}
+
+      compatibility["engine_schema"] != MonorepoPipeline.schema() ->
+        {:error, :engram_incompatible}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_engram(%{
+         "engram_version" => @engram_version,
+         "format" => @engram_format,
+         "nodes" => nodes,
+         "edges" => edges,
          "digest" => digest
        })
        when is_list(nodes) and is_list(edges) and is_binary(digest) do
@@ -170,26 +235,119 @@ defmodule Core.Engram do
 
   defp validate_engram(_payload), do: {:error, :invalid_engram_schema}
 
-  defp inject_nodes(nodes) do
+  defp inject_nodes(nodes, opts) do
     Enum.reduce_while(nodes, :ok, fn node, :ok ->
       query = node_merge_query(node)
 
-      case Native.memgraph_query(query) do
+      case native_module(opts).memgraph_query(query) do
         {:ok, _} -> {:cont, :ok}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
   end
 
-  defp inject_edges(edges) do
+  defp inject_edges(edges, opts) do
     Enum.reduce_while(edges, :ok, fn edge, :ok ->
       query = edge_merge_query(edge)
 
-      case Native.memgraph_query(query) do
+      case native_module(opts).memgraph_query(query) do
         {:ok, _} -> {:cont, :ok}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
+  end
+
+  defp select_subset(nodes, edges, subset) when is_list(nodes) and is_list(edges) and is_map(subset) do
+    ids = MapSet.new(Map.get(subset, "ids", []))
+    labels = MapSet.new(Map.get(subset, "labels", []))
+    relationship_types = MapSet.new(Map.get(subset, "relationship_types", []))
+
+    selected_edges =
+      edges
+      |> Enum.filter(fn edge ->
+        MapSet.size(relationship_types) == 0 or MapSet.member?(relationship_types, edge["type"])
+      end)
+
+    selected_node_ids_from_edges =
+      selected_edges
+      |> Enum.flat_map(&[&1["source_id"], &1["target_id"]])
+      |> MapSet.new()
+
+    selected_nodes =
+      nodes
+      |> Enum.filter(fn node ->
+        MapSet.size(ids) == 0 and MapSet.size(labels) == 0 and MapSet.size(relationship_types) == 0 or
+          MapSet.member?(ids, node["id"]) or
+          Enum.any?(node["labels"], &MapSet.member?(labels, &1)) or
+          MapSet.member?(selected_node_ids_from_edges, node["id"])
+      end)
+
+    selected_node_ids = MapSet.new(Enum.map(selected_nodes, & &1["id"]))
+
+    selected_edges =
+      Enum.filter(selected_edges, fn edge ->
+        MapSet.member?(selected_node_ids, edge["source_id"]) and MapSet.member?(selected_node_ids, edge["target_id"])
+      end)
+
+    {:ok, {selected_nodes, selected_edges}}
+  end
+
+  defp select_subset(_nodes, _edges, _subset), do: {:error, :invalid_engram_subset}
+
+  defp normalize_subset_selector(subset) when subset in [%{}, nil], do: {:ok, %{"ids" => [], "labels" => [], "relationship_types" => []}}
+
+  defp normalize_subset_selector(subset) when is_map(subset) do
+    {:ok,
+     %{
+       "ids" => normalize_string_list(Map.get(subset, :ids) || Map.get(subset, "ids") || []),
+       "labels" => normalize_string_list(Map.get(subset, :labels) || Map.get(subset, "labels") || []),
+       "relationship_types" =>
+         normalize_string_list(Map.get(subset, :relationship_types) || Map.get(subset, "relationship_types") || [])
+     }}
+  end
+
+  defp normalize_subset_selector(_subset), do: {:error, :invalid_engram_subset}
+
+  defp normalize_string_list(values) do
+    values
+    |> List.wrap()
+    |> Enum.map(&to_string/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+  end
+
+  defp provenance(name, opts) do
+    %{
+      "captured_by" => "Core.Engram",
+      "captured_at" => System.system_time(:second),
+      "captured_from" => "rhizome",
+      "name" => name,
+      "use_case" => Keyword.get(opts, :use_case, "general_distribution"),
+      "engine_manifest" => MonorepoPipeline.engine_manifest()
+    }
+  end
+
+  defp compatibility do
+    %{
+      "engine_schema" => MonorepoPipeline.schema(),
+      "distribution_mode" => "portable_subset",
+      "hydration" => "idempotent_merge"
+    }
+  end
+
+  defp validate_compatibility(%{"compatibility" => %{"engine_schema" => engine_schema}}) do
+    if engine_schema == MonorepoPipeline.schema() do
+      :ok
+    else
+      {:error, :engram_incompatible}
+    end
+  end
+
+  defp validate_compatibility(%{"compatibility" => _compatibility}), do: {:error, :engram_incompatible}
+  defp validate_compatibility(_envelope), do: :ok
+
+  defp native_module(opts) do
+    Keyword.get(opts, :native_module, Application.get_env(:core, :engram_native_module, Native))
   end
 
   defp node_merge_query(%{"id" => id, "labels" => labels, "properties" => properties}) do

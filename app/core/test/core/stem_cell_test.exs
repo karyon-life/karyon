@@ -21,6 +21,14 @@ defmodule Core.StemCellTest do
       {:ok, %{id: outcome["cell_id"]}}
     end
 
+    def submit_execution_telemetry(telemetry) do
+      if pid = Process.whereis(:stem_cell_test_observer) do
+        send(pid, {:execution_telemetry_persisted, telemetry})
+      end
+
+      {:ok, %{id: telemetry["telemetry_id"]}}
+    end
+
     def submit_sovereignty_event(event) do
       if pid = Process.whereis(:stem_cell_test_observer) do
         send(pid, {:sovereignty_event_persisted, event})
@@ -362,6 +370,7 @@ defmodule Core.StemCellTest do
            GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "test_vm"]})
 
     assert_received {:execution_outcome_persisted, outcome}
+    assert_received {:execution_telemetry_persisted, telemetry}
     assert_received {:pathway_reinforced, pathway}
     assert pathway[:from_id] == "motor-step"
     assert pathway[:to_id] == "motor-attractor"
@@ -377,6 +386,11 @@ defmodule Core.StemCellTest do
     assert outcome["learning_phase"] == "action_feedback"
     assert outcome["learning_edge"] == "action_feedback->plasticity"
     assert outcome["result"]["exit_code"] == 0
+    assert telemetry["schema"] == "karyon.execution-telemetry.v1"
+    assert telemetry["source_document_id"] == "execution_outcome:#{specialized_dna}:patch_codebase:#{outcome["recorded_at"]}"
+    assert "action:patch_codebase" in telemetry["tags"]
+    assert telemetry["provenance"]["execution_intent_id"] == outcome["execution_intent_id"]
+    assert telemetry["result_summary"]["stdout_present"]
   end
 
   test "StemCell persists execution failures into the prediction-error pipeline" do

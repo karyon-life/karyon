@@ -7,6 +7,7 @@ defmodule Core.EpigeneticSupervisorStressTest do
     def checkpoint_cell_state(snapshot), do: {:ok, %{id: snapshot["lineage_id"] || "checkpoint"}}
     def submit_prediction_error(_event), do: {:ok, %{id: "prediction_error"}}
     def submit_execution_outcome(_event), do: {:ok, %{id: "execution_outcome"}}
+    def submit_execution_telemetry(_event), do: {:ok, %{id: "execution_telemetry"}}
 
     def submit_differentiation_event(event) do
       if pid = Process.whereis(:epigenetic_supervisor_stress_observer) do

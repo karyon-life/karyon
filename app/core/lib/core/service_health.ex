@@ -61,12 +61,21 @@ defmodule Core.ServiceHealth do
       |> Keyword.get(:metabolism_policy, &MetabolismPolicy.current_policy/0)
       |> then(& &1.())
 
+    runtime =
+      opts
+      |> Keyword.get(:runtime_probe, &runtime_probe/0)
+      |> then(& &1.())
+      |> normalize_runtime_probe()
+
     %{
       metabolism: MetabolismPolicy.to_map(policy),
       admission: %{
         "spawn_budget" => Map.get(policy, :atp, 1.0),
         "pressure" => policy |> Map.get(:pressure, :low) |> to_string()
-      }
+      },
+      preflight_status: runtime.preflight_status,
+      calibrated: runtime.calibrated,
+      strict_preflight: runtime.strict_preflight
     }
   end
 
@@ -102,5 +111,46 @@ defmodule Core.ServiceHealth do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp runtime_probe do
+    case GenServer.whereis(Core.MetabolicDaemon) do
+      nil ->
+        %{
+          preflight_status: :unknown,
+          calibrated: false,
+          strict_preflight: Application.get_env(:core, :strict_preflight, false)
+        }
+
+      pid ->
+        try do
+          GenServer.call(pid, :get_runtime_status)
+        catch
+          :exit, _ ->
+            %{
+              preflight_status: :unknown,
+              calibrated: false,
+              strict_preflight: Application.get_env(:core, :strict_preflight, false)
+            }
+        end
+    end
+  end
+
+  defp normalize_runtime_probe(%{preflight_status: _, calibrated: _, strict_preflight: _} = runtime), do: runtime
+
+  defp normalize_runtime_probe(runtime) when is_map(runtime) do
+    %{
+      preflight_status: Map.get(runtime, :preflight_status, Map.get(runtime, "preflight_status", :unknown)),
+      calibrated: Map.get(runtime, :calibrated, Map.get(runtime, "calibrated", false)),
+      strict_preflight: Map.get(runtime, :strict_preflight, Map.get(runtime, "strict_preflight", false))
+    }
+  end
+
+  defp normalize_runtime_probe(_runtime) do
+    %{
+      preflight_status: :unknown,
+      calibrated: false,
+      strict_preflight: false
+    }
   end
 end
