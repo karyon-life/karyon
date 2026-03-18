@@ -36,38 +36,15 @@ defmodule NervousSystem.PainReceptor do
       handler_id,
       [:logger, :error],
       &__MODULE__.handle_pain_signal/4,
-      %{synapse: synapse_pid}
+      %{receptor: self()}
     )
 
-    {:ok, %{synapse: synapse_pid, original_opts: opts, telemetry_handler_id: handler_id}}
+    {:ok, %{synapse: synapse_pid, original_opts: opts, telemetry_handler_id: handler_id, last_pain_time: 0, last_fingerprint: nil}}
   end
 
-  def handle_pain_signal(_event, _measurements, metadata, %{synapse: synapse_pid}) do
-    # A crash has occurred. We must signal nociception.
-    # Use info level to avoid recursion if PainReceptor is listening to error level
-    Logger.info("[PainReceptor] Structural error intercepted! Preparing active inference nociception signal.")
-
-    # Filter out nervous system internal errors to avoid recursion loops
-    msg_mod = Map.get(metadata, :module)
-    if msg_mod not in [NervousSystem.Synapse, :chumak, NervousSystem.PainReceptor] do
-      # Create a structured Protobuf message
-      msg = %Karyon.NervousSystem.PredictionError{
-        type: "nociception",
-        message: "Key error intercepted in #{inspect(msg_mod)}",
-        timestamp: System.system_time(:second),
-        metadata: sanitize_metadata(metadata),
-        cell_id: "pain-receptor"
-      }
-
-      if Process.alive?(synapse_pid) do
-        case Karyon.NervousSystem.PredictionError.encode(msg) do
-          {:ok, binary} ->
-            NervousSystem.Synapse.send_signal(synapse_pid, binary)
-          {:error, reason} ->
-            # Don't use Logger.error here to avoid recursion
-            Logger.info("[PainReceptor] Failed to encode pain signal: #{inspect(reason)}")
-        end
-      end
+  def handle_pain_signal(_event, _measurements, metadata, %{receptor: receptor_pid}) do
+    if Process.alive?(receptor_pid) do
+      GenServer.cast(receptor_pid, {:telemetry_pain, metadata})
     end
   end
 
@@ -92,26 +69,6 @@ defmodule NervousSystem.PainReceptor do
 
   def handle_info(_msg, state), do: {:noreply, state}
 
-  defp send_pain(state, _error) do
-    Logger.info("[PainReceptor] Structural error intercepted! Preparing active inference nociception signal.")
-    
-    # Use correct ProtoBuf fields from prediction_error.proto
-    error_msg = %Karyon.NervousSystem.PredictionError{
-      type: "nociception",
-      message: "Homeostatic variance exceeded",
-      timestamp: System.system_time(:millisecond),
-      cell_id: "pain-receptor"
-    }
-
-    payload = Karyon.NervousSystem.PredictionError.encode!(error_msg)
-    
-    if Process.alive?(state.synapse) do
-      NervousSystem.Synapse.send_signal(state.synapse, payload)
-    else
-      Logger.warning("[PainReceptor] Attempted to send pain signal but Synapse process is dead.")
-    end
-  end
-
   @doc """
   Manually triggers a nociception signal (e.g., from Sandbox Console).
   """
@@ -121,8 +78,12 @@ defmodule NervousSystem.PainReceptor do
 
   @impl true
   def handle_cast({:trigger_nociception, metadata}, state) do
-    handle_pain_signal(nil, nil, metadata, %{synapse: state.synapse})
-    {:noreply, state}
+    {:noreply, emit_pain(metadata, "manual", state)}
+  end
+
+  @impl true
+  def handle_cast({:telemetry_pain, metadata}, state) do
+    {:noreply, emit_pain(metadata, "telemetry", state)}
   end
 
   @impl true
@@ -134,6 +95,80 @@ defmodule NervousSystem.PainReceptor do
   defp sanitize_metadata(metadata) do
     # Proto maps require string keys and string values.
     Map.new(metadata, fn {k, v} -> {serialize_term(k), serialize_term(v)} end)
+  end
+
+  defp emit_pain(metadata, source, state) do
+    normalized_metadata = normalize_metadata(metadata)
+    msg_mod = Map.get(normalized_metadata, "module")
+    fingerprint = pain_fingerprint(normalized_metadata)
+    now = System.monotonic_time(:millisecond)
+
+    cond do
+      recursive_module?(msg_mod) ->
+        state
+
+      duplicate_fingerprint?(state, fingerprint, now) ->
+        state
+
+      true ->
+        Logger.info("[PainReceptor] Structural error intercepted! Preparing active inference nociception signal.")
+
+        enriched_metadata =
+          normalized_metadata
+          |> Map.put_new("event_source", source)
+          |> Map.put_new("severity", "high")
+          |> Map.put("event_fingerprint", fingerprint)
+          |> Map.put_new("trace_id", "pain:#{fingerprint}:#{System.system_time(:millisecond)}")
+
+        msg = %Karyon.NervousSystem.PredictionError{
+          type: "nociception",
+          message: "Structural error intercepted in #{msg_mod || "unknown_module"}",
+          timestamp: System.system_time(:second),
+          metadata: sanitize_metadata(enriched_metadata),
+          cell_id: "pain-receptor"
+        }
+
+        send_encoded_pain(msg, state)
+
+        %{state | last_pain_time: now, last_fingerprint: fingerprint}
+    end
+  end
+
+  defp send_pain(state, error) do
+    emit_pain(%{error: inspect(error), severity: "high"}, "internal", state)
+  end
+
+  defp send_encoded_pain(msg, state) do
+    if Process.alive?(state.synapse) do
+      case Karyon.NervousSystem.PredictionError.encode(msg) do
+        {:ok, binary} ->
+          NervousSystem.Synapse.send_signal(state.synapse, binary)
+
+        {:error, reason} ->
+          Logger.info("[PainReceptor] Failed to encode pain signal: #{inspect(reason)}")
+      end
+    else
+      Logger.warning("[PainReceptor] Attempted to send pain signal but Synapse process is dead.")
+    end
+  end
+
+  defp normalize_metadata(metadata) when is_map(metadata) do
+    Map.new(metadata, fn {key, value} -> {serialize_term(key), serialize_term(value)} end)
+  end
+
+  defp normalize_metadata(_), do: %{}
+
+  defp recursive_module?(nil), do: false
+  defp recursive_module?(msg_mod), do: msg_mod in ["Elixir.NervousSystem.Synapse", "chumak", "Elixir.NervousSystem.PainReceptor"]
+
+  defp duplicate_fingerprint?(state, fingerprint, now) do
+    state.last_fingerprint == fingerprint and now - Map.get(state, :last_pain_time, 0) <= 100
+  end
+
+  defp pain_fingerprint(metadata) do
+    module = Map.get(metadata, "module", "unknown")
+    reason = Map.get(metadata, "reason") || Map.get(metadata, "error") || "unknown"
+    "#{module}:#{reason}"
   end
 
   defp serialize_term(term) when is_atom(term), do: Atom.to_string(term)

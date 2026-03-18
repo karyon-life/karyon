@@ -104,5 +104,28 @@ defmodule NervousSystem.PainReceptorTest do
     assert {:ok, decoded} = Karyon.NervousSystem.PredictionError.decode(payload)
     assert decoded.type == "nociception"
     assert Map.get(decoded.metadata, "reason") == "crash"
+    assert Map.get(decoded.metadata, "event_source") == "telemetry"
+    assert Map.get(decoded.metadata, "event_fingerprint") == "Elixir.NervousSystem.PainReceptorTest:crash"
+    assert is_binary(Map.get(decoded.metadata, "trace_id"))
+  end
+
+  test "filters recursive nervous-system pain sources", %{address: address} do
+    {:ok, sub_pid} =
+      NervousSystem.Synapse.start_link(
+        type: :sub,
+        bind: address,
+        action: :connect,
+        owner: self()
+      )
+
+    on_exit(fn -> if Process.alive?(sub_pid), do: GenServer.stop(sub_pid) end)
+
+    :ok = GenServer.call(sub_pid, {:subscribe, ""})
+    Process.sleep(200)
+
+    metadata = %{reason: "loop", module: NervousSystem.Synapse}
+    :telemetry.execute([:logger, :error], %{count: 1}, metadata)
+
+    refute_receive {:synapse_recv, ^sub_pid, _payload}, 500
   end
 end
