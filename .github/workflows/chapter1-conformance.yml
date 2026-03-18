@@ -38,5 +38,5 @@ jobs:
         run: mix deps.get
 
       - name: Run Chapter 1 Conformance Suite
-        working-directory: app/core
+        working-directory: app
         run: mix chapter1.conformance

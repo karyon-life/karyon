@@ -1,4 +1,4 @@
-name: Chapter 3 Synthesis
+name: Chapter 3 Conformance
 
 on:
   push:
@@ -37,6 +37,6 @@ jobs:
         working-directory: app
         run: mix deps.get
 
-      - name: Run Chapter 3 Synthesis Suite
+      - name: Run Chapter 3 Conformance Suite
         working-directory: app
-        run: mix chapter3.synthesis
+        run: mix chapter3.conformance
