@@ -87,11 +87,22 @@ defmodule Sandbox.ProvisionerTest do
         end
       end)
 
-      assert {:ok, vm_id} = Provisioner.provision_vm("tmp/plan.json")
+      plan_path = Path.join(System.tmp_dir!(), "karyon-provisioner-plan-#{System.unique_integer([:positive])}.json")
+      target_workspace_root = Path.join(System.tmp_dir!(), "karyon-provisioner-target-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(target_workspace_root)
+      File.write!(plan_path, Jason.encode!(%{"intent" => %{"transition_delta" => %{"workspace_root" => target_workspace_root}}}))
+
+      on_exit(fn ->
+        File.rm(plan_path)
+        File.rm_rf(target_workspace_root)
+      end)
+
+      assert {:ok, vm_id} = Provisioner.provision_vm(plan_path)
       runtime = Sandbox.RuntimeRegistry.get(vm_id)
 
       assert runtime.workspace_mount_target == "/mnt/workspace"
       assert runtime.workspace_image_path =~ "/.karyon/sandboxes/#{vm_id}/workspace.ext4"
+      assert runtime.target_workspace_root == Path.expand(target_workspace_root)
       assert File.exists?(runtime.workspace_image_path)
       assert File.exists?(runtime.execution_manifest_path)
       assert File.exists?(runtime.overlay_manifest_path)
@@ -101,6 +112,9 @@ defmodule Sandbox.ProvisionerTest do
       assert decoded["contract"] == "virtio-blk-overlay"
       assert decoded["policy"]["rootfs"]["immutable"] == true
       assert decoded["policy"]["workspace"]["mount_target"] == "/mnt/workspace"
+      assert decoded["policy"]["engine_workspace"] == "read_only_control_plane"
+      assert decoded["target_workspace_root"] == Path.expand(target_workspace_root)
+      assert decoded["engine_manifest"]["schema"] == "karyon.monorepo-pipeline.v1"
 
       assert :ok = Sandbox.VmmSupervisor.cleanup_resources(vm_id, runtime.socket_path)
     end

@@ -69,16 +69,16 @@ defmodule Sandbox.ExecutorTest do
       "plan_attractor_id" => "repair-attractor",
       "plan_step_ids" => ["step-1", "step-2"],
       "executor" => %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+      "transition_delta" => %{
+        "workspace_root" => Path.join(System.tmp_dir!(), "karyon-target-executor"),
+        "metabolism_admission" => %{"status" => "admitted", "lane" => "expedite", "pressure" => "high"}
+      },
       "params" => %{
         "attractor" => "repair-attractor",
         "steps" => [
           %{"id" => "step-1", "action" => "patch_codebase", "params" => %{"file" => "lib/app.ex"}},
           %{"id" => "step-2", "action" => "run_tests", "params" => %{"suite" => "core"}}
-        ],
-        "transition_delta" => %{"step_count" => 2}
-      },
-      "transition_delta" => %{
-        "metabolism_admission" => %{"status" => "admitted", "lane" => "expedite", "pressure" => "high"}
+        ]
       }
     }
 
@@ -92,6 +92,7 @@ defmodule Sandbox.ExecutorTest do
     assert result.telemetry["summary"]["mutation_count"] == 2
     assert Enum.any?(result.telemetry["stages"], &(&1["name"] == "compile"))
     assert result.provenance.intent_id == "intent:sandbox-execute-plan"
+    assert result.target_workspace_root =~ "karyon-target-executor"
   end
 
   test "execute_plan denies sandbox work when metabolic admission is deferred" do
@@ -101,17 +102,39 @@ defmodule Sandbox.ExecutorTest do
       "plan_attractor_id" => "refinement-attractor",
       "plan_step_ids" => ["step-1"],
       "executor" => %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+      "transition_delta" => %{
+        "workspace_root" => Path.join(System.tmp_dir!(), "karyon-target-executor-deferred"),
+        "metabolism_admission" => %{"status" => "deferred", "lane" => "deferred", "pressure" => "high"}
+      },
       "params" => %{
         "attractor" => "refinement-attractor",
         "steps" => [
           %{"id" => "step-1", "action" => "refine_notes", "params" => %{}}
         ]
-      },
-      "transition_delta" => %{
-        "metabolism_admission" => %{"status" => "deferred", "lane" => "deferred", "pressure" => "high"}
       }
     }
 
     assert {:error, :insufficient_atp_budget} = Executor.execute_plan(intent)
+  end
+
+  test "execute_plan denies engine-root work even when the action contract is otherwise valid" do
+    intent = %{
+      "id" => "intent:sandbox-engine-denied",
+      "action" => "execute_plan",
+      "plan_attractor_id" => "repair-attractor",
+      "plan_step_ids" => ["step-1"],
+      "executor" => %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+      "transition_delta" => %{
+        "workspace_root" => Sandbox.MonorepoPipeline.engine_root(),
+        "metabolism_admission" => %{"status" => "admitted", "lane" => "priority", "pressure" => "medium"}
+      },
+      "params" => %{
+        "steps" => [
+          %{"id" => "step-1", "action" => "patch_codebase", "params" => %{}}
+        ]
+      }
+    }
+
+    assert {:error, {:wrs_denied, :engine_workspace_forbidden}} = Executor.execute_plan(intent)
   end
 end

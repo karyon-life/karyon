@@ -3,6 +3,7 @@ defmodule Sandbox.WRS do
   World Reliability Ruleset gate for irreversible sandbox execution.
   """
 
+  alias Sandbox.MonorepoPipeline
   alias Sandbox.Provisioner
 
   @allowed_actions ["execute_plan", "capture_output", "provision_vm", "execute_patch"]
@@ -50,13 +51,27 @@ defmodule Sandbox.WRS do
 
   defp validate_paths(_intent), do: :ok
 
-  defp validate_action_contract("execute_plan", %{"plan_attractor_id" => attractor_id, "params" => %{"steps" => steps}})
+  defp validate_action_contract("execute_plan", %{"plan_attractor_id" => attractor_id, "params" => %{"steps" => steps}} = intent)
        when is_binary(attractor_id) and attractor_id != "" and is_list(steps) and steps != [] do
-    :ok
+    validate_target_workspace_contract(intent)
   end
 
   defp validate_action_contract("execute_plan", _intent), do: {:error, {:wrs_denied, :invalid_plan_contract}}
   defp validate_action_contract(_action, _intent), do: :ok
+
+  defp validate_target_workspace_contract(intent) do
+    case MonorepoPipeline.target_workspace_from_intent(intent) do
+      nil ->
+        {:error, {:wrs_denied, :missing_target_workspace}}
+
+      workspace ->
+        case MonorepoPipeline.validate_target_workspace(workspace) do
+          {:ok, _workspace} -> :ok
+          {:error, :engine_workspace_forbidden} -> {:error, {:wrs_denied, :engine_workspace_forbidden}}
+          {:error, _reason} -> {:error, {:wrs_denied, :invalid_target_workspace}}
+        end
+    end
+  end
 
   defp authorization_reason("execute_plan"), do: "validated execution intent with typed plan lineage"
   defp authorization_reason("execute_patch"), do: "validated sandbox mutation request"

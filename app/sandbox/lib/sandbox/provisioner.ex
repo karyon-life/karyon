@@ -7,6 +7,8 @@ defmodule Sandbox.Provisioner do
   import Bitwise
   require Logger
 
+  alias Sandbox.MonorepoPipeline
+
   @doc """
   Provisions an isolated microVM for a specific execution plan.
   """
@@ -335,6 +337,7 @@ defmodule Sandbox.Provisioner do
     root_dir = Path.expand("~/.karyon/sandboxes/#{vm_id}")
     host_workspace_path = Path.join(root_dir, "workspace")
     overlay_dir = Path.join(root_dir, "overlay")
+    target_workspace_root = target_workspace_root(plan_path)
 
     %{
       root_dir: root_dir,
@@ -351,6 +354,7 @@ defmodule Sandbox.Provisioner do
       telemetry_path: Path.join(root_dir, "execution_telemetry.json"),
       audit_path: Path.join(root_dir, "execution_audit.json"),
       plan_path: Path.expand(plan_path),
+      target_workspace_root: target_workspace_root,
       status: :starting,
       exit_code: nil,
       pain_reported: false
@@ -381,11 +385,15 @@ defmodule Sandbox.Provisioner do
       "workspace_mount_target" => runtime.workspace_mount_target,
       "workspace_image_path" => runtime.workspace_image_path,
       "host_workspace_path" => runtime.host_workspace_path,
+      "target_workspace_root" => runtime[:target_workspace_root],
+      "engine_manifest" => MonorepoPipeline.engine_manifest(),
       "contract" => "virtio-blk-overlay",
       "policy" => %{
         "rootfs" => %{"immutable" => true, "transport" => "virtio-blk"},
         "workspace" => %{"writable" => true, "transport" => "virtio-blk", "mount_target" => runtime.workspace_mount_target},
-        "host_mutation" => "forbidden_outside_sandbox"
+        "host_mutation" => "forbidden_outside_sandbox",
+        "engine_workspace" => "read_only_control_plane",
+        "target_workspace" => "sandboxed_execution_limb"
       }
     }
   end
@@ -403,12 +411,14 @@ defmodule Sandbox.Provisioner do
   defp membrane_metadata(vm_id, runtime) do
     %{
       vm_id: vm_id,
+      engine_manifest: MonorepoPipeline.engine_manifest(),
       membrane: %{
         contract: "virtio-blk-overlay",
         rootfs: %{immutable: true, transport: "virtio-blk"},
         workspace: %{
           mount_target: runtime.workspace_mount_target,
           image_path: runtime.workspace_image_path,
+          target_root: runtime[:target_workspace_root],
           transport: "virtio-blk",
           writable: true
         }
@@ -417,6 +427,17 @@ defmodule Sandbox.Provisioner do
         plan_manifest_path: runtime.execution_manifest_path
       }
     }
+  end
+
+  defp target_workspace_root(plan_path) do
+    with {:ok, contents} <- File.read(plan_path),
+         {:ok, decoded} <- Jason.decode(contents),
+         workspace when is_binary(workspace) <- get_in(decoded, ["intent", "transition_delta", "workspace_root"]),
+         {:ok, validated} <- MonorepoPipeline.validate_target_workspace(workspace) do
+      validated
+    else
+      _ -> nil
+    end
   end
 
   defp create_sparse_image(path, size_mib) when is_integer(size_mib) and size_mib > 0 do

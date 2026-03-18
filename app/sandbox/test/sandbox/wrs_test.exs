@@ -10,6 +10,7 @@ defmodule Sandbox.WRSTest do
       "plan_attractor_id" => "repair-attractor",
       "plan_step_ids" => ["step-1"],
       "executor" => %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+      "transition_delta" => %{"workspace_root" => Path.join(System.tmp_dir!(), "karyon-target-wrs")},
       "params" => %{
         "steps" => [
           %{"id" => "step-1", "action" => "patch_codebase", "params" => %{}}
@@ -29,6 +30,7 @@ defmodule Sandbox.WRSTest do
       "action" => "execute_plan",
       "plan_attractor_id" => "repair-attractor",
       "executor" => %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+      "transition_delta" => %{"workspace_root" => Path.join(System.tmp_dir!(), "karyon-target-wrs")},
       "params" => %{
         "steps" => [
           %{"id" => "step-1", "action" => "patch_codebase", "params" => %{}}
@@ -38,5 +40,22 @@ defmodule Sandbox.WRSTest do
     }
 
     assert {:error, {:wrs_denied, :unsafe_host_path}} = WRS.authorize_intent(intent)
+  end
+
+  test "authorize_intent/1 denies execute_plan intents that target the engine workspace" do
+    intent = %{
+      "id" => "intent:wrs-engine-deny",
+      "action" => "execute_plan",
+      "plan_attractor_id" => "repair-attractor",
+      "executor" => %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+      "transition_delta" => %{"workspace_root" => Sandbox.MonorepoPipeline.engine_root()},
+      "params" => %{
+        "steps" => [
+          %{"id" => "step-1", "action" => "patch_codebase", "params" => %{}}
+        ]
+      }
+    }
+
+    assert {:error, {:wrs_denied, :engine_workspace_forbidden}} = WRS.authorize_intent(intent)
   end
 end

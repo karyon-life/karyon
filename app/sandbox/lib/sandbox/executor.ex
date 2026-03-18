@@ -3,11 +3,13 @@ defmodule Sandbox.Executor do
   Sandbox-owned execution adapter boundary for Firecracker-backed actions.
   """
 
+  alias Sandbox.MonorepoPipeline
   alias Sandbox.Provisioner
   alias Sandbox.WRS
 
   def execute_plan(%{"id" => _intent_id, "params" => %{"steps" => _steps}} = intent) do
-    with {:ok, admission} <- authorize_metabolism(intent),
+    with {:ok, target_workspace_root} <- authorize_target_workspace(intent),
+         {:ok, admission} <- authorize_metabolism(intent),
          {:ok, wrs_decision} <- WRS.authorize_intent(intent),
          {:ok, plan_path} <- Provisioner.stage_execution_intent(intent, wrs_decision),
          {:ok, vm_id} <- Provisioner.provision_vm(plan_path),
@@ -17,6 +19,7 @@ defmodule Sandbox.Executor do
        result
        |> Map.put(:metabolism_admission, admission)
        |> Map.put(:wrs_decision, wrs_decision)
+       |> Map.put(:target_workspace_root, target_workspace_root)
        |> Map.put(:provenance, %{
          intent_id: intent["id"],
          plan_attractor_id: intent["plan_attractor_id"],
@@ -26,6 +29,20 @@ defmodule Sandbox.Executor do
   end
 
   def execute_plan(_intent), do: {:error, {:wrs_denied, :invalid_plan_contract}}
+
+  defp authorize_target_workspace(intent) do
+    case MonorepoPipeline.target_workspace_from_intent(intent) do
+      nil ->
+        {:error, {:wrs_denied, :missing_target_workspace}}
+
+      workspace ->
+        case MonorepoPipeline.validate_target_workspace(workspace) do
+          {:ok, validated} -> {:ok, validated}
+          {:error, :engine_workspace_forbidden} -> {:error, {:wrs_denied, :engine_workspace_forbidden}}
+          {:error, _reason} -> {:error, {:wrs_denied, :invalid_target_workspace}}
+        end
+    end
+  end
 
   defp authorize_metabolism(%{"transition_delta" => %{"metabolism_admission" => %{"status" => "admitted"} = profile}}),
     do: {:ok, profile}
