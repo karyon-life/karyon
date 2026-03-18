@@ -6,6 +6,11 @@ defmodule NervousSystem.Synapse do
   use GenServer
   require Logger
 
+  @default_hwm 500
+
+  @transport_plane :peer_to_peer
+  @transport_roles [:pub, :sub, :push, :pull]
+
   @doc """
   Starts a Synaptic connection GenServer.
   """
@@ -16,12 +21,25 @@ defmodule NervousSystem.Synapse do
   end
 
   def send_signal(pid, payload, retries \\ 10) do
+    attempt = 11 - retries
+
     case GenServer.call(pid, {:send, payload}) do
       {:error, :no_connected_peers} when retries > 0 ->
+        emit_transport_event(:send_retry, %{reason: :no_connected_peers, retries_left: retries, attempt: attempt, plane: @transport_plane, transport: :zmq})
         Process.sleep(50)
         send_signal(pid, payload, retries - 1)
       res -> res
     end
+  end
+
+  def transport_descriptor do
+    %{
+      plane: @transport_plane,
+      roles: @transport_roles,
+      transport: :zmq,
+      topology: :peer_to_peer,
+      queue_semantics: :bounded_hwm
+    }
   end
 
   @impl true
@@ -29,19 +47,18 @@ defmodule NervousSystem.Synapse do
     type = Keyword.get(opts, :type, :push)
     bind_addr = Keyword.get(opts, :bind, "tcp://127.0.0.1:0")
     owner = Keyword.get(opts, :owner)
+    hwm = Keyword.get(opts, :hwm, @default_hwm)
 
     {:ok, socket_pid} = :chumak.socket(type)
     Process.link(socket_pid)
-    
+
     # Strictly cap the buffer to enforce physical pain/prediction errors during saturation.
-    # Default to 500 for balanced throughput and backpressure.
-    hwm = Keyword.get(opts, :hwm, 500)
     :chumak.set_socket_option(socket_pid, :sndhwm, hwm)
     :chumak.set_socket_option(socket_pid, :rcvhwm, hwm)
     
     with {:ok, %{protocol: protocol, host: host, port: port}} <- parse_bind_addr(bind_addr),
          action <- Keyword.get(opts, :action, :bind),
-         {:ok, state} <- initialize_socket(socket_pid, type, owner, protocol, host, port, action) do
+         {:ok, state} <- initialize_socket(socket_pid, type, owner, protocol, host, port, action, hwm) do
       {:ok, state}
     else
       {:error, reason} ->
@@ -103,11 +120,19 @@ defmodule NervousSystem.Synapse do
   end
 
   @impl true
+  def handle_call(:transport_state, _from, state) do
+    {:reply, {:ok, Map.take(state, [:plane, :transport, :topology, :queue_semantics, :protocol, :port, :type, :action, :hwm])}, state}
+  end
+
+  @impl true
   def handle_call({:send, payload}, _from, state) do
     case :chumak.send(state.socket, payload) do
-      :ok -> {:reply, :ok, state}
+      :ok ->
+        emit_transport_event(:send_ok, %{protocol: state.protocol, port: state.port, type: state.type, plane: state.plane, bytes: payload_size(payload)})
+        {:reply, :ok, state}
+
       {:error, reason} ->
-        emit_transport_event(:send_failed, %{protocol: state.protocol, port: state.port, reason: reason})
+        emit_transport_event(:send_failed, %{protocol: state.protocol, port: state.port, reason: reason, type: state.type, plane: state.plane, bytes: payload_size(payload)})
         {:reply, {:error, reason}, state}
     end
   end
@@ -115,13 +140,19 @@ defmodule NervousSystem.Synapse do
   @impl true
   def handle_call({:subscribe, topic}, _from, state) do
     case :chumak.subscribe(state.socket, topic) do
-      :ok -> {:reply, :ok, state}
-      error -> {:reply, error, state}
+      :ok ->
+        emit_transport_event(:subscribe_ok, %{protocol: state.protocol, port: state.port, topic: topic, plane: state.plane, type: state.type})
+        {:reply, :ok, state}
+
+      error ->
+        emit_transport_event(:subscribe_failed, %{protocol: state.protocol, port: state.port, topic: topic, plane: state.plane, type: state.type, reason: error})
+        {:reply, error, state}
     end
   end
 
   @impl true
   def handle_info({:synapse_recv_internal, payload}, state) do
+    emit_transport_event(:recv_ok, %{protocol: state.protocol, port: state.port, type: state.type, plane: state.plane, bytes: payload_size(payload)})
     send(state.owner, {:synapse_recv, self(), payload})
     {:noreply, state}
   end
@@ -160,7 +191,7 @@ defmodule NervousSystem.Synapse do
     end
   end
 
-  defp initialize_socket(socket_pid, type, owner, protocol, host, port, :bind) do
+  defp initialize_socket(socket_pid, type, owner, protocol, host, port, :bind, hwm) do
     port_to_bind = if port == 0, do: get_free_port(), else: port
 
     case robust_bind(socket_pid, String.to_atom(protocol), ~c"#{host}", port_to_bind) do
@@ -173,19 +204,19 @@ defmodule NervousSystem.Synapse do
 
         Logger.info("[Synapse] Bound to #{protocol}://#{host}:#{actual_port}")
         if type in [:sub, :pull], do: start_receiver(socket_pid)
-        {:ok, %{socket: socket_pid, port: actual_port, type: type, owner: owner, protocol: protocol}}
+        {:ok, %{socket: socket_pid, port: actual_port, type: type, owner: owner, protocol: protocol, action: :bind, hwm: hwm, plane: @transport_plane, transport: :zmq, topology: :peer_to_peer, queue_semantics: :bounded_hwm}}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  defp initialize_socket(socket_pid, type, owner, protocol, host, port, :connect) do
+  defp initialize_socket(socket_pid, type, owner, protocol, host, port, :connect, hwm) do
     case :chumak.connect(socket_pid, String.to_atom(protocol), ~c"#{host}", port) do
       {:ok, _conn_pid} ->
         Logger.info("[Synapse] Connected to #{protocol}://#{host}:#{port}")
         if type in [:sub, :pull], do: start_receiver(socket_pid)
-        {:ok, %{socket: socket_pid, port: port, type: type, owner: owner, protocol: protocol}}
+        {:ok, %{socket: socket_pid, port: port, type: type, owner: owner, protocol: protocol, action: :connect, hwm: hwm, plane: @transport_plane, transport: :zmq, topology: :peer_to_peer, queue_semantics: :bounded_hwm}}
 
       {:error, {:unsupported_protocol, _} = reason} ->
         emit_transport_event(:unsupported_protocol, %{protocol: protocol, port: port, reason: reason})
@@ -200,4 +231,8 @@ defmodule NervousSystem.Synapse do
   defp emit_transport_event(event, metadata) do
     :telemetry.execute([:karyon, :nervous_system, :synapse, event], %{}, metadata)
   end
+
+  defp payload_size(payload) when is_binary(payload), do: byte_size(payload)
+  defp payload_size(payload) when is_list(payload), do: IO.iodata_length(payload)
+  defp payload_size(_payload), do: 0
 end

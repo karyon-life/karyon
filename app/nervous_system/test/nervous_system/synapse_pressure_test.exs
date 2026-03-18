@@ -3,10 +3,48 @@ defmodule NervousSystem.SynapsePressureTest do
   alias NervousSystem.Synapse
   alias NervousSystem.PainReceptor
 
+  setup do
+    parent = self()
+
+    :telemetry.attach_many(
+      "synapse-pressure-test-#{inspect(parent)}",
+      [
+        [:karyon, :nervous_system, :synapse, :send_retry],
+        [:karyon, :nervous_system, :synapse, :send_failed],
+        [:karyon, :nervous_system, :synapse, :send_ok],
+        [:karyon, :nervous_system, :synapse, :subscribe_ok]
+      ],
+      fn event, _measurements, metadata, test_pid ->
+        send(test_pid, {:transport_event, event, metadata})
+      end,
+      parent
+    )
+
+    on_exit(fn ->
+      :telemetry.detach("synapse-pressure-test-#{inspect(parent)}")
+    end)
+
+    :ok
+  end
+
+  defp stop_if_alive(name) do
+    case GenServer.whereis(name) do
+      nil -> :ok
+      pid ->
+        try do
+          Process.unlink(pid)
+          GenServer.stop(pid)
+        catch
+          :exit, _ -> :ok
+        end
+    end
+  end
+
   test "high-frequency ZMQ bursts" do
     # 1. Start a PUB synapse via PainReceptor
     # Ensure any previous instances are dead
     if pid = GenServer.whereis(PainReceptor), do: GenServer.stop(pid)
+    stop_if_alive(:pain_synapse)
     
     # Set a fixed port for testing to avoid dynamic port hunting in this specific stress test
     port = 6789 
@@ -42,7 +80,11 @@ defmodule NervousSystem.SynapsePressureTest do
       assert Process.alive?(sub_pid)
     end)
 
+    assert_receive {:transport_event, [:karyon, :nervous_system, :synapse, :send_ok], %{plane: :peer_to_peer, bytes: bytes}}, 1_000
+    assert bytes > 0
+
     GenServer.stop(PainReceptor)
+    stop_if_alive(:pain_synapse)
     Enum.each(subs, &GenServer.stop/1)
   end
 
@@ -55,5 +97,18 @@ defmodule NervousSystem.SynapsePressureTest do
     assert port > 0
 
     GenServer.stop(pid1)
+  end
+
+  test "retry telemetry fires when no connected peers exist" do
+    {:ok, push_pid} = Synapse.start_link(type: :push, bind: "tcp://127.0.0.1:0")
+
+    on_exit(fn ->
+      if Process.alive?(push_pid), do: GenServer.stop(push_pid)
+    end)
+
+    result = Synapse.send_signal(push_pid, "orphaned", 1)
+    assert result == :ok or match?({:error, _}, result)
+
+    assert_receive {:transport_event, [:karyon, :nervous_system, :synapse, :send_retry], %{plane: :peer_to_peer, attempt: 10}}, 1_000
   end
 end
