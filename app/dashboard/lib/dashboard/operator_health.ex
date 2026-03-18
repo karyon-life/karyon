@@ -4,6 +4,8 @@ defmodule Dashboard.OperatorHealth do
   """
 
   @service_health_module Core.ServiceHealth
+  @operational_maturity_module Core.OperationalMaturity
+  @organism_observability_module Dashboard.OrganismObservability
 
   def live_report do
     report = %{
@@ -21,7 +23,9 @@ defmodule Dashboard.OperatorHealth do
     report = %{
       status: if(report.overall == :ok, do: :ok, else: :degraded),
       release: release_metadata(),
-      services: report.services
+      services: report.services,
+      maturity: operational_maturity_module().report(service_report: report, release: release_metadata(), dashboard_server: dashboard_server_enabled?()),
+      observability: organism_observability_module().report()
     }
 
     Map.put(report, :operator_brief, render_operator_brief(report))
@@ -46,6 +50,14 @@ defmodule Dashboard.OperatorHealth do
 
   defp service_health_module do
     Application.get_env(:dashboard, :service_health_module, @service_health_module)
+  end
+
+  defp operational_maturity_module do
+    Application.get_env(:dashboard, :operational_maturity_module, @operational_maturity_module)
+  end
+
+  defp organism_observability_module do
+    Application.get_env(:dashboard, :organism_observability_module, @organism_observability_module)
   end
 
   defp dashboard_server_enabled? do

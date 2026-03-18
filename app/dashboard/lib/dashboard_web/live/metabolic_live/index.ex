@@ -1,6 +1,7 @@
 defmodule DashboardWeb.MetabolicLive.Index do
   use DashboardWeb, :live_view
-  require Logger
+
+  @observability_module Dashboard.OrganismObservability
 
   @impl true
   def mount(_params, _session, socket) do
@@ -12,12 +13,16 @@ defmodule DashboardWeb.MetabolicLive.Index do
       Phoenix.PubSub.subscribe(Dashboard.PubSub, "metabolic_flux")
     end
 
-    {:ok, assign(socket, metrics: %{l3_misses: nil, run_queue: 0, iops: nil, pressure: :low, atp: 1.0})}
+    {:ok,
+     assign(socket,
+       metrics: %{l3_misses: nil, run_queue: 0, iops: nil, pressure: :low, atp: 1.0},
+       observability: observability_module().report()
+     )}
   end
 
   @impl true
   def handle_info({:metabolic_update, update}, socket) do
-    {:noreply, assign(socket, metrics: update)}
+    {:noreply, assign(socket, metrics: update, observability: observability_module().report())}
   end
 
   @impl true
@@ -63,6 +68,56 @@ defmodule DashboardWeb.MetabolicLive.Index do
         <h3>500k Core Swarm Visualization</h3>
         <div id="swarm-canvas-container" phx-update="ignore">
           <canvas id="swarm-canvas" width="800" height="400" phx-hook="SwarmCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="metrics-grid mt-8">
+        <div class="metric-card glass">
+          <h3>Active Cells</h3>
+          <div class="value"><%= assigns.observability.organism.active_cell_count %></div>
+          <p>Live supervised organism cells</p>
+        </div>
+
+        <div class="metric-card glass">
+          <h3>Prediction Errors</h3>
+          <div class="value"><%= assigns.observability.graph.prediction_error_count %></div>
+          <p>Rhizome `PredictionError` nodes</p>
+        </div>
+
+        <div class="metric-card glass">
+          <h3>Sleep SuperNodes</h3>
+          <div class="value"><%= assigns.observability.graph.consolidation_supernode_count %></div>
+          <p>Consolidated memory abstractions</p>
+        </div>
+
+        <div class="metric-card glass">
+          <h3>Workspace Coordination</h3>
+          <div class="value"><%= assigns.observability.graph.workspace_coordination_count %></div>
+          <p>Cross-workspace coordination nodes</p>
+        </div>
+      </div>
+
+      <div class="metrics-grid mt-8">
+        <div class="glass">
+          <h3>Rhizome Topology</h3>
+          <p class="fact-line">Layers: <%= assigns.observability.topology.layer_count %></p>
+          <%= for layer <- Map.get(assigns.observability.topology, :layers, []) do %>
+            <p class="fact-line"><%= layer.layer %> via <%= layer.store %> (<%= layer.operation_count %> ops)</p>
+          <% end %>
+        </div>
+
+        <div class="glass">
+          <h3>Sovereign State</h3>
+          <p class="fact-line">Hard mandate: <%= top_fact(Map.get(assigns.observability.sovereignty, :top_hard_mandate)) %></p>
+          <p class="fact-line">Top value: <%= top_fact(Map.get(assigns.observability.sovereignty, :top_value)) %></p>
+          <p class="fact-line">Top need: <%= top_fact(Map.get(assigns.observability.sovereignty, :top_need)) %></p>
+          <p class="fact-line">Top objective: <%= top_fact(Map.get(assigns.observability.sovereignty, :top_objective)) %></p>
+        </div>
+
+        <div class="glass">
+          <h3>Temporal Archive</h3>
+          <p class="fact-line">Recent execution outcomes: <%= assigns.observability.temporal.recent_execution_outcome_count %></p>
+          <p class="fact-line">Sovereignty events: <%= assigns.observability.temporal.sovereignty_event_count %></p>
         </div>
       </div>
     </div>
@@ -136,6 +191,8 @@ defmodule DashboardWeb.MetabolicLive.Index do
       }
 
       .swarm-visualizer { min-height: 400px; }
+      .mt-8 { margin-top: 2rem; }
+      .fact-line { color: #d4d7dd; margin: 0.35rem 0; }
 
       @keyframes pulse {
         0% { opacity: 1; }
@@ -148,4 +205,11 @@ defmodule DashboardWeb.MetabolicLive.Index do
 
   defp metric_value(nil), do: "unavailable"
   defp metric_value(value), do: value
+
+  defp top_fact(nil), do: "unavailable"
+  defp top_fact(%{name: name, weight: weight}), do: "#{name}=#{:erlang.float_to_binary(weight, decimals: 2)}"
+
+  defp observability_module do
+    Application.get_env(:dashboard, :organism_observability_module, @observability_module)
+  end
 end
