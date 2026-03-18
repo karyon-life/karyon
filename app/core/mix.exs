@@ -31,14 +31,6 @@ defmodule Core.MixProject do
     ]
   end
 
-  def cli do
-    [
-      preferred_envs: [
-        "chapter1.conformance": :test
-      ]
-    ]
-  end
-
   defp deps do
     [
       {:yaml_elixir, "~> 2.9"},
@@ -51,11 +43,5 @@ defmodule Core.MixProject do
     ]
   end
 
-  defp aliases do
-    [
-      "chapter1.conformance": [
-        "test test/core/architecture_conformance_test.exs test/core/motor_driver_test.exs test/core/state_recovery_test.exs test/core/stem_cell_test.exs"
-      ]
-    ]
-  end
+  defp aliases, do: []
 end
