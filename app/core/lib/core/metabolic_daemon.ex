@@ -199,35 +199,57 @@ defmodule Core.MetabolicDaemon do
   end
 
   defp induce_apoptosis(target_type) do
-    # Ask the EpigeneticSupervisor to terminate cells of a specific type (graduated apoptosis)
-    # Target specific cell types using :pg groups
-    group = 
-      case target_type do
-        :motor -> :motor
-        :sensory -> :sensory
-        :orchestrator -> :orchestrator
-        _ -> :undifferentiated
-      end
+    case apoptosis_target(target_type) do
+      nil ->
+        Logger.info("[MetabolicDaemon] No eligible cells found for #{target_type} apoptosis.")
 
-    members = :pg.get_members(group)
-    
-    # Prune the first member found in the group
-    case members do
-      [target_pid | _] ->
+      target_pid ->
         Logger.warning("[MetabolicDaemon] Executing Targeted Apoptosis on #{target_type} cell: #{inspect(target_pid)}")
         Core.EpigeneticSupervisor.apoptosis(target_pid)
-      [] ->
-        # fallback to dynamic supervisor children if group is empty
-        Logger.info("[MetabolicDaemon] No cells found in group #{group}. Scanning DynamicSupervisor.")
-        children = DynamicSupervisor.which_children(Core.EpigeneticSupervisor)
-        case Enum.find(children, fn {_, pid, _, _} -> is_pid(pid) end) do
-           {_, pid, _, _} -> 
-             Logger.warning("[MetabolicDaemon] Executing Fallback Apoptosis on cell: #{inspect(pid)}")
-             Core.EpigeneticSupervisor.apoptosis(pid)
-           _ -> :ok
-        end
     end
   end
+
+  defp apoptosis_target(target_type) do
+    Core.EpigeneticSupervisor.active_cells()
+    |> Enum.map(&runtime_snapshot/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.filter(&(target_matches?(&1, target_type)))
+    |> Enum.sort_by(fn snapshot ->
+      {
+        snapshot.safety_critical,
+        snapshot.status != :torpor,
+        apoptosis_priority(snapshot.role)
+      }
+    end)
+    |> List.first()
+    |> case do
+      nil -> nil
+      snapshot -> snapshot.pid
+    end
+  end
+
+  defp runtime_snapshot(pid) do
+    runtime = GenServer.call(pid, :get_runtime_state)
+
+    %{
+      pid: pid,
+      role: runtime[:role],
+      status: runtime[:status],
+      safety_critical: runtime[:safety_critical]
+    }
+  rescue
+    _ -> nil
+  end
+
+  defp target_matches?(snapshot, :generic), do: not snapshot.safety_critical
+  defp target_matches?(snapshot, :numa_migration), do: not snapshot.safety_critical
+  defp target_matches?(snapshot, target_type), do: snapshot.role == target_type
+
+  defp apoptosis_priority(:motor), do: 0
+  defp apoptosis_priority(:sensory), do: 1
+  defp apoptosis_priority(:architect_planner), do: 2
+  defp apoptosis_priority(:orchestrator), do: 3
+  defp apoptosis_priority(_), do: 4
 
   defp iops_pressure(state, snapshot) do
     case snapshot.iops do

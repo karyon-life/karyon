@@ -2,14 +2,47 @@ defmodule Core.Chaos.ApoptosisTest do
   use ExUnit.Case
   require Logger
 
+  defmodule FakeMetabolicDaemon do
+    use GenServer
+
+    def start_link(_opts) do
+      GenServer.start_link(__MODULE__, :low, name: Core.MetabolicDaemon)
+    end
+
+    def init(pressure), do: {:ok, pressure}
+    def handle_call(:get_pressure, _from, pressure), do: {:reply, pressure, pressure}
+  end
+
   @moduledoc """
   Resilience tests for cellular population regeneration.
   """
 
+  setup do
+    Application.ensure_all_started(:core)
+
+    if Process.whereis(Core.Supervisor) do
+      Supervisor.terminate_child(Core.Supervisor, Core.MetabolicDaemon)
+      Supervisor.delete_child(Core.Supervisor, Core.MetabolicDaemon)
+    end
+
+    {:ok, fake_daemon} = FakeMetabolicDaemon.start_link([])
+
+    on_exit(fn ->
+      if Process.alive?(fake_daemon), do: GenServer.stop(fake_daemon)
+
+      if Process.whereis(Core.Supervisor) do
+        Supervisor.start_child(Core.Supervisor, {Core.MetabolicDaemon, []})
+      end
+    end)
+
+    :ok
+  end
+
   test "system regenerates cells after ChaosMonkey disruption" do
-    # 1. Spawn 10 cells
-    Enum.each(1..10, fn _ -> 
-      Core.EpigeneticSupervisor.spawn_cell()
+    dna_path = Path.expand("../../../../priv/dna/motor_cell.yml", __DIR__)
+
+    Enum.each(1..10, fn _ ->
+      Core.EpigeneticSupervisor.spawn_cell(dna_path)
     end)
 
     # 2. Wait for stabilization
@@ -22,16 +55,12 @@ defmodule Core.Chaos.ApoptosisTest do
     pids = :pg.get_members(:stem_cell)
     Enum.take_random(pids, 5) |> Enum.each(&Process.exit(&1, :kill))
 
-    # 4. Verify recovery (since we use :temporary in child spec, 
-    # the supervisor won't restart them, but our logic might trigger new ones 
-    # or we verify the supervisor itself didn't crash).
-    
-    # Note: SPEC says stem cells are :temporary because we don't resurrection failed ones
-    # under chaos, we differentiate new ones. Actually, PLAN says "document OTP 
-    # supervision regeneration efficiency". If they are temporary, they don't regenerate.
-    # We may need to adjust child_spec if we want auto-restart or just verify 
-    # partial failure doesn't halt the whole kernel.
-    
-    assert true
+    assert Process.alive?(Process.whereis(Core.EpigeneticSupervisor))
+
+    Enum.each(1..5, fn _ ->
+      assert {:ok, _pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
+    end)
+
+    assert Enum.count(:pg.get_members(:stem_cell)) >= initial_count
   end
 end

@@ -1,6 +1,8 @@
 defmodule Core.PreflightTest do
   use ExUnit.Case, async: true
 
+  alias Core.DNA
+
   defmodule NativeOk do
     def read_numa_node, do: {:ok, 0}
     def get_affinity_mask, do: {:ok, [0, 1]}
@@ -55,5 +57,35 @@ defmodule Core.PreflightTest do
              )
 
     assert reason =~ "NUMA node"
+  end
+
+  test "DNA validation returns a structured error for unsupported schema versions" do
+    dna_path = "/tmp/dna_unsupported_schema.yml"
+
+    File.write!(dna_path, """
+    schema_version: 2
+    cell_type: sensory
+    allowed_actions:
+      - ingest
+    """)
+
+    on_exit(fn -> File.rm(dna_path) end)
+
+    assert {:error, {:unsupported_schema_version, 2.0}} = DNA.load(dna_path)
+  end
+
+  test "DNA validation returns a structured error for duplicate allowed_actions" do
+    dna_path = "/tmp/dna_duplicate_actions.yml"
+
+    File.write!(dna_path, """
+    cell_type: sensory
+    allowed_actions:
+      - ingest
+      - ingest
+    """)
+
+    on_exit(fn -> File.rm(dna_path) end)
+
+    assert {:error, {:duplicate_allowed_actions, ["ingest"], ^dna_path}} = DNA.load(dna_path)
   end
 end

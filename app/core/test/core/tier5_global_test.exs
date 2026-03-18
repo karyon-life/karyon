@@ -1,6 +1,7 @@
 defmodule Core.GlobalTier5Test do
   use ExUnit.Case
   alias Core.Engram
+  alias Core.EpigeneticSupervisor
   alias Core.MotorDriver
   alias Core.Plan
   alias Core.Plan.AbstractState
@@ -48,5 +49,10 @@ defmodule Core.GlobalTier5Test do
           assert is_binary(step.predicted_state.summary)
         end)
     end
+  end
+
+  test "EpigeneticSupervisor exposes live cytoplasm inventory without direct supervisor introspection" do
+    assert is_list(EpigeneticSupervisor.active_cells())
+    assert is_integer(EpigeneticSupervisor.active_cell_count())
   end
 end

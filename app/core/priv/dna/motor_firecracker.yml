@@ -1,6 +1,8 @@
 cell_type: "motor_executor"
 description: "Firecracker-based execution cell for isolated performance."
-motor_executor: "firecracker_python"
+executor:
+  module: "Sandbox.Executor"
+  function: "capture_output"
 allowed_actions:
   - "provision_vm"
   - "execute_patch"

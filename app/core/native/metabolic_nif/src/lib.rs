@@ -55,7 +55,7 @@ pub fn read_iops_impl() -> NifResult<u64> {
     Ok(parse_diskstats(reader))
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyIo")]
 pub fn read_iops() -> (rustler::Atom, u64) {
     match read_iops_impl() {
         Ok(v) => (atoms::ok(), v),
@@ -97,7 +97,7 @@ pub fn read_l3_misses_impl() -> NifResult<u64> {
     Ok(count)
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn read_l3_misses() -> (rustler::Atom, u64) {
     match read_l3_misses_impl() {
         Ok(v) => (atoms::ok(), v),
@@ -105,7 +105,7 @@ pub fn read_l3_misses() -> (rustler::Atom, u64) {
     }
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn read_numa_node() -> (rustler::Atom, i32) {
     let cpu = unsafe { libc::sched_getcpu() };
     if cpu < 0 {
@@ -129,13 +129,13 @@ pub fn read_numa_node() -> (rustler::Atom, i32) {
     (atoms::ok(), 0) // Default to node 0 if we can't find it (UMA)
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn read_cpu_index() -> (rustler::Atom, i32) {
     let cpu = unsafe { libc::sched_getcpu() };
     (atoms::ok(), cpu)
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn get_affinity_mask() -> (rustler::Atom, Vec<u64>) {
     let mut mask: libc::cpu_set_t = unsafe { std::mem::zeroed() };
     let result = unsafe {

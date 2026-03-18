@@ -2,6 +2,21 @@ defmodule Core.EpigeneticSupervisionTest do
   use ExUnit.Case
   alias Core.EpigeneticSupervisor
 
+  defmodule MemoryStub do
+    def load_cell_state(_lineage_id), do: {:error, :not_found}
+    def checkpoint_cell_state(snapshot), do: {:ok, %{id: snapshot["lineage_id"] || "checkpoint"}}
+    def submit_prediction_error(_event), do: {:ok, %{id: "prediction_error"}}
+    def submit_execution_outcome(_event), do: {:ok, %{id: "execution_outcome"}}
+
+    def submit_differentiation_event(event) do
+      if pid = Process.whereis(:epigenetic_supervision_observer) do
+        send(pid, {:differentiation_event_persisted, event})
+      end
+
+      {:ok, %{id: event["lineage_id"]}}
+    end
+  end
+
   defmodule FakeMetabolicDaemon do
     use GenServer
 
@@ -15,6 +30,10 @@ defmodule Core.EpigeneticSupervisionTest do
 
   setup do
     Application.ensure_all_started(:core)
+
+    original_module = Application.get_env(:core, :memory_module)
+    Application.put_env(:core, :memory_module, MemoryStub)
+    Process.register(self(), :epigenetic_supervision_observer)
     
     # Cleanup PG groups - ignore errors if process is not in group
     try do
@@ -42,6 +61,14 @@ defmodule Core.EpigeneticSupervisionTest do
     {:ok, fake_daemon} = FakeMetabolicDaemon.start_link([])
 
     on_exit(fn ->
+      if Process.whereis(:epigenetic_supervision_observer) == self(), do: Process.unregister(:epigenetic_supervision_observer)
+
+      if original_module do
+        Application.put_env(:core, :memory_module, original_module)
+      else
+        Application.delete_env(:core, :memory_module)
+      end
+
       if Process.alive?(fake_daemon), do: GenServer.stop(fake_daemon)
 
       if Process.whereis(Core.Supervisor) do
@@ -54,6 +81,12 @@ defmodule Core.EpigeneticSupervisionTest do
 
   test "differentiation as motor cell" do
     dna_path = Path.expand("../../priv/dna/motor_cell.yml")
+    control_plane = EpigeneticSupervisor.control_plane_for(dna_path)
+
+    assert control_plane.differentiation_role == :motor
+    assert control_plane.metabolism.spawn_pressure_refusal == :high
+    refute control_plane.apoptosis.speculative
+
     {:ok, pid} = EpigeneticSupervisor.spawn_cell(dna_path)
     
     # Verify process group membership
@@ -71,6 +104,9 @@ defmodule Core.EpigeneticSupervisionTest do
     # Verify synonyms (motor cell DNA has 1 synapse configured in spec)
     # Plus the default pain receptor synapse = 2
     assert GenServer.call(pid, :get_synapse_count) == 2
+    assert_received {:differentiation_event_persisted, event}
+    assert event["role"] == "motor"
+    assert event["pressure"] == "low"
   end
 
   test "differentiation as sensory cell" do
@@ -108,5 +144,59 @@ defmodule Core.EpigeneticSupervisionTest do
     end)
 
     assert {:error, :metabolic_starvation} = EpigeneticSupervisor.spawn_cell()
+  end
+
+  test "control plane exposes speculative apoptosis policy" do
+    dna_path = "/tmp/speculative_control_plane.yml"
+
+    File.write!(dna_path, """
+    cell_type: speculative
+    allowed_actions: []
+    utility_threshold: 0.8
+    atp_requirement: 0.3
+    """)
+
+    on_exit(fn -> File.rm(dna_path) end)
+
+    control_plane = EpigeneticSupervisor.control_plane_for(dna_path)
+
+    assert control_plane.differentiation_role == :speculative
+    assert control_plane.apoptosis.speculative
+    assert control_plane.apoptosis.prune_on_surprise_over == 0.8
+    assert control_plane.metabolism.atp_requirement == 0.3
+  end
+
+  test "environmental transcription prefers requested role from candidate variants" do
+    motor_path = Path.expand("../../priv/dna/motor_cell.yml")
+    sensory_path = Path.expand("../../priv/dna/sensory_cell.yml")
+
+    {dna, decision} =
+      EpigeneticSupervisor.transcribe_environment(
+        motor_path,
+        variants: [motor_path, sensory_path],
+        desired_role: :sensory,
+        graph_context: %{active_goal: "observe_repo"}
+      )
+
+    assert Core.DNA.role(dna) == :sensory
+    assert decision["role"] == "sensory"
+    assert decision["desired_role"] == "sensory"
+    assert decision["graph_context"]["active_goal"] == "observe_repo"
+  end
+
+  test "environmental transcription under medium pressure avoids speculative cells" do
+    speculative_path = Path.expand("../../priv/dna/speculative_cell.yml")
+    motor_path = Path.expand("../../priv/dna/motor_cell.yml")
+
+    {dna, decision} =
+      EpigeneticSupervisor.transcribe_environment(
+        speculative_path,
+        variants: [speculative_path, motor_path],
+        pressure: :medium
+      )
+
+    assert Core.DNA.role(dna) == :motor
+    assert decision["role"] == "motor"
+    assert "speculative" in decision["candidate_roles"]
   end
 end

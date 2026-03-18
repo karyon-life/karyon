@@ -2,10 +2,28 @@ defmodule Core.StemCellTier1Test do
   use ExUnit.Case
   alias Core.StemCell
 
-  @dna_path "priv/dna/architect_planner.yml"
-
   setup do
-    {:ok, pid} = StemCell.start(@dna_path)
+    dna_path = "/tmp/architect_planner_#{System.unique_integer([:positive])}.yml"
+
+    File.write!(dna_path, """
+    cell_type: "architect_planner"
+    description: "Planning cell that sequences architectural modifications via Active Inference."
+    allowed_actions:
+      - "form_expectation"
+      - "sequence_tasks"
+      - "evaluate_vfe"
+    subscriptions:
+      - "metabolic.spike"
+    synapses:
+      - type: "push"
+        bind: "tcp://127.0.0.1:0"
+    utility_threshold: 0.2
+    precision_baseline: 0.9
+    """)
+
+    on_exit(fn -> File.rm(dna_path) end)
+
+    {:ok, pid} = StemCell.start(dna_path)
     %{pid: pid}
   end
 
@@ -62,6 +80,38 @@ defmodule Core.StemCellTier1Test do
     
     state = :sys.get_state(pid)
     assert state.expectations == %{} # Expectations should be cleared after pruning
+  end
+
+  test "differentiation supports inherited DNA defaults" do
+    parent_path = "/tmp/tier1_parent_#{System.unique_integer([:positive])}.yml"
+    child_path = "/tmp/tier1_child_#{System.unique_integer([:positive])}.yml"
+
+    File.write!(parent_path, """
+    schema_version: 1
+    cell_type: "motor"
+    allowed_actions:
+      - "patch_codebase"
+    utility_threshold: 0.3
+    executor:
+      module: "Core.TestSupport.ExecutorStub"
+      function: "capture_output"
+    """)
+
+    File.write!(child_path, """
+    extends: #{Path.basename(parent_path)}
+    id: "tier1-child"
+    cell_type: "motor_executor"
+    """)
+
+    on_exit(fn ->
+      File.rm(parent_path)
+      File.rm(child_path)
+    end)
+
+    {:ok, pid} = StemCell.start(child_path)
+
+    assert {:ok, %{exit_code: 0, mode: :mock, vm_id: "default_vm", stdout: "mock execution", stderr: ""}} ==
+             GenServer.call(pid, {:execute, "patch_codebase", %{}})
   end
 end
 

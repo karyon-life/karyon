@@ -15,14 +15,16 @@ defmodule Core.ChaosMonkey do
   @impl true
   def init(opts) do
     interval = Keyword.get(opts, :interval, @default_interval)
+    probability = Keyword.get(opts, :probability, 0.2)
+    max_victims = Keyword.get(opts, :max_victims, 1)
     Logger.info("[ChaosMonkey] Release the monkey! Apoptosis attacks scheduled every #{interval}ms.")
     schedule_attack(interval)
-    {:ok, %{interval: interval}}
+    {:ok, %{interval: interval, probability: probability, max_victims: max_victims}}
   end
 
   @impl true
   def handle_info(:attack, state) do
-    execute_chaos()
+    execute_chaos(state)
     schedule_attack(state.interval)
     {:noreply, state}
   end
@@ -31,18 +33,19 @@ defmodule Core.ChaosMonkey do
     Process.send_after(self(), :attack, interval)
   end
 
-  defp execute_chaos do
-    # Find all active cells in the EpigeneticSupervisor
-    children = DynamicSupervisor.which_children(Core.EpigeneticSupervisor)
-    
-    active_cells = Enum.filter(children, fn {_, pid, _, _} -> is_pid(pid) end)
+  defp execute_chaos(state) do
+    active_cells = Core.EpigeneticSupervisor.active_cells()
 
-    if length(active_cells) > 0 do
-      # Select a random victim for apoptosis
-      {_, pid, _, _} = Enum.random(active_cells)
-      
-      Logger.warning("[ChaosMonkey] 🐵 Random Apoptosis Attack on cell: #{inspect(pid)}")
-      Core.EpigeneticSupervisor.apoptosis(pid)
+    victims =
+      active_cells
+      |> Enum.filter(fn _pid -> :rand.uniform() <= state.probability end)
+      |> Enum.take(state.max_victims)
+
+    if victims != [] do
+      Enum.each(victims, fn pid ->
+        Logger.warning("[ChaosMonkey] Random Apoptosis Attack on cell: #{inspect(pid)}")
+        Core.EpigeneticSupervisor.apoptosis(pid)
+      end)
     else
       Logger.info("[ChaosMonkey] No cells active. Skipping attack.")
     end

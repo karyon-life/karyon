@@ -244,13 +244,14 @@ defmodule Core.StemCellTest do
              prediction_error["expectation_lineage"]
   end
 
-  test "StemCell correctly dispatches motor actions based on DNA motor_executor" do
-    # Create DNA with a specific motor_executor
+  test "StemCell correctly dispatches motor actions through a declarative executor contract" do
     specialized_dna = "/tmp/specialized_dna.yml"
     File.write!(specialized_dna, """
     cell_type: specialized_motor
     allowed_actions: ["patch_codebase"]
-    motor_executor: "firecracker_python"
+    executor:
+      module: "Core.TestSupport.ExecutorStub"
+      function: "capture_output"
     """)
     on_exit(fn -> File.rm(specialized_dna) end)
 
@@ -300,8 +301,8 @@ defmodule Core.StemCellTest do
     assert outcome["status"] == "success"
     assert outcome["action"] == "patch_codebase"
     assert outcome["vm_id"] == "test_vm"
-    assert outcome["executor"] == "firecracker_python"
-    assert outcome["cell_id"] == "unknown_cell"
+    assert outcome["executor"] == "Core.TestSupport.ExecutorStub.capture_output"
+    assert outcome["cell_id"] == specialized_dna
     assert outcome["result"]["exit_code"] == 0
   end
 
@@ -312,7 +313,9 @@ defmodule Core.StemCellTest do
     id: "failure_cell"
     cell_type: "specialized_motor"
     allowed_actions: ["patch_codebase"]
-    motor_executor: "error_test"
+    executor:
+      module: "Core.TestSupport.ExecutorStub"
+      function: "simulate_failure"
     """)
 
     on_exit(fn -> File.rm(failure_dna) end)
@@ -351,7 +354,9 @@ defmodule Core.StemCellTest do
     id: "constrained_cell"
     cell_type: "specialized_motor"
     allowed_actions: ["patch_codebase"]
-    motor_executor: "firecracker_python"
+    executor:
+      module: "Core.TestSupport.ExecutorStub"
+      function: "capture_output"
     atp_requirement: 0.9
     """)
 
@@ -380,7 +385,9 @@ defmodule Core.StemCellTest do
     id: "stem_cell_execution_outcome_test"
     cell_type: specialized_motor
     allowed_actions: ["patch_codebase"]
-    motor_executor: "firecracker_python"
+    executor:
+      module: "Core.TestSupport.ExecutorStub"
+      function: "capture_output"
     """)
 
     on_exit(fn -> File.rm(specialized_dna) end)
@@ -408,7 +415,7 @@ defmodule Core.StemCellTest do
              row["cell_id"] == "stem_cell_execution_outcome_test" and
                row["status"] == "success" and
                row["vm_id"] == "xtdb_vm" and
-               row["executor"] == "firecracker_python"
+               row["executor"] == "Core.TestSupport.ExecutorStub.capture_output"
            end)
   end
 

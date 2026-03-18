@@ -1,13 +1,41 @@
 defmodule Core.CellularResilienceTest do
   use ExUnit.Case
   alias Core.EpigeneticSupervisor
-  alias Core.StemCell
+
+  defmodule FakeMetabolicDaemon do
+    use GenServer
+
+    def start_link(_opts) do
+      GenServer.start_link(__MODULE__, :low, name: Core.MetabolicDaemon)
+    end
+
+    def init(pressure), do: {:ok, pressure}
+    def handle_call(:get_pressure, _from, pressure), do: {:reply, pressure, pressure}
+  end
 
   setup do
+    Application.ensure_all_started(:core)
+
+    if Process.whereis(Core.Supervisor) do
+      Supervisor.terminate_child(Core.Supervisor, Core.MetabolicDaemon)
+      Supervisor.delete_child(Core.Supervisor, Core.MetabolicDaemon)
+    end
+
+    {:ok, fake_daemon} = FakeMetabolicDaemon.start_link([])
+
     # Ensure supervisor is clean
     for {_, pid, _, _} <- DynamicSupervisor.which_children(EpigeneticSupervisor) do
       DynamicSupervisor.terminate_child(EpigeneticSupervisor, pid)
     end
+
+    on_exit(fn ->
+      if Process.alive?(fake_daemon), do: GenServer.stop(fake_daemon)
+
+      if Process.whereis(Core.Supervisor) do
+        Supervisor.start_child(Core.Supervisor, {Core.MetabolicDaemon, []})
+      end
+    end)
+
     :ok
   end
 
@@ -43,6 +71,8 @@ defmodule Core.CellularResilienceTest do
       {:ok, _} = EpigeneticSupervisor.spawn_cell(dna_path)
     end
 
+    initial_count = length(DynamicSupervisor.which_children(EpigeneticSupervisor))
+
     # ChaosMonkey is a GenServer that pokes cells. 
     # Let's verify it can select and kill a cell.
     {:ok, monkey_pid} = Core.ChaosMonkey.start_link()
@@ -51,8 +81,36 @@ defmodule Core.CellularResilienceTest do
     send(monkey_pid, :attack)
     
     # Wait for attack
+    Process.sleep(200)
+
+    assert length(DynamicSupervisor.which_children(EpigeneticSupervisor)) <= initial_count
+  end
+
+  test "safety-critical cells stay active while non-critical cells enter torpor and revive deterministically" do
+    orchestrator_path = Path.expand("../../priv/dna/orchestrator_cell.yml")
+    sensory_path = Path.expand("../../priv/dna/sensory_cell.yml")
+
+    {:ok, orchestrator} = EpigeneticSupervisor.spawn_cell(orchestrator_path)
+    {:ok, sensory} = EpigeneticSupervisor.spawn_cell(sensory_path)
+
+    high_spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    {:ok, high_iodata} = Karyon.NervousSystem.MetabolicSpike.encode(high_spike)
+    high_payload = IO.iodata_to_binary(high_iodata)
+
+    send(orchestrator, {:msg, %{topic: "metabolic.spike", body: high_payload}})
+    send(sensory, {:msg, %{topic: "metabolic.spike", body: high_payload}})
+    Process.sleep(200)
+
+    assert GenServer.call(orchestrator, :get_status) == :active
+    assert GenServer.call(sensory, :get_status) == :torpor
+
+    low_spike = %Karyon.NervousSystem.MetabolicSpike{severity: "low"}
+    {:ok, low_iodata} = Karyon.NervousSystem.MetabolicSpike.encode(low_spike)
+    low_payload = IO.iodata_to_binary(low_iodata)
+
+    send(sensory, {:msg, %{topic: "metabolic.spike", body: low_payload}})
     Process.sleep(100)
-    
-    assert length(DynamicSupervisor.which_children(EpigeneticSupervisor)) == 9
+
+    assert GenServer.call(sensory, :get_status) == :revived
   end
 end

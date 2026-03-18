@@ -2,11 +2,29 @@ defmodule Core.EpigeneticSupervisorStressTest do
   use ExUnit.Case, async: false # Async: false because we are stressing the system
   alias Core.EpigeneticSupervisor
 
+  defmodule MemoryStub do
+    def load_cell_state(_lineage_id), do: {:error, :not_found}
+    def checkpoint_cell_state(snapshot), do: {:ok, %{id: snapshot["lineage_id"] || "checkpoint"}}
+    def submit_prediction_error(_event), do: {:ok, %{id: "prediction_error"}}
+    def submit_execution_outcome(_event), do: {:ok, %{id: "execution_outcome"}}
+
+    def submit_differentiation_event(event) do
+      if pid = Process.whereis(:epigenetic_supervisor_stress_observer) do
+        send(pid, {:differentiation_event_persisted, event})
+      end
+
+      {:ok, %{id: event["lineage_id"]}}
+    end
+  end
+
   @dna_path Path.expand("../../../../priv/dna/motor_cell.yml", __DIR__)
 
   setup do
     # Ensure core is started
     Application.ensure_all_started(:core)
+    original_module = Application.get_env(:core, :memory_module)
+    Application.put_env(:core, :memory_module, MemoryStub)
+    Process.register(self(), :epigenetic_supervisor_stress_observer)
     
     # Wait for the supervisor to be registered and ready
     case wait_for_ready(Core.EpigeneticSupervisor, 50) do
@@ -23,6 +41,14 @@ defmodule Core.EpigeneticSupervisorStressTest do
     end
     
     on_exit(fn ->
+      if Process.whereis(:epigenetic_supervisor_stress_observer) == self(), do: Process.unregister(:epigenetic_supervisor_stress_observer)
+
+      if original_module do
+        Application.put_env(:core, :memory_module, original_module)
+      else
+        Application.delete_env(:core, :memory_module)
+      end
+
       if Process.whereis(Core.Supervisor) do
         child_spec = {Core.MetabolicDaemon, []}
         Supervisor.start_child(Core.Supervisor, child_spec)
@@ -66,6 +92,10 @@ defmodule Core.EpigeneticSupervisorStressTest do
       assert discovered_pid in pids
     end)
 
+    assert_receive {:differentiation_event_persisted, event}
+    assert event["role"] == "motor"
+    assert event["pressure"] == "low"
+
     # 2. Kill them all rapidly
     Enum.each(pids, fn pid -> EpigeneticSupervisor.apoptosis(pid) end)
 
@@ -84,6 +114,22 @@ defmodule Core.EpigeneticSupervisorStressTest do
     
     # Attempt to spawn
     assert {:error, :metabolic_starvation} = EpigeneticSupervisor.spawn_cell(@dna_path)
+  end
+
+  test "medium pressure still transcribes lower-cost non-speculative variants", %{daemon: daemon} do
+    speculative_path = Path.expand("../../../../priv/dna/speculative_cell.yml", __DIR__)
+    motor_path = Path.expand("../../../../priv/dna/motor_cell.yml", __DIR__)
+
+    GenServer.cast(daemon, {:set_pressure, :medium})
+
+    {:ok, pid} =
+      EpigeneticSupervisor.spawn_cell(
+        speculative_path,
+        variants: [speculative_path, motor_path]
+      )
+
+    assert Process.alive?(pid)
+    assert pid in :pg.get_members(:motor)
   end
 
   defp wait_for_ready(name, attempts) do

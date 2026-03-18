@@ -19,20 +19,16 @@ defmodule Core.StemCell do
   end
 
   @impl true
-  def init(dna_path) do
-    Logger.info("Genesis: Stem Cell Booting from #{dna_path}")
-    
-    full_path = Path.expand(dna_path)
-    dna_spec = Core.YamlParser.transcribe!(full_path)
-    lineage_id = lineage_id(dna_spec, full_path)
+  def init(dna_source) do
+    dna = load_dna!(dna_source)
+    dna_spec = Core.DNA.to_spec(dna)
+    full_path = dna.file_path
+    lineage_id = Core.DNA.lineage_id(dna)
+    group_topic = Core.DNA.role(dna)
+
+    Logger.info("Genesis: Stem Cell Booting from #{full_path}")
 
     # Phase 1/2 Integration: Decentralized Process Discovery via Erlang :pg
-    group_topic =
-      case Map.get(dna_spec, "cell_type", :undifferentiated) do
-        topic when is_binary(topic) -> String.to_atom(topic)
-        topic -> topic
-      end
-
     Enum.each(routing_topics(group_topic, lineage_id), &:pg.join(&1, self()))
 
     # Phase 2 Integration: Synaptic Zero-Buffer connections
@@ -69,6 +65,8 @@ defmodule Core.StemCell do
 
     state =
       %{
+      dna: dna,
+      control_plane: dna.control_plane,
       dna_spec: dna_spec,
       synapses: [nociception_syn_pid | synapses], 
       expectations: %{}, # Map of id -> typed expectation records
@@ -92,7 +90,7 @@ defmodule Core.StemCell do
 
   @impl true
   def handle_call({:execute, action, params}, _from, state) do
-    allowed_actions = Map.get(state.dna_spec, "allowed_actions", [])
+    allowed_actions = Core.DNA.allowed_actions(state.dna)
     cond do
       action not in allowed_actions ->
         Logger.error("[StemCell] ACTION DENIED: #{action} not in DNA allowed_actions.")
@@ -151,24 +149,41 @@ defmodule Core.StemCell do
 
   @impl true
   def handle_call(:get_runtime_state, _from, state) do
-    {:reply, Map.take(state, [:lineage_id, :dna_path, :beliefs, :expectations, :status, :atp_metabolism]), state}
+    runtime_state =
+      Map.take(state, [:lineage_id, :dna_path, :beliefs, :expectations, :status, :atp_metabolism])
+      |> Map.put(:role, Core.DNA.role(state.dna))
+      |> Map.put(:safety_critical, Core.DNA.safety_critical?(state.dna))
+
+    {:reply, runtime_state, state}
   end
 
-  defp dispatch_motor_action(dna_spec, _action, params) do
-    executor = Map.get(dna_spec, "motor_executor", "none")
-    
-    case executor do
-      "firecracker_python" ->
-        # Dispatch to Sandbox application
-        Sandbox.Provisioner.capture_output(params[:vm_id] || "default_vm")
-      "none" ->
-        Logger.warning("[StemCell] No specialized motor_executor defined for this cell.")
-        {:error, :motor_executor_not_configured}
-      "error_test" ->
-        {:error, :simulated_failure}
-      other ->
-        Logger.warning("[StemCell] Unknown motor_executor: #{other}.")
-        {:error, {:unknown_motor_executor, other}}
+  @impl true
+  def handle_call({:lifecycle_transition, transition, metadata}, _from, state) do
+    case apply_lifecycle_transition(state, transition, normalize_metadata_map(metadata)) do
+      {:stop, reason, next_state} ->
+        {:stop, reason, :ok, checkpoint_state(next_state)}
+
+      next_state ->
+        {:reply, :ok, checkpoint_state(next_state)}
+    end
+  end
+
+  defp dispatch_motor_action(dna_spec, action, params) do
+    with {:ok, executor_spec} <- resolve_executor(dna_spec),
+         {:ok, module, function} <- resolve_executor_target(executor_spec) do
+      invoke_executor(module, function, executor_payload(dna_spec, action, params, executor_spec))
+    else
+      {:error, :executor_not_configured} ->
+        Logger.warning("[StemCell] No declarative executor defined for this cell.")
+        {:error, :executor_not_configured}
+
+      {:error, {:invalid_executor_module, module_name}} ->
+        Logger.warning("[StemCell] Invalid executor module: #{inspect(module_name)}.")
+        {:error, {:invalid_executor_module, module_name}}
+
+      {:error, {:invalid_executor_function, function_name}} ->
+        Logger.warning("[StemCell] Invalid executor function: #{inspect(function_name)}.")
+        {:error, {:invalid_executor_function, function_name}}
     end
   end
 
@@ -183,30 +198,19 @@ defmodule Core.StemCell do
     case Karyon.NervousSystem.MetabolicSpike.decode(payload) do
       {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "high"}} ->
         Logger.error("[StemCell] CRITICAL Metabolic Stress. Shedding synapses and entering Digital Torpor.")
-        
-        # Phase 5: Digital Torpor - Shed all non-essential synapses to reclaim cycles
-        # We keep the pain receptor (index 0) but drop others
-        essential = hd(state.synapses)
-        others = tl(state.synapses)
-        
-        Enum.each(others, fn pid -> 
-          if Process.alive?(pid), do: GenServer.stop(pid)
-        end)
-
-        {:noreply, checkpoint_state(%{state | atp_metabolism: 0.1, status: :torpor, synapses: [essential]})}
+        case apply_lifecycle_transition(state, :high_pressure, %{"source" => "metabolic.spike"}) do
+          {:stop, reason, next_state} -> {:stop, reason, checkpoint_state(next_state)}
+          next_state -> {:noreply, checkpoint_state(next_state)}
+        end
 
       {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "medium"}} ->
-        # Speculative cells (no allowed actions) undergo apoptosis to save the colony
-        if Enum.empty?(Map.get(state.dna_spec, "allowed_actions", [])) do
-          Logger.warning("[StemCell] Medium Stress: Speculative Cell undergoing programmed apoptosis.")
-          {:stop, :metabolic_pruning, state}
-        else
-          Logger.warning("[StemCell] Medium Metabolic Stress detected. Reducing activity.")
-          {:noreply, checkpoint_state(%{state | atp_metabolism: 0.5})}
+        case apply_lifecycle_transition(state, :medium_pressure, %{"source" => "metabolic.spike"}) do
+          {:stop, reason, next_state} -> {:stop, reason, checkpoint_state(next_state)}
+          next_state -> {:noreply, checkpoint_state(next_state)}
         end
 
       {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "low"}} ->
-        {:noreply, checkpoint_state(%{state | atp_metabolism: 0.8, status: :active})}
+        {:noreply, checkpoint_state(apply_lifecycle_transition(state, :low_pressure, %{"source" => "metabolic.spike"}))}
 
       {:error, reason} ->
         Logger.debug("[StemCell] Failed to decode metabolic spike: #{inspect(reason)}. Payload length: #{byte_size(payload)}")
@@ -229,7 +233,7 @@ defmodule Core.StemCell do
         expectation_lineage = expectation_lineage(state.expectations)
         vfe = calculate_variational_free_energy(state.expectations, metadata)
 
-        utility_threshold = Map.get(state.dna_spec, "utility_threshold", 0.5)
+        utility_threshold = Core.DNA.utility_threshold(state.dna)
         next_state =
           %{state | expectations: %{}}
           |> put_in([:beliefs], Map.merge(state.beliefs, %{
@@ -391,7 +395,7 @@ defmodule Core.StemCell do
 
   defp execution_outcome_base(state, action, params) do
     cell_id = Map.get(state.dna_spec, "id", "unknown_cell")
-    executor = Map.get(state.dna_spec, "motor_executor", "none")
+    executor = executor_label(state.dna_spec)
     vm_id = extract_vm_id(params)
 
     %{
@@ -414,7 +418,7 @@ defmodule Core.StemCell do
       "message" => "execution failed for #{action}",
       "metadata" => %{
         "action" => action,
-        "executor" => Map.get(state.dna_spec, "motor_executor", "none"),
+        "executor" => executor_label(state.dna_spec),
         "vm_id" => extract_vm_id(params),
         "reason" => inspect(reason),
         "event_source" => "execution",
@@ -494,6 +498,19 @@ defmodule Core.StemCell do
   defp stateful_error_id(%{"id" => id}) when is_binary(id), do: id
   defp stateful_error_id(_payload), do: "prediction_error"
 
+  defp executor_label(dna_spec) do
+    case Map.get(dna_spec, "executor") do
+      %{"module" => module_name, "function" => function_name} ->
+        "#{module_name}.#{function_name}"
+
+      %{module: module_name, function: function_name} ->
+        "#{module_name}.#{function_name}"
+
+      _ ->
+        "none"
+    end
+  end
+
   defp checkpoint_state(state) do
     snapshot = state_snapshot(state)
 
@@ -543,15 +560,8 @@ defmodule Core.StemCell do
   end
 
   defp below_execution_budget?(state) do
-    required = Map.get(state.dna_spec, "atp_requirement", 0.0)
+    required = Core.DNA.atp_requirement(state.dna)
     state.atp_metabolism < required
-  end
-
-  defp lineage_id(dna_spec, full_path) do
-    case Map.get(dna_spec, "id") do
-      id when is_binary(id) and id != "" -> id
-      _ -> full_path
-    end
   end
 
   defp normalize_expectations(expectations) when is_map(expectations) do
@@ -572,8 +582,11 @@ defmodule Core.StemCell do
   defp normalize_map(value) when is_map(value), do: value
   defp normalize_map(_), do: %{}
 
-  defp normalize_status(status) when status in [:active, :torpor], do: status
+  defp normalize_status(status) when status in [:active, :torpor, :revived, :shed, :terminated], do: status
   defp normalize_status("torpor"), do: :torpor
+  defp normalize_status("revived"), do: :revived
+  defp normalize_status("shed"), do: :shed
+  defp normalize_status("terminated"), do: :terminated
   defp normalize_status(_), do: :active
 
   defp normalize_atp(value) when is_float(value), do: value
@@ -587,6 +600,135 @@ defmodule Core.StemCell do
   defp normalize_objective_weight(value) when is_float(value), do: value
   defp normalize_objective_weight(value) when is_integer(value), do: value * 1.0
   defp normalize_objective_weight(_), do: 1.0
+
+  defp resolve_executor(dna_spec) do
+    case Map.get(dna_spec, "executor") do
+      spec when is_map(spec) -> {:ok, spec}
+      _ -> {:error, :executor_not_configured}
+    end
+  end
+
+  defp load_dna!(%Core.DNA{} = dna), do: dna
+  defp load_dna!(dna_path) when is_binary(dna_path), do: Core.DNA.load!(dna_path)
+
+  defp apply_lifecycle_transition(state, :high_pressure, metadata) do
+    if Core.DNA.safety_critical?(state.dna) do
+      state
+      |> put_in([:beliefs, :last_lifecycle_transition], lifecycle_event("preserved", metadata))
+      |> Map.put(:atp_metabolism, 0.2)
+      |> Map.put(:status, :active)
+    else
+      essential = hd(state.synapses)
+      others = tl(state.synapses)
+
+      Enum.each(others, fn pid ->
+        if Process.alive?(pid), do: GenServer.stop(pid)
+      end)
+
+      state
+      |> put_in([:beliefs, :last_lifecycle_transition], lifecycle_event("torpor", metadata))
+      |> Map.put(:atp_metabolism, 0.1)
+      |> Map.put(:status, :torpor)
+      |> Map.put(:synapses, [essential])
+    end
+  end
+
+  defp apply_lifecycle_transition(state, :medium_pressure, metadata) do
+    if Core.DNA.speculative?(state.dna) do
+      Logger.warning("[StemCell] Medium Stress: Speculative Cell undergoing programmed apoptosis.")
+
+      next_state =
+        state
+        |> put_in([:beliefs, :last_lifecycle_transition], lifecycle_event("shed", metadata))
+        |> Map.put(:status, :shed)
+
+      {:stop, :metabolic_pruning, next_state}
+    else
+      Logger.warning("[StemCell] Medium Metabolic Stress detected. Reducing activity.")
+
+      state
+      |> put_in([:beliefs, :last_lifecycle_transition], lifecycle_event("active", metadata))
+      |> Map.put(:atp_metabolism, 0.5)
+      |> Map.put(:status, :active)
+    end
+  end
+
+  defp apply_lifecycle_transition(state, :low_pressure, metadata) do
+    next_status =
+      case state.status do
+        :torpor -> :revived
+        :revived -> :active
+        :terminated -> :terminated
+        _ -> :active
+      end
+
+    state
+    |> put_in([:beliefs, :last_lifecycle_transition], lifecycle_event(to_string(next_status), metadata))
+    |> Map.put(:atp_metabolism, 0.8)
+    |> Map.put(:status, next_status)
+  end
+
+  defp apply_lifecycle_transition(state, :terminated, metadata) do
+    state
+    |> put_in([:beliefs, :last_lifecycle_transition], lifecycle_event("terminated", metadata))
+    |> Map.put(:status, :terminated)
+  end
+
+  defp lifecycle_event(status, metadata) do
+    %{
+      "status" => status,
+      "metadata" => metadata,
+      "recorded_at" => System.system_time(:second)
+    }
+  end
+
+  defp resolve_executor_target(executor_spec) do
+    module_name = Map.get(executor_spec, "module") || Map.get(executor_spec, :module)
+    function_name = Map.get(executor_spec, "function") || Map.get(executor_spec, :function)
+
+    with {:ok, module} <- resolve_executor_module(module_name),
+         {:ok, function} <- resolve_executor_function(function_name) do
+      {:ok, module, function}
+    end
+  end
+
+  defp resolve_executor_module(module_name) when is_binary(module_name) do
+    module =
+      module_name
+      |> String.trim_leading("Elixir.")
+      |> then(&"Elixir." <> &1)
+      |> String.to_existing_atom()
+
+    {:ok, module}
+  rescue
+    ArgumentError -> {:error, {:invalid_executor_module, module_name}}
+  end
+
+  defp resolve_executor_module(module_name), do: {:error, {:invalid_executor_module, module_name}}
+
+  defp resolve_executor_function(function_name) when is_binary(function_name) do
+    {:ok, String.to_atom(function_name)}
+  end
+
+  defp resolve_executor_function(function_name) when is_atom(function_name), do: {:ok, function_name}
+  defp resolve_executor_function(function_name), do: {:error, {:invalid_executor_function, function_name}}
+
+  defp invoke_executor(module, function, payload) do
+    if function_exported?(module, function, 1) do
+      apply(module, function, [payload])
+    else
+      {:error, {:invalid_executor_function, function}}
+    end
+  end
+
+  defp executor_payload(dna_spec, action, params, executor_spec) do
+    %{
+      "action" => action,
+      "cell_type" => Map.get(dna_spec, "cell_type"),
+      "params" => normalize_execution_params(params),
+      "default_args" => normalize_metadata_map(Map.get(executor_spec, "default_args") || Map.get(executor_spec, :default_args) || %{})
+    }
+  end
 
   defp build_expectation(id, goal, precision, attrs, state) do
     attrs = normalize_expectation_attrs(attrs)
