@@ -211,6 +211,31 @@ defmodule Rhizome.Memory do
   def submit_prediction_error(_prediction_error), do: {:error, :invalid_prediction_error}
 
   @doc """
+  Persists a typed operator feedback event into XTDB and projects a bounded
+  socio-linguistic correction edge back into Memgraph.
+  """
+  def submit_operator_feedback_event(event) when is_map(event) do
+    with_topology(:submit_operator_feedback_event, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", System.system_time(:second))
+
+      with :ok <- validate_operator_feedback_event(document),
+           id when is_binary(id) <- operator_feedback_event_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_operator_feedback_event(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_operator_feedback_event}
+      end
+    end)
+  end
+
+  def submit_operator_feedback_event(_event), do: {:error, :invalid_operator_feedback_event}
+
+  @doc """
   Persists a differentiation decision into XTDB and projects a summary edge into Memgraph.
   """
   def submit_differentiation_event(event) when is_map(event) do
@@ -318,6 +343,28 @@ defmodule Rhizome.Memory do
     "prediction_error:#{cell_id}:#{type}:#{timestamp}"
   end
 
+  defp operator_feedback_event_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+
+  defp operator_feedback_event_id(document) do
+    template_id = Map.get(document, "template_id", "unknown_template")
+    feedback_kind = Map.get(document, "feedback_kind", "feedback")
+    timestamp = Map.get(document, "recorded_at", System.system_time(:second))
+    "operator_feedback:#{template_id}:#{feedback_kind}:#{timestamp}"
+  end
+
+  defp validate_operator_feedback_event(%{
+         "feedback_kind" => feedback_kind,
+         "template_id" => template_id,
+         "target_path" => target_path,
+         "scope" => "socio_linguistic"
+       })
+       when is_binary(feedback_kind) and feedback_kind != "" and is_binary(template_id) and template_id != "" and
+              is_binary(target_path) and target_path != "" do
+    :ok
+  end
+
+  defp validate_operator_feedback_event(_document), do: {:error, :invalid_operator_feedback_event}
+
   defp cell_state_id(lineage_id), do: "cell_state:#{lineage_id}"
 
   defp differentiation_event_id(%{"id" => id}) when is_binary(id) and id != "", do: id
@@ -412,6 +459,45 @@ defmodule Rhizome.Memory do
       {:error, reason} ->
         Logger.warning("[Rhizome.Memory] Memgraph projection of prediction error failed: #{inspect(reason)}")
         :ok
+    end
+  end
+
+  defp project_operator_feedback_event(document) do
+    feedback_id = operator_feedback_event_id(document)
+    template_id = Map.get(document, "template_id", "unknown_template")
+    target_path = Map.get(document, "target_path", "unknown_path")
+    pathway_update = Map.get(document, "pathway_update", %{})
+
+    with {:ok, _feedback} <-
+           upsert_graph_node(%{
+             label: "OperatorFeedbackEvent",
+             id: feedback_id,
+             properties: %{
+               feedback_kind: Map.get(document, "feedback_kind", "friction"),
+               friction_level: Map.get(document, "friction_level", "medium"),
+               scope: Map.get(document, "scope", "socio_linguistic"),
+               target_domain: Map.get(document, "target_domain", "operator_output"),
+               target_path: target_path
+             }
+           }),
+         {:ok, _template} <-
+           upsert_graph_node(%{
+             label: "OperatorTemplate",
+             id: template_id,
+             properties: %{template_id: template_id, target_path: target_path}
+           }),
+         {:ok, _rel} <-
+           relate_graph_nodes(%{
+             from: %{label: "OperatorFeedbackEvent", id: feedback_id},
+             to: %{label: "OperatorTemplate", id: template_id},
+             relationship_type: "AFFECTS_TEMPLATE",
+             properties: %{
+               update_type: Map.get(pathway_update, "type", "observe_only"),
+               weight_delta: Map.get(pathway_update, "weight_delta", 0.0),
+               target_path: target_path
+             }
+           }) do
+      :ok
     end
   end
 

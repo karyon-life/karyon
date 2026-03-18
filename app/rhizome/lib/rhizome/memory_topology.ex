@@ -43,6 +43,7 @@ defmodule Rhizome.MemoryTopology do
         :submit_xtdb,
         :submit_execution_outcome,
         :submit_prediction_error,
+        :submit_operator_feedback_event,
         :submit_differentiation_event,
         :load_cell_state,
         :checkpoint_cell_state

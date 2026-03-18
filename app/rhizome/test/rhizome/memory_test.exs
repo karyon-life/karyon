@@ -53,6 +53,7 @@ defmodule Rhizome.MemoryTest do
         :query_archive,
         :submit_execution_outcome,
         :submit_prediction_error,
+        :submit_operator_feedback_event,
         :submit_differentiation_event,
         :load_cell_state,
         :checkpoint_cell_state
@@ -78,6 +79,7 @@ defmodule Rhizome.MemoryTest do
     assert_operation(:submit_xtdb, :temporal_archive, "xtdb")
     assert_operation(:submit_execution_outcome, :temporal_archive, "xtdb")
     assert_operation(:submit_prediction_error, :temporal_archive, "xtdb")
+    assert_operation(:submit_operator_feedback_event, :temporal_archive, "xtdb")
     assert_operation(:submit_differentiation_event, :temporal_archive, "xtdb")
     assert_operation(:load_cell_state, :temporal_archive, "xtdb")
     assert_operation(:checkpoint_cell_state, :temporal_archive, "xtdb")
@@ -110,5 +112,10 @@ defmodule Rhizome.MemoryTest do
   test "persist_pooled_pattern validates pooled abstraction shape" do
     assert {:error, :invalid_pooled_pattern} =
              Rhizome.Memory.persist_pooled_pattern(%{language: "javascript", occurrences: 2})
+  end
+
+  test "submit_operator_feedback_event validates bounded feedback shape" do
+    assert {:error, :invalid_operator_feedback_event} =
+             Rhizome.Memory.submit_operator_feedback_event(%{"template_id" => "operator.status.ok"})
   end
 end
