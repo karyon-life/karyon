@@ -5,6 +5,7 @@ defmodule Core.EpigeneticSupervisor do
   """
   use DynamicSupervisor
   require Logger
+  alias Core.MetabolismPolicy
 
   def start_link(init_arg) do
     DynamicSupervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
@@ -21,16 +22,24 @@ defmodule Core.EpigeneticSupervisor do
   Checks current metabolic pressure before spawning.
   """
   def spawn_cell(dna_source \\ "config/genetics/base_stem_cell.yml", opts \\ []) do
-    pressure = get_metabolic_pressure()
+    policy = MetabolismPolicy.current_policy()
+    {dna, decision} = transcribe_environment(dna_source, Keyword.put(opts, :policy, policy))
 
-    case pressure do
+    case policy.pressure do
       :high ->
+        profile = MetabolismPolicy.spawn_profile(dna, policy)
         Logger.error("[EpigeneticSupervisor] METABOLIC STARVATION: Refusing to spawn new cell.")
+        persist_differentiation(Map.put(decision, "spawn_admission", Map.put(profile, "status", "deferred")), nil)
         {:error, :metabolic_starvation}
 
       _ ->
-        {dna, decision} = transcribe_environment(dna_source, Keyword.put(opts, :pressure, pressure))
+        case MetabolismPolicy.admit_spawn(dna, policy) do
+      {:error, profile} ->
+        Logger.error("[EpigeneticSupervisor] METABOLIC STARVATION: Refusing to spawn new cell.")
+        persist_differentiation(Map.put(decision, "spawn_admission", profile), nil)
+        {:error, :metabolic_starvation}
 
+      {:ok, profile} ->
         child_spec = %{
           id: Core.StemCell,
           start: {Core.StemCell, :start_link, [dna]},
@@ -38,8 +47,12 @@ defmodule Core.EpigeneticSupervisor do
         }
 
         with {:ok, pid} <- DynamicSupervisor.start_child(__MODULE__, child_spec) do
-          persist_differentiation(decision, pid)
+          decision
+          |> Map.put("spawn_admission", profile)
+          |> persist_differentiation(pid)
+
           {:ok, pid}
+        end
         end
     end
   end
@@ -59,7 +72,15 @@ defmodule Core.EpigeneticSupervisor do
   Returns the selected DNA and its persisted decision payload.
   """
   def transcribe_environment(dna_source, opts \\ []) do
-    pressure = Keyword.get(opts, :pressure, get_metabolic_pressure())
+    explicit_pressure = Keyword.get(opts, :pressure)
+    policy =
+      case Keyword.fetch(opts, :policy) do
+        {:ok, policy} -> policy
+        :error when explicit_pressure in [:low, :medium, :high] -> MetabolismPolicy.build_policy(explicit_pressure)
+        :error -> MetabolismPolicy.current_policy()
+      end
+
+    pressure = explicit_pressure || policy.pressure
     desired_role = normalize_role(Keyword.get(opts, :desired_role))
     source = Keyword.get(opts, :source, "epigenetic_supervisor")
     graph_context = normalize_graph_context(Keyword.get(opts, :graph_context, %{}))
@@ -69,7 +90,7 @@ defmodule Core.EpigeneticSupervisor do
       |> candidate_sources(opts)
       |> Enum.map(&differentiate/1)
 
-    dna = select_candidate(candidates, pressure, desired_role)
+    dna = select_candidate(candidates, policy, desired_role)
 
     decision = %{
       "lineage_id" => Core.DNA.lineage_id(dna),
@@ -78,6 +99,7 @@ defmodule Core.EpigeneticSupervisor do
       "source" => to_string(source),
       "status" => "selected",
       "dna_path" => dna.file_path,
+      "metabolism_policy" => MetabolismPolicy.to_map(policy),
       "desired_role" => desired_role && Atom.to_string(desired_role),
       "graph_context" => graph_context,
       "candidate_roles" => Enum.map(candidates, fn candidate -> candidate |> Core.DNA.role() |> Atom.to_string() end)
@@ -137,22 +159,16 @@ defmodule Core.EpigeneticSupervisor do
     end
   end
 
-  defp select_candidate(candidates, pressure, desired_role) do
+  defp select_candidate(candidates, policy, desired_role) do
     candidates
     |> maybe_filter_role(desired_role)
     |> Enum.min_by(fn dna ->
-      atp = Core.DNA.atp_requirement(dna)
-      speculative_penalty = if Core.DNA.speculative?(dna), do: 100.0, else: 0.0
-      role_penalty = if desired_role && Core.DNA.role(dna) != desired_role, do: 50.0, else: 0.0
-
-      pressure_penalty =
-        case pressure do
-          :medium -> atp * 10.0 + speculative_penalty
-          :low -> atp + role_penalty
-          _ -> atp + role_penalty
-        end
-
-      pressure_penalty
+      profile = MetabolismPolicy.spawn_profile(dna, policy)
+      admitted_penalty = if MetabolismPolicy.admitted?(profile), do: 0.0, else: 100.0
+      slack_penalty = String.to_float("#{profile["cost"]}") - String.to_float("#{profile["budget"]}")
+      speculative_penalty = if Core.DNA.speculative?(dna) and policy.pressure != :low, do: 1000.0, else: 0.0
+      role_penalty = if desired_role && Core.DNA.role(dna) != desired_role, do: 25.0, else: 0.0
+      admitted_penalty + max(slack_penalty, 0.0) + speculative_penalty + role_penalty
     end)
   end
 
@@ -162,14 +178,6 @@ defmodule Core.EpigeneticSupervisor do
     case Enum.filter(candidates, &(Core.DNA.role(&1) == desired_role)) do
       [] -> candidates
       filtered -> filtered
-    end
-  end
-
-  defp get_metabolic_pressure do
-    # Query the MetabolicDaemon or ETS for current pressure
-    case GenServer.whereis(Core.MetabolicDaemon) do
-      nil -> :low
-      pid -> GenServer.call(pid, :get_pressure)
     end
   end
 
@@ -187,7 +195,7 @@ defmodule Core.EpigeneticSupervisor do
   defp persist_differentiation(decision, pid) do
     event =
       decision
-      |> Map.put("pid", inspect(pid))
+      |> Map.put("pid", if(pid, do: inspect(pid), else: "not_started"))
       |> Map.put("recorded_at", System.system_time(:second))
 
     case memory_module().submit_differentiation_event(event) do

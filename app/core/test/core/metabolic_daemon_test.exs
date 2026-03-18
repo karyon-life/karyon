@@ -156,6 +156,37 @@ defmodule Core.MetabolicDaemonTest do
     assert match?({:degraded, _}, state.preflight_status)
   end
 
+  test "MetabolicDaemon exposes a typed metabolism policy snapshot" do
+    {:ok, pid} =
+      MetabolicDaemon.start_link(
+        name: :policy_test_daemon,
+        native_module: NativeHighIops,
+        calibration_delay_ms: 10,
+        poll_interval_ms: 10,
+        preflight_opts: [
+          mock_hardware?: false,
+          file_reader: fn
+            "/sys/devices/system/node/node0/meminfo" -> {:ok, "Node 0 MemTotal: 1234 kB"}
+            _ -> {:error, :enoent}
+          end,
+          dir_lister: fn _ -> {:ok, []} end,
+          scheduler_bind_type_fun: fn :scheduler_bind_type -> :tnnps end,
+          logical_processors_fun: fn :logical_processors -> 8 end
+        ]
+      )
+
+    Process.sleep(50)
+    send(pid, :poll_metrics)
+    Process.sleep(50)
+
+    policy = GenServer.call(pid, :get_policy)
+    assert policy.pressure == :high
+    assert policy.atp == 0.4
+    assert policy.needs["stability"] == 1.0
+    assert policy.values["safety"] == 1.0
+    assert policy.objective_priors["repair"] == 1.3
+  end
+
   test "MetabolicDaemon refuses to boot when strict preflight fails" do
     Process.flag(:trap_exit, true)
 

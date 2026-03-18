@@ -3,6 +3,7 @@ defmodule Core.ServiceHealth do
   Dependency health checks for service-backed organism paths.
   """
 
+  alias Core.MetabolismPolicy
   alias NervousSystem.Endocrine
   alias Rhizome.Native
 
@@ -17,7 +18,8 @@ defmodule Core.ServiceHealth do
 
     %{
       overall: overall_status(checks),
-      services: checks
+      services: checks,
+      runtime: runtime_status(opts)
     }
   end
 
@@ -51,6 +53,21 @@ defmodule Core.ServiceHealth do
 
   defp service_down?(report, service) do
     get_in(report, [:services, service, :status]) != :up
+  end
+
+  defp runtime_status(opts) do
+    policy =
+      opts
+      |> Keyword.get(:metabolism_policy, &MetabolismPolicy.current_policy/0)
+      |> then(& &1.())
+
+    %{
+      metabolism: MetabolismPolicy.to_map(policy),
+      admission: %{
+        "spawn_budget" => Map.get(policy, :atp, 1.0),
+        "pressure" => policy |> Map.get(:pressure, :low) |> to_string()
+      }
+    }
   end
 
   defp memgraph_probe do

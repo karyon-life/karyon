@@ -16,6 +16,7 @@ defmodule Core.Application do
     children = [
       Core.EpigeneticSupervisor,
       Core.MetabolicDaemon,
+      Core.SimulationDaemon,
       Core.StressTester
     ]
 

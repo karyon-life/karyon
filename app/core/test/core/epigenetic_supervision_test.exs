@@ -26,6 +26,7 @@ defmodule Core.EpigeneticSupervisionTest do
 
     def init(pressure), do: {:ok, pressure}
     def handle_call(:get_pressure, _from, pressure), do: {:reply, pressure, pressure}
+    def handle_call(:get_policy, _from, pressure), do: {:reply, Core.MetabolismPolicy.build_policy(pressure), pressure}
   end
 
   setup do
@@ -144,6 +145,30 @@ defmodule Core.EpigeneticSupervisionTest do
     end)
 
     assert {:error, :metabolic_starvation} = EpigeneticSupervisor.spawn_cell()
+  end
+
+  test "medium pressure refuses speculative high-atp spawn profiles" do
+    GenServer.stop(Process.whereis(Core.MetabolicDaemon))
+    {:ok, pid} = GenServer.start_link(FakeMetabolicDaemon, :medium, name: Core.MetabolicDaemon)
+
+    dna_path = "/tmp/speculative_high_atp.yml"
+
+    File.write!(dna_path, """
+    id: "speculative_high_atp"
+    cell_type: "speculative"
+    allowed_actions: []
+    atp_requirement: 1.2
+    """)
+
+    on_exit(fn ->
+      File.rm(dna_path)
+      if Process.alive?(pid), do: GenServer.stop(pid)
+    end)
+
+    assert {:error, :metabolic_starvation} = EpigeneticSupervisor.spawn_cell(dna_path)
+    assert_received {:differentiation_event_persisted, event}
+    assert event["spawn_admission"]["status"] == "deferred"
+    assert event["spawn_admission"]["pressure"] == "medium"
   end
 
   test "control plane exposes speculative apoptosis policy" do

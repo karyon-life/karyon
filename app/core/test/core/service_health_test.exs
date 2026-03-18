@@ -8,13 +8,16 @@ defmodule Core.ServiceHealthTest do
       ServiceHealth.check_all(
         memgraph_probe: fn -> :ok end,
         xtdb_probe: fn -> {:ok, :reachable} end,
-        nats_probe: fn -> :ok end
+        nats_probe: fn -> :ok end,
+        metabolism_policy: fn -> Core.MetabolismPolicy.build_policy(:medium) end
       )
 
     assert report.overall == :ok
     assert report.services.memgraph.status == :up
     assert report.services.xtdb.status == :up
     assert report.services.nats.status == :up
+    assert report.runtime.metabolism["pressure"] == "medium"
+    assert report.runtime.admission["spawn_budget"] == 0.7
   end
 
   test "ensure_ready returns blocked services and degraded report" do

@@ -20,6 +20,14 @@ defmodule Core.StemCellTest do
 
       {:ok, %{id: outcome["cell_id"]}}
     end
+
+    def submit_sovereignty_event(event) do
+      if pid = Process.whereis(:stem_cell_test_observer) do
+        send(pid, {:sovereignty_event_persisted, event})
+      end
+
+      {:ok, %{id: event["id"]}}
+    end
   end
 
   defmodule RhizomeStub do
@@ -192,6 +200,58 @@ defmodule Core.StemCellTest do
     assert pathway[:to_id] == "attractor-1"
     assert pathway[:weight_delta] == 0.8
     assert :active == GenServer.call(pid, :get_status)
+  end
+
+  test "StemCell refuses mutation intents that violate sovereign homeostasis constraints" do
+    sovereign_dna = "/tmp/sovereign_dna.yml"
+
+    File.write!(sovereign_dna, """
+    cell_type: planner
+    allowed_actions: ["execute_plan"]
+    synapses: []
+    """)
+
+    on_exit(fn -> File.rm(sovereign_dna) end)
+
+    Process.register(self(), :stem_cell_test_observer)
+
+    on_exit(fn ->
+      if Process.whereis(:stem_cell_test_observer) == self(), do: Process.unregister(:stem_cell_test_observer)
+    end)
+
+    original_module = Application.get_env(:core, :memory_module)
+    original_sovereignty = Application.get_env(:core, :sovereignty)
+    Application.put_env(:core, :memory_module, MemoryStub)
+    Application.put_env(:core, :sovereignty, %{
+      "hard_mandates" => %{"preserve_homeostasis" => 1.4},
+      "soft_values" => %{"safety" => 1.2},
+      "evolving_needs" => %{"continuity" => 1.1},
+      "precedence" => %{"hard_mandates" => 1.5}
+    })
+
+    on_exit(fn ->
+      if original_module, do: Application.put_env(:core, :memory_module, original_module), else: Application.delete_env(:core, :memory_module)
+      if original_sovereignty, do: Application.put_env(:core, :sovereignty, original_sovereignty), else: Application.delete_env(:core, :sovereignty)
+    end)
+
+    {:ok, pid} = StemCell.start_link(sovereign_dna)
+
+    {:ok, intent} =
+      Core.ExecutionIntent.new(%{
+        id: "intent:refusal-check",
+        action: "execute_plan",
+        cell_type: "planner",
+        params: %{"steps" => [%{"action" => "patch_codebase"}]},
+        default_args: %{},
+        executor: %{"module" => "Core.TestSupport.ExecutorStub", "function" => "capture_output"},
+        created_at: 1_710_000_030
+      })
+
+    assert {:error, {:sovereign_refusal, event}} = GenServer.call(pid, {:execute_intent, intent})
+    assert event["decision"] == "refuse"
+    assert event["operator_brief"].template_id == "operator.sovereignty.refuse"
+    assert_received {:sovereignty_event_persisted, persisted}
+    assert persisted["intent_id"] == "intent:refusal-check"
   end
 
   test "StemCell uses objective weights when calculating variational free energy" do

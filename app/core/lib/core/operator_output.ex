@@ -77,6 +77,26 @@ defmodule Core.OperatorOutput do
 
   def render_execution_intent(_), do: {:error, :unsupported_execution_intent}
 
+  def render_sovereign_decision(%{"decision" => decision} = event)
+      when decision in ["refuse", "negotiate"] do
+    severity = if(decision == "refuse", do: :critical, else: :degraded)
+    paradoxes = List.wrap(Map.get(event, "paradoxes", []))
+
+    {:ok,
+     %{
+       channel: "operator_brief",
+       format: "karyon.operator-output.v1",
+       template_id: "operator.sovereignty.#{decision}",
+       severity: severity,
+       headline: headline_for_sovereign_decision(decision),
+       summary: summary_for_sovereign_decision(decision, event, paradoxes),
+       directives: directives_for_sovereign_decision(decision, event, paradoxes),
+       facts: facts_for_sovereign_decision(event, paradoxes)
+     }}
+  end
+
+  def render_sovereign_decision(_), do: {:error, :unsupported_sovereign_decision}
+
   def safe?(%{format: "karyon.operator-output.v1", template_id: template_id, severity: severity, headline: headline, summary: summary, directives: directives, facts: facts})
       when severity in @allowed_severities and is_binary(template_id) and is_binary(headline) and is_binary(summary) and is_list(directives) and is_list(facts) do
     Enum.all?(directives, &bounded_line?/1) and Enum.all?(facts, &bounded_line?/1)
@@ -134,9 +154,53 @@ defmodule Core.OperatorOutput do
     service_facts ++ runtime_facts
   end
 
+  defp headline_for_sovereign_decision("refuse"), do: "Sovereign refusal issued"
+  defp headline_for_sovereign_decision("negotiate"), do: "Negotiation required"
+
+  defp summary_for_sovereign_decision("refuse", event, paradoxes) do
+    "Intent #{event["intent_id"]} was refused because #{paradox_summary(paradoxes)} under #{event["metabolic_risk"]} metabolic risk."
+  end
+
+  defp summary_for_sovereign_decision("negotiate", event, _paradoxes) do
+    "Intent #{event["intent_id"]} requires negotiation before action because sovereignty pressure exceeds the current homeostatic margin."
+  end
+
+  defp directives_for_sovereign_decision("refuse", _event, paradoxes) do
+    [
+      "Do not cross the execution membrane for the rejected intent.",
+      "Resolve the reported sovereignty paradox before reissuing action."
+    ] ++ Enum.take(Enum.map(paradoxes, &"paradox=#{&1}"), 2)
+  end
+
+  defp directives_for_sovereign_decision("negotiate", event, _paradoxes) do
+    [
+      "Reduce mutation scope or wait for lower metabolic pressure before retrying.",
+      "Review mandates, values, and needs before approving a compromise."
+    ] ++ ["action=#{event["action"]}"]
+  end
+
+  defp facts_for_sovereign_decision(event, paradoxes) do
+    [
+      "intent_id=#{event["intent_id"]}",
+      "decision=#{event["decision"]}",
+      "metabolic_risk=#{event["metabolic_risk"]}",
+      "action_surface=#{event["action_surface"]}",
+      "mandate_weight=#{format_decimal(event["mandate_weight"])}",
+      "value_pressure=#{format_decimal(event["value_pressure"])}",
+      "need_pressure=#{format_decimal(event["need_pressure"])}"
+    ] ++ Enum.map(Enum.take(paradoxes, 2), &"paradox=#{&1}")
+  end
+
+  defp paradox_summary([]), do: "sovereign constraints conflict with the proposed action"
+  defp paradox_summary([paradox]), do: paradox
+  defp paradox_summary(paradoxes), do: Enum.join(paradoxes, ", ")
+
   defp format_detail(detail) when is_atom(detail), do: Atom.to_string(detail)
   defp format_detail(detail) when is_binary(detail), do: detail
   defp format_detail(detail), do: inspect(detail)
+  defp format_decimal(value) when is_float(value), do: :erlang.float_to_binary(value, decimals: 2)
+  defp format_decimal(value) when is_integer(value), do: Integer.to_string(value)
+  defp format_decimal(value), do: inspect(value)
 
   defp bounded_line?(value) when is_binary(value) do
     String.length(value) <= 160 and not String.contains?(value, "\n")

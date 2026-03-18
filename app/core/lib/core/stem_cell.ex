@@ -7,6 +7,8 @@ defmodule Core.StemCell do
   use GenServer
   require Logger
   alias Core.ExecutionIntent
+  alias Core.MetabolismPolicy
+  alias Core.SovereignGuard
 
   @doc """
   Spawns a new Stem Cell given a declarative DNA specification.
@@ -115,22 +117,43 @@ defmodule Core.StemCell do
         {:reply, {:error, :insufficient_atp}, persisted_state}
 
       true ->
-        Logger.info("[StemCell] Executing validated intent: #{intent.id} / #{intent.action}")
+        case SovereignGuard.evaluate_intent(intent, state) do
+          {:refuse, decision} ->
+            Logger.warning("[StemCell] ACTION REFUSED: #{intent.action} rejected by sovereignty guard.")
+            persist_sovereignty_event(decision)
+            {:reply, {:error, {:sovereign_refusal, decision}}, checkpoint_state(state)}
 
-        case dispatch_motor_action(state.dna_spec, intent) do
-          {:ok, result} ->
-            persist_execution_outcome(state, intent, {:ok, result})
-            reinforce_rhizome_pathways(state.expectations)
-            {:reply, {:ok, result}, checkpoint_state(state)}
+          {:negotiate, decision} ->
+            Logger.warning("[StemCell] ACTION DEFERRED: #{intent.action} requires operator negotiation.")
+            persist_sovereignty_event(decision)
+            {:reply, {:error, {:sovereign_negotiation_required, decision}}, checkpoint_state(state)}
 
-          {:error, reason} ->
-            persist_execution_outcome(state, intent, {:error, reason})
-            persist_prediction_error(execution_failure_payload(state, intent, reason))
-            {:reply, {:error, reason}, checkpoint_state(state)}
+          {:allow, _decision} ->
+            case admit_execution_intent(intent, state) do
+              {:error, _profile} ->
+                Logger.warning("[StemCell] ACTION DENIED: #{intent.action} deferred by metabolic policy.")
+                persisted_state = checkpoint_state(state)
+                {:reply, {:error, :insufficient_atp}, persisted_state}
 
-          other ->
-            persist_execution_outcome(state, intent, {:ok, other})
-            {:reply, {:ok, other}, checkpoint_state(state)}
+              {:ok, _profile} ->
+                Logger.info("[StemCell] Executing validated intent: #{intent.id} / #{intent.action}")
+
+                case dispatch_motor_action(state.dna_spec, intent) do
+                  {:ok, result} ->
+                    persist_execution_outcome(state, intent, {:ok, result})
+                    reinforce_rhizome_pathways(state.expectations)
+                    {:reply, {:ok, result}, checkpoint_state(state)}
+
+                  {:error, reason} ->
+                    persist_execution_outcome(state, intent, {:error, reason})
+                    persist_prediction_error(execution_failure_payload(state, intent, reason))
+                    {:reply, {:error, reason}, checkpoint_state(state)}
+
+                  other ->
+                    persist_execution_outcome(state, intent, {:ok, other})
+                    {:reply, {:ok, other}, checkpoint_state(state)}
+                end
+            end
         end
     end
   end
@@ -406,6 +429,17 @@ defmodule Core.StemCell do
     end
   end
 
+  defp persist_sovereignty_event(payload) when is_map(payload) do
+    case SovereignGuard.record_event(payload) do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("[StemCell] Failed to persist sovereignty event for #{payload["intent_id"]}: #{inspect(reason)}")
+        :ok
+    end
+  end
+
   defp execution_outcome_base(state, %ExecutionIntent{} = intent) do
     cell_id = Map.get(state.dna_spec, "id", "unknown_cell")
     executor = executor_label(intent.executor)
@@ -614,6 +648,14 @@ defmodule Core.StemCell do
   defp below_execution_budget?(state) do
     required = Core.DNA.atp_requirement(state.dna)
     state.atp_metabolism < required
+  end
+
+  defp admit_execution_intent(%ExecutionIntent{} = intent, state) do
+    policy =
+      MetabolismPolicy.current_policy()
+      |> MetabolismPolicy.merge_policy(%{atp: min(state.atp_metabolism, 1.0)})
+
+    MetabolismPolicy.admit_intent(intent, policy)
   end
 
   defp normalize_expectations(expectations) when is_map(expectations) do

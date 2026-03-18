@@ -6,10 +6,12 @@ defmodule Core.MotorDriver do
   """
   require Logger
   alias Core.ExecutionIntent
+  alias Core.MetabolismPolicy
   alias Core.Plan
   alias Core.Plan.Attractor
   alias Core.Plan.AbstractState
   alias Core.Plan.Step
+  alias Core.Sovereignty
 
   @doc """
   Generates a sequential plan (.yml) based on predicted state transitions.
@@ -21,12 +23,15 @@ defmodule Core.MotorDriver do
     with {:ok, rows} <- Rhizome.Native.memgraph_query(super_node_query(target_concept)),
          true <- rows != [],
          {:ok, dependencies} <- fetch_causal_chain(target_concept) do
-      plan = %Plan{
+      plan =
+        %Plan{
         attractor: merge_attractor_state(attractor, rows),
         steps: dependencies,
         transition_delta: transition_delta(dependencies),
         created_at: System.system_time(:second)
       }
+        |> apply_metabolic_policy()
+        |> attach_metabolic_admission()
 
       {:ok, plan}
     else
@@ -62,45 +67,52 @@ defmodule Core.MotorDriver do
   def dispatch_plan(%Plan{} = plan, cell_pid) do
     Logger.info("[MotorDriver] Dispatching plan to motor cell: #{inspect(cell_pid)}")
 
-    # Each step in the plan becomes an execution expectation
-    Enum.each(plan.steps, fn %Step{} = step ->
-      GenServer.call(
-        cell_pid,
-        {:form_expectation, step.id, step.predicted_state.summary, 0.9,
-         %{
-           predicted_outcome: step.predicted_state.summary,
-           objective_weight: objective_weight(plan.attractor, step),
-           trace_id: expectation_trace_id(plan, step),
-           source_step_id: step.id,
-           source_attractor_id: plan.attractor.id,
-           metadata: %{
-             action: step.action,
-             params: step.params,
-             predicted_state: AbstractState.to_map(step.predicted_state),
-             target_state: AbstractState.to_map(plan.attractor.target_state)
-           }
-         }}
-      )
-    end)
+    case admitted_plan?(plan) do
+      false ->
+        {:error, :insufficient_atp_budget}
 
-    runtime_state = GenServer.call(cell_pid, :get_runtime_state)
+      true ->
 
-    executor_spec =
-      runtime_state
-      |> Map.get(:executor_spec, %{})
-      |> normalize_executor_spec()
+        # Each step in the plan becomes an execution expectation
+        Enum.each(plan.steps, fn %Step{} = step ->
+          GenServer.call(
+            cell_pid,
+            {:form_expectation, step.id, step.predicted_state.summary, 0.9,
+             %{
+               predicted_outcome: step.predicted_state.summary,
+               objective_weight: objective_weight(plan.attractor, step),
+               trace_id: expectation_trace_id(plan, step),
+               source_step_id: step.id,
+               source_attractor_id: plan.attractor.id,
+               metadata: %{
+                 action: step.action,
+                 params: step.params,
+                 predicted_state: AbstractState.to_map(step.predicted_state),
+                 target_state: AbstractState.to_map(plan.attractor.target_state)
+               }
+             }}
+          )
+        end)
 
-    dna_spec = %{
-      "cell_type" => Map.get(runtime_state, :role, "motor"),
-      "id" => Map.get(runtime_state, :lineage_id, "unknown_lineage")
-    }
+        runtime_state = GenServer.call(cell_pid, :get_runtime_state)
 
-    case ExecutionIntent.from_plan(plan, dna_spec, executor_spec) do
-      {:ok, intent} ->
-        GenServer.call(cell_pid, {:execute_intent, intent})
+        executor_spec =
+          runtime_state
+          |> Map.get(:executor_spec, %{})
+          |> normalize_executor_spec()
 
-      {:error, reason} ->
-        {:error, reason}
+        dna_spec = %{
+          "cell_type" => Map.get(runtime_state, :role, "motor"),
+          "id" => Map.get(runtime_state, :lineage_id, "unknown_lineage")
+        }
+
+        case ExecutionIntent.from_plan(plan, dna_spec, executor_spec) do
+          {:ok, intent} ->
+            GenServer.call(cell_pid, {:execute_intent, intent})
+
+          {:error, reason} ->
+            {:error, reason}
+        end
     end
   end
 
@@ -256,14 +268,13 @@ defmodule Core.MotorDriver do
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put_new(map, key, value)
 
-  defp objective_weight(%Attractor{properties: properties}, _step) when is_map(properties) do
-    weight =
-      properties["objective_weight"] ||
-        properties[:objective_weight] ||
-        properties["objective_priors"]
-        |> aggregate_weight_map()
+  defp objective_weight(%Attractor{} = attractor, %Step{} = step) do
+    policy =
+      attractor.properties
+      |> Map.get("metabolism_policy", %{})
+      |> then(&MetabolismPolicy.merge_policy(MetabolismPolicy.build_policy(:low), &1))
 
-    weight || 1.0
+    MetabolismPolicy.objective_weight(policy, attractor, step)
   end
 
   defp objective_weight(_attractor, _step), do: 1.0
@@ -301,17 +312,63 @@ defmodule Core.MotorDriver do
 
   defp normalize_weight(_), do: 1.0
 
-  defp aggregate_weight_map(map) when is_map(map) do
-    map
-    |> Map.values()
-    |> Enum.map(&normalize_weight/1)
-    |> case do
-      [] -> nil
-      weights -> Enum.max(weights)
+  defp apply_metabolic_policy(%Plan{} = plan) do
+    policy = MetabolismPolicy.current_policy()
+    sovereignty = Sovereignty.to_map(Map.get(policy, :sovereignty, %{}))
+    %Attractor{} = attractor = plan.attractor
+    %AbstractState{} = target_state = attractor.target_state
+
+    enriched_attractor = %Attractor{
+      attractor
+      | properties:
+          attractor.properties
+          |> Map.put("metabolism_policy", MetabolismPolicy.to_map(policy))
+          |> Map.put("sovereignty", sovereignty),
+        needs: merge_weight_maps(attractor.needs, policy.needs),
+        values: merge_weight_maps(attractor.values, policy.values),
+        objective_priors: merge_weight_maps(attractor.objective_priors, policy.objective_priors),
+        target_state:
+          %AbstractState{
+            target_state
+            | needs: merge_weight_maps(target_state.needs, policy.needs),
+              values: merge_weight_maps(target_state.values, policy.values),
+              objective_priors: merge_weight_maps(target_state.objective_priors, policy.objective_priors)
+          }
+    }
+
+    %Plan{
+      plan
+      | attractor: enriched_attractor,
+        transition_delta:
+          Map.put(plan.transition_delta, :metabolism_policy, MetabolismPolicy.to_map(policy))
+          |> Map.put(:sovereignty, sovereignty)
+    }
+  end
+
+  defp attach_metabolic_admission(%Plan{} = plan) do
+    profile = MetabolismPolicy.plan_profile(plan)
+
+    %Plan{
+      plan
+      | transition_delta:
+          plan.transition_delta
+          |> Map.put(:metabolism_admission, profile)
+          |> Map.put(:scheduling, %{"lane" => profile["lane"], "priority_score" => profile["priority_score"]})
+    }
+  end
+
+  defp admitted_plan?(%Plan{transition_delta: transition_delta}) do
+    case Map.get(transition_delta, :metabolism_admission) do
+      nil -> true
+      profile -> MetabolismPolicy.admitted?(profile)
     end
   end
 
-  defp aggregate_weight_map(_), do: nil
+  defp merge_weight_maps(left, right) when is_map(left) and is_map(right) do
+    Map.merge(left, right, fn _key, left_value, right_value ->
+      Enum.max([normalize_weight(left_value), normalize_weight(right_value)])
+    end)
+  end
 
   defp normalize_phase(value) when is_binary(value), do: value
   defp normalize_phase(value) when is_atom(value), do: Atom.to_string(value)

@@ -96,6 +96,42 @@ defmodule Core.OperatorOutputTest do
     assert OperatorOutput.safe?(brief)
   end
 
+  test "render_sovereign_decision/1 renders bounded refusal and negotiation briefs" do
+    assert {:ok, refusal} =
+             OperatorOutput.render_sovereign_decision(%{
+               "intent_id" => "intent:refuse",
+               "decision" => "refuse",
+               "action" => "execute_plan",
+               "action_surface" => "mutation",
+               "metabolic_risk" => "critical",
+               "mandate_weight" => 1.5,
+               "value_pressure" => 1.2,
+               "need_pressure" => 1.1,
+               "paradoxes" => ["homeostasis_conflict"]
+             })
+
+    assert refusal.template_id == "operator.sovereignty.refuse"
+    assert refusal.headline == "Sovereign refusal issued"
+    assert OperatorOutput.safe?(refusal)
+
+    assert {:ok, negotiation} =
+             OperatorOutput.render_sovereign_decision(%{
+               "intent_id" => "intent:negotiate",
+               "decision" => "negotiate",
+               "action" => "execute_plan",
+               "action_surface" => "mutation",
+               "metabolic_risk" => "medium",
+               "mandate_weight" => 0.9,
+               "value_pressure" => 1.3,
+               "need_pressure" => 1.1,
+               "paradoxes" => []
+             })
+
+    assert negotiation.template_id == "operator.sovereignty.negotiate"
+    assert negotiation.headline == "Negotiation required"
+    assert OperatorOutput.safe?(negotiation)
+  end
+
   test "safe?/1 rejects unsupported or unbounded output payloads" do
     refute OperatorOutput.safe?(%{headline: String.duplicate("x", 200)})
     assert {:error, :unsupported_status_report} = OperatorOutput.render_status_report(%{status: :unknown})

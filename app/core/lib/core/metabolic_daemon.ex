@@ -53,6 +53,11 @@ defmodule Core.MetabolicDaemon do
   end
 
   @impl true
+  def handle_call(:get_policy, _from, state) do
+    {:reply, metabolic_policy(state.pressure), state}
+  end
+
+  @impl true
   def handle_info(:calibrate, state) do
     Logger.info("[MetabolicDaemon] Calibrating metabolic baselines...")
     
@@ -107,6 +112,7 @@ defmodule Core.MetabolicDaemon do
         run_queue: snapshot.run_queue,
         iops: snapshot.iops,
         atp: atp_level(pressure),
+        policy: Core.MetabolismPolicy.to_map(metabolic_policy(pressure)),
         preflight_status: state.preflight_status
       }
     )
@@ -276,6 +282,10 @@ defmodule Core.MetabolicDaemon do
 
   defp atp_level(pressure) do
     max(0.0, 1.0 - pressure_to_num(pressure) * 0.3)
+  end
+
+  defp metabolic_policy(pressure) do
+    Core.MetabolismPolicy.build_policy(pressure)
   end
 
   defp max_pressure(pressures) do
