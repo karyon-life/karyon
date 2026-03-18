@@ -18,6 +18,7 @@ defmodule App.MixProject do
       preferred_envs: [
         "chapter12.conformance": :test,
         "chapter11.conformance": :test,
+        "chapter1.conformance": :test,
         "biology.invariants": :test,
         "chapter10.conformance": :test,
         "chapter9.conformance": :test,
@@ -27,7 +28,7 @@ defmodule App.MixProject do
         "chapter6.conformance": :test,
         "chapter5.conformance": :test,
         "chapter4.conformance": :test,
-        "chapter3.synthesis": :test,
+        "chapter3.conformance": :test,
         "subsystem.contracts": :test
       ]
     ]
@@ -59,6 +60,7 @@ defmodule App.MixProject do
     [
       "chapter12.conformance": ["run --no-start test/chapter12_conformance_runner.exs"],
       "chapter11.conformance": ["run --no-start test/chapter11_conformance_runner.exs"],
+      "chapter1.conformance": ["run --no-start test/chapter1_conformance_runner.exs"],
       "biology.invariants": ["run --no-start test/biology_first_invariants_runner.exs"],
       "chapter10.conformance": ["run --no-start test/chapter10_conformance_runner.exs"],
       "chapter9.conformance": ["run --no-start test/chapter9_conformance_runner.exs"],
@@ -68,7 +70,7 @@ defmodule App.MixProject do
       "chapter6.conformance": ["run --no-start test/chapter6_conformance_runner.exs"],
       "chapter5.conformance": ["run --no-start test/chapter5_conformance_runner.exs"],
       "chapter4.conformance": ["run --no-start test/chapter4_conformance_runner.exs"],
-      "chapter3.synthesis": ["run --no-start test/chapter3_synthesis_runner.exs"],
+      "chapter3.conformance": ["run --no-start test/chapter3_conformance_runner.exs"],
       "subsystem.contracts": ["run --no-start test/subsystem_contracts_runner.exs"]
     ]
   end
