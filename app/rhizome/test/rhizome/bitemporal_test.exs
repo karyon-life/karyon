@@ -1,6 +1,6 @@
 defmodule Rhizome.BitemporalTest do
   use ExUnit.Case
-  alias Rhizome.Native
+  alias Rhizome.Memory
 
   test "XTDB bitemporal submission" do
     id = "agent_state_1"
@@ -9,7 +9,7 @@ defmodule Rhizome.BitemporalTest do
       "value" => 100
     }
     
-    case Native.xtdb_submit(id, data) do
+    case Memory.write_archive_document(id, data) do
       {:ok, %{raw: _raw}} -> assert true
       {:error, reason} -> 
         assert String.contains?(reason, "XTDB Error") or String.contains?(reason, "Connection refused")
@@ -24,7 +24,7 @@ defmodule Rhizome.BitemporalTest do
       }
     }
     
-    case Native.xtdb_query(query) do
+    case Memory.query_archive(query) do
       {:ok, results} when is_list(results) -> assert true
       {:error, reason} ->
         assert String.contains?(reason, "XTDB Error") or String.contains?(reason, "Connection refused")

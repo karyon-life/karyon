@@ -1,36 +1,55 @@
 defmodule Rhizome.TemporalQueryTest do
   use ExUnit.Case, async: false
   @moduletag :external
-  alias Rhizome.Native
+  alias Rhizome.Memory
 
   test "bitemporal state submission and retrieval" do
-    id = "cell_123"
-    data = %{"status" => "active", "energy" => 100}
-    query = %{
-      "query" => %{
-        "find" => ["(pull ?e [energy])"],
-        "where" => [["?e", "xt/id", id]]
-      }
-    }
-    
-    # 1. Submit initial state
-    assert {:ok, _} = Native.xtdb_submit(id, data)
+    id = "cell_mvcc_#{System.unique_integer([:positive, :monotonic])}_#{System.system_time(:microsecond)}"
+    initial_valid_time = "2026-03-18T12:00:00Z"
+    updated_valid_time = "2026-03-18T12:05:00Z"
 
-    # Wait for indexing
-    Process.sleep(100)
+    assert {:ok, %{raw: %{"xt/revision" => 1}}} =
+             Memory.write_archive_document(id, %{
+               "status" => "active",
+               "energy" => 100,
+               "xt/valid_time" => initial_valid_time
+             })
 
-    # 2. Query current state
-    assert {:ok, rows} = Native.xtdb_query(query)
-    assert is_list(rows)
+    Process.sleep(10)
 
-    # 3. Submit updated state
-    updated_data = %{"status" => "torpor", "energy" => 10}
-    assert {:ok, _} = Native.xtdb_submit(id, updated_data)
+    assert {:ok, %{raw: %{"xt/revision" => 2}}} =
+             Memory.write_archive_document(id, %{
+               "status" => "torpor",
+               "energy" => 10,
+               "xt/valid_time" => updated_valid_time
+             })
 
-    Process.sleep(100)
+    assert {:ok, [%{"energy" => 10, "status" => "torpor", "xt/revision" => 2}]} =
+             Memory.query_archive(%{
+               "query" => %{
+                 "find" => ["(pull ?e [energy status xt/revision])"],
+                 "where" => [["?e", "xt/id", id]]
+               }
+             })
 
-    # 4. Verify latest state
-    assert {:ok, rows2} = Native.xtdb_query(query)
-    assert is_list(rows2)
+    assert {:ok, history_rows} =
+             Memory.query_archive(%{
+               "query" => %{
+                 "find" => ["(pull ?e [energy status xt/revision xt/valid_time])"],
+                 "where" => [["?e", "xt/id", id]]
+               },
+               "opts" => %{"history" => true}
+             })
+
+    assert Enum.map(history_rows, & &1["xt/revision"]) == [1, 2]
+
+    assert {:ok, [%{"energy" => 100, "status" => "active", "xt/revision" => 1}]} =
+             Memory.query_archive(%{
+               "query" => %{
+                 "find" => ["(pull ?e [energy status xt/revision])"],
+                 "where" => [["?e", "xt/id", id]]
+               },
+               "opts" => %{"as_of" => "2026-03-18T12:02:00Z"}
+             })
   end
 end

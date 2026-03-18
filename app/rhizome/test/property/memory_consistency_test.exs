@@ -1,6 +1,7 @@
 defmodule Rhizome.Property.MemoryConsistencyTest do
   use ExUnit.Case, async: false
   use ExUnitProperties
+  alias Rhizome.Memory
 
   @moduledoc """
   Property-based tests for Rhizome dual-layer memory consistency.
@@ -8,7 +9,7 @@ defmodule Rhizome.Property.MemoryConsistencyTest do
   """
 
   @tag :external
-  property "concurrent writes to Memgraph and XTDB remain traceable" do
+  property "concurrent archive writes retain revision history and latest state" do
     check all data_points <- list_of(
                 fixed_map(%{
                   "id" => string(:alphanumeric, min_length: 5),
@@ -23,22 +24,47 @@ defmodule Rhizome.Property.MemoryConsistencyTest do
       Rhizome.Native.memgraph_query("MATCH (n) DETACH DELETE n")
 
       # 2. Parallel writes
-      _results = 
+      results =
         data_points
         |> Task.async_stream(fn %{"id" => id, "value" => val} ->
-          # Submit to XTDB
-          xtdb_res = Rhizome.Native.xtdb_submit(id, Jason.encode!(%{"val" => val}))
-          # Submit to Memgraph
-          mem_res = Rhizome.Native.memgraph_query("MERGE (n:TestNode {id: '#{id}'}) SET n.value = #{val}")
-          {id, xtdb_res, mem_res}
+          assert {:ok, %{raw: %{"xt/revision" => 1}}} =
+                   Memory.write_archive_document(id, %{"val" => val, "phase" => "initial"})
+
+          assert {:ok, %{raw: %{"xt/revision" => 2}}} =
+                   Memory.write_archive_document(id, %{"val" => val + 1, "phase" => "updated"})
+
+          {id, val}
         end)
         |> Enum.to_list()
 
-      # 3. Verify total nodes in Memgraph
-      _unique_ids = data_points |> Enum.map(& &1["id"]) |> Enum.uniq() |> length()
-      {:ok, _} = Rhizome.Native.memgraph_query("MATCH (n:TestNode) RETURN count(n) as count")
-      
-      # 4. Cleanup
+      assert Enum.all?(results, fn {:ok, {_id, _val}} -> true end)
+
+      unique_points = Enum.uniq_by(data_points, & &1["id"])
+
+      Enum.each(unique_points, fn %{"id" => id, "value" => val} ->
+        assert {:ok, [%{"val" => latest_val, "phase" => "updated", "xt/revision" => 2}]} =
+                 Memory.query_archive(%{
+                   "query" => %{
+                     "find" => ["(pull ?e [val phase xt/revision])"],
+                     "where" => [["?e", "xt/id", id]]
+                   }
+                 })
+
+        assert latest_val == val + 1
+
+        assert {:ok, history_rows} =
+                 Memory.query_archive(%{
+                   "query" => %{
+                     "find" => ["(pull ?e [val phase xt/revision])"],
+                     "where" => [["?e", "xt/id", id]]
+                   },
+                   "opts" => %{"history" => true}
+                 })
+
+        assert Enum.map(history_rows, & &1["xt/revision"]) == [1, 2]
+      end)
+
+      # 3. Cleanup
       Rhizome.Native.memgraph_query("MATCH (n) DETACH DELETE n")
     end
   end

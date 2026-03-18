@@ -13,6 +13,46 @@ defmodule Rhizome.ConsolidationManagerTest do
 
   alias Rhizome.ConsolidationManager
 
+  defmodule NativeStub do
+    def optimize_graph, do: {:ok, "optimized"}
+
+    def memgraph_query(query) do
+      if pid = Process.whereis(:consolidation_manager_observer) do
+        send(pid, {:native_query, query})
+      end
+
+      cond do
+        String.contains?(query, "RETURN id(n) AS internal_id") ->
+          {:ok,
+           [
+             %{
+               "internal_id" => 7,
+               "labels" => ["Cell"],
+               "props" => %{"id" => "cell-7", "vfe" => 0.95, "archived" => false}
+             },
+             %{
+               "internal_id" => 8,
+               "labels" => ["PredictionError"],
+               "props" => %{"id" => "prediction-8", "vfe" => 0.2, "archived" => false}
+             }
+           ]}
+
+        String.contains?(query, "MERGE (s:SleepSuperNode") ->
+          {:ok, [%{"supernode_id" => "sleep_supernode:2026-03-18T00:00:00Z", "abstracted_count" => 1}]}
+
+        String.contains?(query, "SET n.archived = true") ->
+          {:ok, [%{"pruned_count" => 1}]}
+
+        true ->
+          {:ok, []}
+      end
+    end
+  end
+
+  defmodule MemoryStub do
+    def bridge_working_memory_to_archive, do: {:ok, %{message: "bridged", archived_count: 1}}
+  end
+
   # We need to mock Core.MetabolicDaemon and Rhizome.Native
   setup do
     # 1. Stop real daemon if running
@@ -42,6 +82,14 @@ defmodule Rhizome.ConsolidationManagerTest do
           1000 -> :ok
         end
     end
+
+    Process.register(self(), :consolidation_manager_observer)
+
+    on_exit(fn ->
+      if Process.whereis(:consolidation_manager_observer) == self() do
+        Process.unregister(:consolidation_manager_observer)
+      end
+    end)
 
     :ok
   end
@@ -95,5 +143,33 @@ defmodule Rhizome.ConsolidationManagerTest do
     Process.sleep(200)
     # It should have postponed (logged debug)
     assert Process.alive?(pid)
+  end
+
+  test "run_once returns explicit consolidation learning-loop metadata" do
+    result =
+      ConsolidationManager.run_once(
+        native_module: NativeStub,
+        memory_module: MemoryStub,
+        schedule_next?: false,
+        logger_fun: fn _ -> :ok end,
+        clock_fun: fn -> ~U[2026-03-18 00:00:00Z] end
+      )
+
+    assert result.learning_phase == "consolidation"
+    assert result.learning_edge == "plasticity->consolidation"
+    assert {:ok, %{total: 2, prunable: [_], retainable: [_]}} = result.classified_candidates
+    assert {:ok, %{supernode_count: 1, abstracted_count: 1}} = result.abstractions
+    assert {:ok, %{archived_count: 1}} = result.bridge_to_xtdb
+    assert {:ok, "optimized"} = result.optimize_graph
+    assert {:ok, %{pruned_count: 1, retained_in_archive: true, strategy: "targeted_in_place_pruning"}} =
+             result.memory_relief
+
+    assert_received {:native_query, query}
+    assert query =~ "RETURN id(n) AS internal_id"
+    assert_received {:native_query, abstraction_query}
+    assert abstraction_query =~ "MERGE (s:SleepSuperNode"
+    assert_received {:native_query, prune_query}
+    assert prune_query =~ "SET n.archived = true"
+    refute prune_query =~ "DETACH DELETE"
   end
 end

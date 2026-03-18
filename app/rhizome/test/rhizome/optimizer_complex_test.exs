@@ -1,5 +1,6 @@
 defmodule Rhizome.OptimizerComplexTest do
   use ExUnit.Case, async: false
+  alias Rhizome.Memory
   alias Rhizome.Native
 
   setup_all do
@@ -59,5 +60,28 @@ defmodule Rhizome.OptimizerComplexTest do
     Native.memgraph_query("MATCH (n) DETACH DELETE n")
     assert {:ok, msg} = Native.optimize_graph()
     assert msg =~ "No graph data found"
+  end
+
+  test "repeated pooled patterns reinforce co-occurrence pathways" do
+    Native.memgraph_query("MATCH (n) DETACH DELETE n")
+
+    assert {:ok, %{pattern_id: pattern_id}} =
+             Memory.persist_pooled_pattern(%{
+               language: "javascript",
+               pool_type: "co_occurrence",
+               source_types: ["program", "lexical_declaration"],
+               occurrences: 3
+             })
+
+    assert {:ok, [%{"count" => 1}]} =
+             Native.memgraph_query("MATCH (p:PooledPattern {id: '#{pattern_id}'}) RETURN count(p) AS count")
+
+    assert {:ok, [%{"weight" => weight}]} =
+             Native.memgraph_query("""
+             MATCH (:PatternType {id: 'pattern_type:javascript:program'})-[r:CO_OCCURS_WITH]->(:PatternType {id: 'pattern_type:javascript:lexical_declaration'})
+             RETURN r.weight AS weight
+             """)
+
+    assert weight >= 1.5
   end
 end

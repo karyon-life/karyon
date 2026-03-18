@@ -5,7 +5,7 @@ defmodule Rhizome.Archiver do
   """
   use GenServer
   require Logger
-  alias Rhizome.Native
+  alias Rhizome.Memory
 
   @interval_ms 30_000 # 30 seconds for archival check
 
@@ -23,7 +23,7 @@ defmodule Rhizome.Archiver do
   def handle_info(:archive, state) do
     Logger.info("[Rhizome.Archiver] Commencing bitemporal ledger synchronization...")
     
-    case Native.bridge_to_xtdb() do
+    case Memory.bridge_working_memory_to_archive() do
       {:ok, %{message: info}} ->
         Logger.info("[Rhizome.Archiver] #{info}")
 

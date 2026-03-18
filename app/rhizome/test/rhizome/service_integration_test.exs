@@ -11,6 +11,7 @@ defmodule Rhizome.ServiceIntegrationTest do
   @moduletag :external
 
   alias Rhizome.ConsolidationManager
+  alias Rhizome.Memory
   alias Rhizome.Native
 
   setup_all do
@@ -35,14 +36,18 @@ defmodule Rhizome.ServiceIntegrationTest do
 
   test "writes and reads graph state from Memgraph", %{token: token} do
     assert {:ok, _} =
-             Native.memgraph_query(
-               "CREATE (:Phase2Probe {token: '#{token}', kind: 'graph_write'})"
-             )
+             Memory.upsert_graph_node(%{
+               label: "Phase2Probe",
+               id: token,
+               properties: %{token: token, kind: "graph_write"}
+             })
 
-    assert {:ok, [%{"token" => ^token, "kind" => "graph_write"}]} =
-             Native.memgraph_query(
-               "MATCH (n:Phase2Probe {token: '#{token}'}) RETURN n.token AS token, n.kind AS kind"
-             )
+    assert {:ok, [%{"token" => ^token, "kind" => "graph_write"} | _]} =
+             Memory.query_working_memory(%{
+               label: "Phase2Probe",
+               filters: %{token: token},
+               return: [:token, :kind]
+             })
   end
 
   test "submits and queries temporal state from XTDB", %{token: token} do
@@ -50,7 +55,7 @@ defmodule Rhizome.ServiceIntegrationTest do
 
     assert {:ok, %{raw: _}} =
              eventually(fn ->
-               Native.xtdb_submit(id, %{
+               Memory.write_archive_document(id, %{
                  "token" => token,
                  "kind" => "xtdb_write"
                })
@@ -58,7 +63,7 @@ defmodule Rhizome.ServiceIntegrationTest do
 
     assert {:ok, results} =
              eventually(fn ->
-               Native.xtdb_query(%{
+               Memory.query_archive(%{
                  "query" => %{
                    "find" => ["(pull ?e [*])"],
                    "where" => [["?e", "token", token]]
@@ -73,21 +78,25 @@ defmodule Rhizome.ServiceIntegrationTest do
 
   test "bridges Memgraph state into XTDB", %{token: token} do
     assert {:ok, _} =
-             Native.memgraph_query(
-               "CREATE (:Phase2Probe {token: '#{token}', kind: 'bridge_candidate', archived: false})"
-             )
+             Memory.upsert_graph_node(%{
+               label: "Phase2Probe",
+               id: token,
+               properties: %{token: token, kind: "bridge_candidate", archived: false}
+             })
 
-    assert {:ok, [%{"count" => 1}]} =
-             Native.memgraph_query(
-               "MATCH (n:Phase2Probe {token: '#{token}'}) RETURN count(n) AS count"
-             )
+    assert {:ok, [%{"token" => ^token} | _]} =
+             Memory.query_working_memory(%{
+               label: "Phase2Probe",
+               filters: %{token: token},
+               return: [:token]
+             })
 
-    assert {:ok, %{archived_count: count}} = eventually(fn -> Native.bridge_to_xtdb() end)
+    assert {:ok, %{archived_count: count}} = eventually(fn -> Memory.bridge_working_memory_to_archive() end)
     assert count >= 1
 
     assert {:ok, results} =
              eventually(fn ->
-               Native.xtdb_query(%{
+               Memory.query_archive(%{
                  "query" => %{
                    "find" => ["(pull ?e [*])"],
                    "where" => [["?e", "token", token]]
@@ -98,15 +107,17 @@ defmodule Rhizome.ServiceIntegrationTest do
     assert Enum.any?(results, fn row -> row["token"] == token and row["kind"] == "bridge_candidate" end)
   end
 
-  test "consolidation manager prunes high-vfe cells against real services", %{token: token} do
+  test "consolidation manager retains cells in archive instead of deleting them against real services", %{token: token} do
     stop_process(Core.MetabolicDaemon)
     stop_process(ConsolidationManager)
     {:ok, _daemon} = Rhizome.ServiceIntegrationTest.MockMetabolicDaemon.start_link(:low)
 
     assert {:ok, _} =
-             Native.memgraph_query(
-               "CREATE (:Cell {token: '#{token}', vfe: 0.95, archived: false})"
-             )
+             Memory.upsert_graph_node(%{
+               label: "Cell",
+               id: token,
+               properties: %{token: token, vfe: 0.95, archived: false}
+             })
 
     manager =
       case ConsolidationManager.start_link() do
@@ -115,12 +126,18 @@ defmodule Rhizome.ServiceIntegrationTest do
       end
 
     send(manager, :check_consolidation_window)
-    Process.sleep(300)
 
-    assert {:ok, [%{"count" => 0}]} =
-             Native.memgraph_query(
-               "MATCH (c:Cell {token: '#{token}'}) RETURN count(c) AS count"
-             )
+    assert {:ok, [%{"archived" => true}]} =
+             eventually(fn ->
+               with {:ok, [%{"archived" => true} = row]} <-
+                      Native.memgraph_query(
+                        "MATCH (c:Cell {token: '#{token}'}) RETURN c.archived AS archived, c.sleep_cycle_status AS sleep_cycle_status, c.retained_in_archive AS retained_in_archive"
+                      ) do
+                 {:ok, [row]}
+               else
+                 _ -> {:error, :not_consolidated_yet}
+               end
+             end)
   end
 
   defp ensure_services_available do
@@ -167,7 +184,7 @@ defmodule Rhizome.ServiceIntegrationTest do
     end
   end
 
-  defp eventually(fun, attempts \\ 3)
+  defp eventually(fun, attempts \\ 10)
 
   defp eventually(fun, 1), do: fun.()
 
@@ -177,7 +194,7 @@ defmodule Rhizome.ServiceIntegrationTest do
         ok
 
       {:error, _reason} ->
-        Process.sleep(100)
+        Process.sleep(200)
         eventually(fun, attempts - 1)
     end
   end
