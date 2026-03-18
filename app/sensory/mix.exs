@@ -32,6 +32,7 @@ defmodule Sensory.MixProject do
 
   defp deps do
     [
+      {:jason, "~> 1.4"},
       {:rustler, "~> 0.37.0", runtime: false},
       {:rhizome, in_umbrella: true}
     ]
