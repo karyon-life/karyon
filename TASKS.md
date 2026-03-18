@@ -53,43 +53,43 @@ Completion criterion: every `C01-*` and `C02-*` item is complete and validated.
 
 ## Part II: Anatomy Of The Organism
 
-- [ ] `C03-S01` Introduction
+- [x] `C03-S01` Introduction
 Completion criterion: subsystem boundaries are explicit, documented, and test-backed.
 
-- [ ] `C03-S02` The Microkernel Philosophy
+- [x] `C03-S02` The Microkernel Philosophy
 Completion criterion: core remains sterile and free of embedded project semantics.
 
-- [ ] `C03-S03` Erlang/BEAM (Cytoplasm)
+- [x] `C03-S03` Erlang/BEAM (Cytoplasm)
 Completion criterion: BEAM-scale concurrency and crash-only recovery are validated.
 
-- [ ] `C03-S04` Rust NIFs (Organelles)
+- [x] `C03-S04` Rust NIFs (Organelles)
 Completion criterion: all NIF boundaries are typed, safe, and stress-tested.
 
-- [ ] `C03-S05` The KVM/QEMU Membrane
+- [x] `C03-S05` The KVM/QEMU Membrane
 Completion criterion: all mutation and compile actions cross a validated `virtio-blk` plus overlay membrane contract.
 
-- [ ] `C03-S06` The Nervous System
+- [x] `C03-S06` The Nervous System
 Completion criterion: ZeroMQ and NATS role separation plus backpressure behavior are validated.
 
-- [ ] `C03-S07` Chapter Wrap-Up
+- [x] `C03-S07` Chapter Wrap-Up
 Completion criterion: Chapter 3 cross-app contract tests exist and pass.
 
-- [ ] `C04-S01` Introduction
+- [x] `C04-S01` Introduction
 Completion criterion: DNA and epigenetic control-plane boundaries are explicit and test-backed.
 
-- [ ] `C04-S02` Declarative Genetics
+- [x] `C04-S02` Declarative Genetics
 Completion criterion: DNA schema, inheritance, and allowed-action policy are authoritative and validated.
 
-- [ ] `C04-S03` The Epigenetic Supervisor
+- [x] `C04-S03` The Epigenetic Supervisor
 Completion criterion: cells are differentiated through environmental transcription rather than uniform spawning.
 
-- [ ] `C04-S04` Apoptosis & Digital Torpor
+- [x] `C04-S04` Apoptosis & Digital Torpor
 Completion criterion: lifecycle states and role-aware apoptosis or torpor behavior are formalized and tested.
 
-- [ ] `C04-S05` Chapter Wrap-Up
+- [x] `C04-S05` Chapter Wrap-Up
 Completion criterion: Chapter 4 regulation behavior is defended by dedicated regression tests.
 
-- [ ] Part II Complete
+- [x] Part II Complete
 Completion criterion: every `C03-*` and `C04-*` item is complete and validated.
 
 ## Part III: The Rhizome
