@@ -15,40 +15,40 @@ Completion criterion: `PLAN.md` documents the resolved `virtio-blk` plus overlay
 
 ## Part I: The Biological Edge In Systems
 
-- [ ] `C01-S01` Introduction
+- [x] `C01-S01` Introduction
 Completion criterion: an active-inference parity rubric exists and tests fail on monolithic or stateless regressions.
 
-- [ ] `C01-S02` The Statistical Dead End
+- [x] `C01-S02` The Statistical Dead End
 Completion criterion: core planning uses typed graph-backed state transitions instead of prompt-response shortcuts.
 
-- [ ] `C01-S03` Catastrophic Forgetting & Hardware Economics
+- [x] `C01-S03` Catastrophic Forgetting & Hardware Economics
 Completion criterion: durable recovery and hardware-budget enforcement are validated across the main loop.
 
-- [ ] `C01-S04` The Predictive Coding Failure
+- [x] `C01-S04` The Predictive Coding Failure
 Completion criterion: prediction error is the sole authoritative trigger for structural adaptation, and surprise is computed through a typed variational free energy model rather than a hardcoded placeholder.
 
-- [ ] `C01-S05` Chapter Wrap-Up
+- [x] `C01-S05` Chapter Wrap-Up
 Completion criterion: Chapter 1 conformance tests exist and fail on regression.
 
-- [ ] `C02-S01` Introduction
+- [x] `C02-S01` Introduction
 Completion criterion: biology-first architecture invariants are executable across the umbrella.
 
-- [ ] `C02-S02` The Cellular State Machine
+- [x] `C02-S02` The Cellular State Machine
 Completion criterion: actor isolation and decentralized discovery are validated under load.
 
-- [ ] `C02-S03` Predictive Processing
+- [x] `C02-S03` Predictive Processing
 Completion criterion: expectation formation, weighted surprise, and structural response form one reliable loop.
 
-- [ ] `C02-S04` Abstract State Prediction
+- [x] `C02-S04` Abstract State Prediction
 Completion criterion: predictions and plans are represented as typed abstract states, and attractors carry weighted needs, values, and objective priors.
 
-- [ ] `C02-S05` Continuous Local Plasticity
+- [x] `C02-S05` Continuous Local Plasticity
 Completion criterion: real local pathways support validated strengthen and prune behavior.
 
-- [ ] `C02-S06` Chapter Wrap-Up
+- [x] `C02-S06` Chapter Wrap-Up
 Completion criterion: Chapter 2 biology-first behavior is enforced by dedicated tests.
 
-- [ ] Part I Complete
+- [x] Part I Complete
 Completion criterion: every `C01-*` and `C02-*` item is complete and validated.
 
 ## Part II: Anatomy Of The Organism

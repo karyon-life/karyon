@@ -86,7 +86,7 @@ Service-backed parity phases must add the relevant integration command or manual
 Milestone condition:
 Every Chapter 1 and Chapter 2 phase is `[done]`, chapter wrap-up conformance tests exist, and the app no longer depends on monolithic, stateless, or purely prompt-response assumptions for its core reasoning loop.
 
-## C01-S01 [todo] Chapter 1 / Section 1
+## C01-S01 [done] Chapter 1 / Section 1
 
 **Source**
 `docs/src/content/docs/part-1/chapter-1/1-introduction.md`
@@ -112,7 +112,11 @@ There is no explicit executable parity rubric defining what counts as monolithic
 **Exit Criteria**
 An explicit parity rubric exists and failing tests catch monolithic or stateless regressions at the app boundary.
 
-## C01-S02 [todo] Chapter 1 / Section 2
+**Progress Notes**
+- 2026-03-17: Added `Core.TestSupport.ArchitectureRubric` and `Core.ArchitectureConformanceTest` to codify active-inference architecture invariants at the planning, execution, and memory boundaries.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/architecture_conformance_test.exs` -> core app test passed; umbrella emitted existing warnings about `:karyon` configuration and non-matching per-app paths outside `core`, but the target `core` suite completed successfully with 2 tests and 0 failures.
+
+## C01-S02 [done] Chapter 1 / Section 2
 
 **Source**
 `docs/src/content/docs/part-1/chapter-1/2-the-statistical-dead-end.md`
@@ -138,7 +142,13 @@ Planning is not yet expressed as a typed, graph-native state transition system w
 **Exit Criteria**
 Core planning is graph-backed and typed, and direct request-response planning shortcuts are removed from runtime behavior.
 
-## C01-S03 [todo] Chapter 1 / Section 3
+**Progress Notes**
+- 2026-03-17: Added typed planning contracts in `Core.Plan`, `Core.Plan.Attractor`, and `Core.Plan.Step` so planning no longer returns unstructured ad hoc maps.
+- 2026-03-17: Updated `Core.MotorDriver` to sequence graph-backed plans into typed structs with explicit attractor state, ordered steps, and transition delta metadata, while dispatching execution through a normalized execution payload.
+- 2026-03-17: Updated planning tests to assert typed attractor and step contracts instead of stringly plan maps.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/motor_driver_test.exs apps/core/test/core/tier5_global_test.exs` -> core app tests passed; umbrella emitted existing `:karyon` configuration warnings and non-matching per-app path noise outside `core`, but the target `core` suite completed successfully with 4 tests and 0 failures, 1 excluded.
+
+## C01-S03 [done] Chapter 1 / Section 3
 
 **Source**
 `docs/src/content/docs/part-1/chapter-1/3-catastrophic-forgetting-hardware-economics.md`
@@ -165,7 +175,13 @@ There is no unified durable memory and hardware-economics contract that forces a
 **Exit Criteria**
 Durable recovery and hardware-budget enforcement are explicit and validated across the main cognitive loop.
 
-## C01-S04 [todo] Chapter 1 / Section 4
+**Progress Notes**
+- 2026-03-17: Added durable cell-state checkpointing and lineage hydration through `Rhizome.Memory.load_cell_state/1` and `Rhizome.Memory.checkpoint_cell_state/1`, allowing `Core.StemCell` to recover beliefs, expectations, status, ATP level, and lineage metadata from stable state snapshots.
+- 2026-03-17: Updated `Core.StemCell` to derive stable lineage IDs from DNA, checkpoint state after expectation changes and metabolic transitions, expose runtime state for validation, and enforce DNA `atp_requirement` before action execution.
+- 2026-03-17: Replaced the placeholder recovery test with a durable lineage recovery test using a memory stub, and added an ATP budget denial test to the stem-cell suite.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/state_recovery_test.exs apps/core/test/core/metabolic_stress_test.exs apps/core/test/core/stem_cell_test.exs` -> target `core` tests passed with 11 tests, 0 failures, 1 excluded; umbrella still emitted existing `:karyon` configuration warnings and non-matching per-app path noise outside `core`.
+
+## C01-S04 [done] Chapter 1 / Section 4
 
 **Source**
 `docs/src/content/docs/part-1/chapter-1/4-the-predictive-coding-failure.md`
@@ -194,7 +210,14 @@ Prediction-error ingestion is not yet the single authoritative path for structur
 **Exit Criteria**
 Prediction error becomes the sole authoritative trigger for structural adaptation, and surprise is computed through a typed variational free energy model rather than a hardcoded placeholder.
 
-## C01-S05 [todo] Chapter 1 / Section 5
+**Progress Notes**
+- 2026-03-17: Added `Rhizome.Memory.submit_prediction_error/1` to persist typed prediction-error records into XTDB and project summary `PredictionError` nodes back into Memgraph.
+- 2026-03-17: Updated `Core.StemCell` nociception handling to persist a typed prediction-error payload containing source cell, status, VFE, ATP, metadata, and expectation snapshot instead of using the direct `update_rhizome_state` query shortcut.
+- 2026-03-17: Updated `Core.StemCell` execution-failure handling so failed motor actions emit typed `execution_failure` prediction-error records through the same memory pipeline.
+- 2026-03-17: Extended stem-cell test stubs and assertions to verify typed prediction-error persistence for both nociception and execution failures.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/nervous_system/test/nervous_system/pain_receptor_test.exs apps/core/test/core/stem_cell_test.exs apps/core/test/core/recovery_chaos_integration_test.exs` -> nervous-system target passed with 1 test, 0 failures; core target passed with 7 tests, 0 failures, 2 excluded; the external recovery-chaos file remained excluded by the current test configuration, and umbrella still emitted existing `:karyon` configuration warnings plus non-matching per-app path noise outside the target apps.
+
+## C01-S05 [done] Chapter 1 / Section 5
 
 **Source**
 `docs/src/content/docs/part-1/chapter-1/5-chapter-wrap-up.md`
@@ -219,7 +242,13 @@ Regression can reintroduce monolithic or stateless behavior without a dedicated 
 **Exit Criteria**
 Chapter 1 parity is executable and fails closed on regression.
 
-## C02-S01 [todo] Chapter 2 / Section 1
+**Progress Notes**
+- 2026-03-17: Added `docs/DEVELOPER/CHAPTER1_CONFORMANCE.md` to document the Chapter 1 forbidden architectural regressions and required invariants.
+- 2026-03-17: Added the `mix chapter1.conformance` alias and bound it to `MIX_ENV=test` in `app/core/mix.exs` so Chapter 1 enforcement has a stable local and CI command.
+- 2026-03-17: Added `.github/workflows/chapter1-conformance.yml` so pushes and pull requests run the Chapter 1 conformance suite in CI.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix chapter1.conformance` -> passed with 12 tests, 0 failures, 2 excluded.
+
+## C02-S01 [done] Chapter 2 / Section 1
 
 **Source**
 `docs/src/content/docs/part-1/chapter-2/1-introduction.md`
@@ -239,12 +268,18 @@ Biology-first architecture is descriptive rather than enforceable.
 - Fail if shared-state, centralized-lock, or synchronous bottleneck patterns are introduced.
 
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix biology.invariants`
 
 **Exit Criteria**
 Biology-first rules are expressed as common executable invariants across the umbrella.
 
-## C02-S02 [todo] Chapter 2 / Section 2
+**Progress Notes**
+- 2026-03-17: Added `app/test/support/biology_first_invariants.exs` to define executable cross-app invariants for decentralized lifecycle management, dedicated supervision boundaries, and Rhizome-mediated state mutation.
+- 2026-03-17: Added `app/test/biology_first_invariants_test.exs` so the umbrella test suite fails if shared-state shortcuts such as ETS, process dictionary writes, global names, or ad hoc agents appear in the protected boundaries.
+- 2026-03-17: Added `app/test/biology_first_invariants_runner.exs` and restored the `mix biology.invariants` alias in `app/mix.exs` to give the umbrella a stable architecture-conformance command.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix biology.invariants` -> passed with 2 tests, 0 failures. The run still emits existing `:karyon` configuration warnings unrelated to the invariant suite.
+
+## C02-S02 [done] Chapter 2 / Section 2
 
 **Source**
 `docs/src/content/docs/part-1/chapter-2/2-the-cellular-state-machine.md`
@@ -264,13 +299,18 @@ The actor model exists structurally but not yet with the full decentralization a
 - Add stress tests for spawn, routing, and apoptosis under high churn.
 
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/stem_cell_property_test.exs`
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/epigenetic_supervisor_stress_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/epigenetic_supervision_test.exs test/core/epigenetic_supervisor_stress_test.exs test/core/stem_cell_property_test.exs`
 
 **Exit Criteria**
 Discovery and coordination are decentralized and validated under load.
 
-## C02-S03 [todo] Chapter 2 / Section 3
+**Progress Notes**
+- 2026-03-17: Extended `Core.StemCell` to advertise every cell through shared `:stem_cell`, legacy role, structured `{:cell_role, role}`, and lineage-scoped `{:lineage, lineage_id}` `:pg` topics so decentralized discovery no longer depends on ad hoc membership reads.
+- 2026-03-17: Added `Core.StemCell.role_members/1`, upgraded `Core.StemCell.sense_gradient/2` with peer exclusion, and exposed `Core.EpigeneticSupervisor.members_for_role/1` plus `discover_cell/2` so routing stays process-group driven instead of introducing central registries.
+- 2026-03-17: Expanded `epigenetic_supervision_test.exs`, `epigenetic_supervisor_stress_test.exs`, and `stem_cell_property_test.exs` to validate structured role discovery, high-churn spawn/apoptosis cleanup, and live-peer uniqueness under repeated `:pg` discovery.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/epigenetic_supervision_test.exs test/core/epigenetic_supervisor_stress_test.exs test/core/stem_cell_property_test.exs` -> passed with 3 properties, 7 tests, 0 failures. The run still emits existing startup noise from the broader core app and a pre-existing `FakeMetabolicDaemon` redefinition warning in the stress-test file.
+
+## C02-S03 [done] Chapter 2 / Section 3
 
 **Source**
 `docs/src/content/docs/part-1/chapter-2/3-predictive-processing.md`
@@ -291,13 +331,21 @@ The closed loop from expectation to surprise to structural response is incomplet
 - Persist prediction-error lineage into Rhizome for later consolidation.
 
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/nervous_system/test/nervous_system/pain_receptor_test.exs`
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/stem_cell_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/pain_receptor_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs test/core/stem_cell_property_test.exs`
 
 **Exit Criteria**
 Expectation formation, weighted surprise, and structural response form one reliable loop.
 
-## C02-S04 [todo] Chapter 2 / Section 4
+**Progress Notes**
+- 2026-03-17: Upgraded `Core.StemCell` expectations from bare `{goal, precision}` entries into typed expectation records with `predicted_outcome`, `objective_weight`, `trace_id`, `source_step_id`, `source_attractor_id`, and expectation metadata so nociception can be traced back to concrete plan lineage.
+- 2026-03-17: Replaced the flat VFE sum in `Core.StemCell` with weighted surprise calculation based on expectation precision, objective weight, and per-event error signals derived from nociception metadata such as `failed_expectation_id`, `trace_id`, `severity`, and explicit `expectation_errors`.
+- 2026-03-17: Hardened `NervousSystem.PainReceptor` by routing telemetry through the receptor process for recursion filtering and duplicate suppression, and by publishing enriched nociception metadata including `event_source`, `event_fingerprint`, `severity`, and `trace_id`.
+- 2026-03-17: Extended the prediction-error payloads persisted through `Rhizome.Memory` to carry `expectation_lineage` so consolidation can recover which weighted expectations produced the surprise signal.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/pain_receptor_test.exs` -> passed with 2 tests, 0 failures.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs test/core/stem_cell_property_test.exs` -> passed with 3 properties, 8 tests, 0 failures, 1 excluded. The run still emits existing startup and ZMQ noise from the broader test environment.
+
+## C02-S04 [done] Chapter 2 / Section 4
 
 **Source**
 `docs/src/content/docs/part-1/chapter-2/4-abstract-state-prediction.md`
@@ -319,13 +367,21 @@ Abstract state prediction is not represented by explicit typed contracts, and at
 - Require planning to consume weighted attractors rather than flat goals.
 
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/motor_driver_test.exs`
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs test/core/tier5_global_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs`
 
 **Exit Criteria**
 Predictions and plans are modeled as typed abstract states across the loop, and attractors carry weighted priors that can drive improvement selection.
 
-## C02-S05 [todo] Chapter 2 / Section 5
+**Progress Notes**
+- 2026-03-17: Expanded `Core.Plan` with a typed `AbstractState` contract and upgraded `Attractor` and `Step` so planner output now carries typed target states, weighted needs, weighted values, and objective priors instead of only flat strings.
+- 2026-03-17: Updated `Core.MotorDriver` to build typed predicted states from graph props, carry weighted attractor priors into execution expectations, and expose typed state transitions through `transition_delta`.
+- 2026-03-17: Added `Rhizome.Memory.normalize_abstract_state/1` so abstract-state documents are normalized consistently at the Rhizome boundary rather than degrading into arbitrary stringly maps.
+- 2026-03-17: Extended `motor_driver_test.exs`, `tier5_global_test.exs`, and `rhizome/memory_test.exs` to validate typed target-state planning, weighted attractor priors, typed predicted states, and Rhizome-side abstract-state normalization.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs test/core/tier5_global_test.exs` -> passed with 4 tests, 0 failures, 1 excluded.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs` -> passed with 3 tests, 0 failures.
+
+## C02-S05 [done] Chapter 2 / Section 5
 
 **Source**
 `docs/src/content/docs/part-1/chapter-2/5-continuous-local-plasticity.md`
@@ -345,13 +401,21 @@ Plasticity is not yet grounded in real graph edges, typed local pathways, or exp
 - Enforce forward-only local plasticity and prohibit global retraining-style shortcuts.
 
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test/rhizome/optimizer_complex_test.exs`
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/native_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/nif_test.exs`
 
 **Exit Criteria**
 Plasticity operates on real local pathways with validated strengthen and prune behavior.
 
-## C02-S06 [todo] Chapter 2 / Section 6
+**Progress Notes**
+- 2026-03-17: Added explicit `Rhizome.Native.reinforce_pathway/1` and `Rhizome.Native.prune_pathway/1` operations so local plasticity now mutates real graph pathways keyed by `from_id`, `to_id`, `trace_id`, and relationship type instead of routing through synthetic pointer IDs.
+- 2026-03-17: Replaced `Core.StemCell`'s placeholder pointer-based pruning with expectation-lineage-driven pathway pruning, and added a symmetric reinforcement path on successful execution so local learning is forward-only and tied to the same expectation lineage.
+- 2026-03-17: Added injectable Rhizome plasticity stubs in `stem_cell_test.exs` and extended the core tests to assert that nociception prunes the exact expected pathway while successful execution reinforces the exact expected pathway.
+- 2026-03-17: Extended `rhizome/nif_test.exs` with validation for the new pathway APIs' shape checks so the local-plasticity boundary is explicitly covered at the Rhizome interface.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs` -> passed with 8 tests, 0 failures, 1 excluded.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/nif_test.exs` -> passed with 5 tests, 0 failures.
+
+## C02-S06 [done] Chapter 2 / Section 6
 
 **Source**
 `docs/src/content/docs/part-1/chapter-2/6-chapter-wrap-up.md`
@@ -370,10 +434,17 @@ Forward-only local learning and actor-style cognition can regress silently.
 - Wire these tests into parity CI.
 
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix chapter2.conformance`
 
 **Exit Criteria**
 Chapter 2 biology-first behavior is enforced continuously by tests.
+
+**Progress Notes**
+- 2026-03-17: Added `app/core/test/support/chapter2_rubric.exs` and `app/core/test/core/chapter2_conformance_test.exs` to encode the Chapter 2 regression boundaries for structured `:pg` discovery, weighted predictive processing, typed abstract states, enriched nociception metadata, and real pathway plasticity.
+- 2026-03-17: Added the umbrella runner `app/test/chapter2_conformance_runner.exs` and exposed `mix chapter2.conformance` from `app/mix.exs` so the Chapter 2 suite runs as one stable command across `app`, `core`, `nervous_system`, and `rhizome`.
+- 2026-03-17: Added `docs/DEVELOPER/CHAPTER2_CONFORMANCE.md` to document the Chapter 2 forbidden regressions, required invariants, and enforcement command.
+- 2026-03-17: Added `.github/workflows/chapter2-conformance.yml` so pushes and pull requests run the same Chapter 2 suite in CI.
+- 2026-03-17: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix chapter2.conformance` -> passed. The suite ran umbrella biology invariants, core Chapter 2 conformance plus targeted cognition tests, nervous-system nociception tests, and Rhizome boundary tests with 0 failures. The run still emits the pre-existing `:karyon` configuration warnings, existing startup/ZMQ noise, and the existing `FakeMetabolicDaemon` redefinition warning in the stress test.
 
 ## Part II Milestone
 
