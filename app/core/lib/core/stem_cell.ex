@@ -371,6 +371,7 @@ defmodule Core.StemCell do
       state
       |> execution_outcome_base(action, params)
       |> Map.merge(execution_outcome_payload(outcome))
+      |> Core.LearningLoop.annotate_execution_outcome()
 
     case memory_module().submit_execution_outcome(payload) do
       {:ok, _} ->
@@ -383,7 +384,7 @@ defmodule Core.StemCell do
   end
 
   defp persist_prediction_error(payload) when is_map(payload) do
-    case memory_module().submit_prediction_error(payload) do
+    case payload |> Core.LearningLoop.annotate_prediction_error() |> memory_module().submit_prediction_error() do
       {:ok, _} ->
         :ok
 
@@ -410,19 +411,28 @@ defmodule Core.StemCell do
   end
 
   defp execution_failure_payload(state, action, params, reason) do
+    recorded_at = iso_timestamp()
+
     %{
       "id" => "prediction_error:#{state.lineage_id}:execution_failure:#{System.system_time(:second)}",
       "cell_id" => state.lineage_id,
       "source_cell_id" => state.lineage_id,
       "type" => "execution_failure",
       "message" => "execution failed for #{action}",
+      "recorded_at" => recorded_at,
+      "observed_at" => recorded_at,
+      "timestamp_unit" => "iso8601",
       "metadata" => %{
         "action" => action,
         "executor" => executor_label(state.dna_spec),
         "vm_id" => extract_vm_id(params),
         "reason" => inspect(reason),
         "event_source" => "execution",
-        "expectation_lineage" => expectation_lineage(state.expectations)
+        "schema_version" => "2026-03-18",
+        "correction_type" => "prune_pathway",
+        "correction_status" => "applied",
+        "expectation_lineage" => expectation_lineage(state.expectations),
+        "correction_targets" => correction_targets(expectation_lineage(state.expectations))
       },
       "status" => "failure",
       "vfe" => 1.0,
@@ -433,15 +443,30 @@ defmodule Core.StemCell do
   end
 
   defp nociception_payload(state, prediction_error, metadata, vfe, utility_threshold, expectation_lineage) do
+    recorded_at = iso_timestamp()
+    correction_type = if(vfe > utility_threshold, do: "prune_pathway", else: "observe_only")
+    correction_status = if(vfe > utility_threshold, do: "applied", else: "observed")
+
     %{
       "id" => "prediction_error:#{state.lineage_id}:#{prediction_error.type}:#{prediction_error.timestamp}",
       "cell_id" => state.lineage_id,
       "source_cell_id" => prediction_error.cell_id,
       "type" => prediction_error.type,
       "message" => prediction_error.message,
+      "recorded_at" => recorded_at,
+      "observed_at" => proto_timestamp_to_iso(prediction_error.timestamp),
+      "timestamp_unit" => "iso8601",
       "metadata" =>
         metadata
         |> Map.put_new("event_source", "nociception")
+        |> Map.put("schema_version", "2026-03-18")
+        |> Map.put("correction_type", correction_type)
+        |> Map.put("correction_status", correction_status)
+        |> Map.put("recorded_at", recorded_at)
+        |> Map.put("timestamp_unit", "iso8601")
+        |> Map.put("proto_timestamp", prediction_error.timestamp)
+        |> Map.put("proto_timestamp_unit", "second")
+        |> Map.put("correction_targets", correction_targets(expectation_lineage))
         |> Map.put("expectation_lineage", expectation_lineage)
         |> stringify_nested(),
       "status" => if(vfe > utility_threshold, do: "pruned", else: "observed"),
@@ -782,6 +807,19 @@ defmodule Core.StemCell do
 
   defp normalize_prediction_metadata(metadata), do: normalize_metadata_map(metadata)
 
+  defp correction_targets(expectation_lineage) when is_list(expectation_lineage) do
+    Enum.map(expectation_lineage, fn lineage ->
+      %{
+        "from_id" => Map.get(lineage, "source_step_id", "unknown_step"),
+        "to_id" => Map.get(lineage, "source_attractor_id", "unknown_attractor"),
+        "trace_id" => Map.get(lineage, "trace_id", "pain"),
+        "target_kind" => "pathway"
+      }
+    end)
+  end
+
+  defp correction_targets(_), do: []
+
   defp normalize_metadata_map(value) when is_map(value) do
     Map.new(value, fn {key, nested_value} ->
       normalized_value =
@@ -852,6 +890,19 @@ defmodule Core.StemCell do
         "metadata" => stringify_nested(expectation.metadata)
       }
     end)
+  end
+
+  defp proto_timestamp_to_iso(timestamp) when is_integer(timestamp) do
+    timestamp
+    |> DateTime.from_unix!(:second)
+    |> DateTime.truncate(:second)
+    |> DateTime.to_iso8601()
+  end
+
+  defp proto_timestamp_to_iso(_), do: iso_timestamp()
+
+  defp iso_timestamp do
+    DateTime.utc_now() |> DateTime.truncate(:microsecond) |> DateTime.to_iso8601()
   end
 
   defp plasticity_pathway(expectation) do

@@ -177,7 +177,15 @@ defmodule Core.StemCellTest do
     assert prediction_error["vfe"] == 0.8
     assert prediction_error["cell_id"] == active_dna
     assert prediction_error["source_cell_id"] == ""
+    assert prediction_error["timestamp_unit"] == "iso8601"
+    assert is_binary(prediction_error["recorded_at"])
+    assert is_binary(prediction_error["observed_at"])
+    assert prediction_error["metadata"]["schema_version"] == "2026-03-18"
     assert prediction_error["metadata"]["event_source"] == "nociception"
+    assert prediction_error["metadata"]["correction_type"] == "prune_pathway"
+    assert prediction_error["metadata"]["correction_status"] == "applied"
+    assert [%{"from_id" => "step-1001", "to_id" => "attractor-1", "target_kind" => "pathway", "trace_id" => "trace-1001"}] =
+             prediction_error["metadata"]["correction_targets"]
     assert [%{"trace_id" => "trace-1001", "objective_weight" => 1.0}] = prediction_error["expectation_lineage"]
     assert_received {:pathway_pruned, pathway}
     assert pathway[:from_id] == "step-1001"
@@ -303,6 +311,8 @@ defmodule Core.StemCellTest do
     assert outcome["vm_id"] == "test_vm"
     assert outcome["executor"] == "Core.TestSupport.ExecutorStub.capture_output"
     assert outcome["cell_id"] == specialized_dna
+    assert outcome["learning_phase"] == "action_feedback"
+    assert outcome["learning_edge"] == "action_feedback->plasticity"
     assert outcome["result"]["exit_code"] == 0
   end
 
@@ -343,6 +353,14 @@ defmodule Core.StemCellTest do
     assert prediction_error["type"] == "execution_failure"
     assert prediction_error["status"] == "failure"
     assert prediction_error["cell_id"] == "failure_cell"
+    assert prediction_error["learning_phase"] == "prediction_error"
+    assert prediction_error["timestamp_unit"] == "iso8601"
+    assert is_binary(prediction_error["recorded_at"])
+    assert prediction_error["metadata"]["learning_phase"] == "prediction_error"
+    assert prediction_error["metadata"]["learning_edge"] == "prediction_error->plasticity"
+    assert prediction_error["metadata"]["schema_version"] == "2026-03-18"
+    assert prediction_error["metadata"]["correction_type"] == "prune_pathway"
+    assert prediction_error["metadata"]["correction_status"] == "applied"
     assert prediction_error["metadata"]["action"] == "patch_codebase"
     assert is_list(prediction_error["expectation_lineage"])
   end

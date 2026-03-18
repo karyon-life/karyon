@@ -6,6 +6,18 @@ defmodule Core.RecoveryChaosIntegrationTest do
   @restart_timeout_ms 5_000
   @poll_interval_ms 50
 
+  defmodule FakeMetabolicDaemon do
+    use GenServer
+
+    def start_link(opts \\ []) do
+      pressure = Keyword.get(opts, :pressure, :low)
+      GenServer.start_link(__MODULE__, pressure, name: Core.MetabolicDaemon)
+    end
+
+    def init(pressure), do: {:ok, pressure}
+    def handle_call(:get_pressure, _from, pressure), do: {:reply, pressure, pressure}
+  end
+
   setup_all do
     case Core.ServiceHealth.ensure_ready([:memgraph, :xtdb, :nats]) do
       :ok ->
@@ -87,38 +99,75 @@ defmodule Core.RecoveryChaosIntegrationTest do
   end
 
   defp measure_cell_apoptosis_recovery do
-    dna_path = Path.expand("../../config/genetics/base_stem_cell.yml", __DIR__)
+    with_fake_low_pressure_daemon(fn ->
+      dna_path = Path.expand("../../config/genetics/base_stem_cell.yml", __DIR__)
 
-    beliefs = %{
-      "source" => "phase6_recovery_chaos",
-      "marker" => Integer.to_string(System.unique_integer([:positive])),
-      "restored" => true
-    }
+      beliefs = %{
+        "source" => "phase6_recovery_chaos",
+        "marker" => Integer.to_string(System.unique_integer([:positive])),
+        "restored" => "true"
+      }
 
-    assert {:ok, %{raw: _}} = Rhizome.Native.xtdb_submit(dna_path, %{"beliefs" => beliefs})
+      assert {:ok, %{id: _}} =
+               Rhizome.Memory.checkpoint_cell_state(%{
+                 "lineage_id" => dna_path,
+                 "dna_path" => dna_path,
+                 "beliefs" => beliefs,
+                 "expectations" => %{},
+                 "status" => "active",
+                 "atp_metabolism" => 1.0
+               })
 
-    {:ok, original_pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
-    on_exit(fn -> if Process.alive?(original_pid), do: Core.EpigeneticSupervisor.apoptosis(original_pid) end)
+      {:ok, original_pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
 
-    assert_cell_beliefs(original_pid, beliefs)
+      on_exit(fn ->
+        if Process.alive?(original_pid), do: Core.EpigeneticSupervisor.apoptosis(original_pid)
+      end)
 
-    started_at = System.monotonic_time(:millisecond)
-    :ok = Core.EpigeneticSupervisor.apoptosis(original_pid)
-    wait_until(fn -> not Process.alive?(original_pid) end, @restart_timeout_ms)
+      assert_cell_beliefs(original_pid, beliefs)
 
-    {:ok, restarted_pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
-    on_exit(fn -> if Process.alive?(restarted_pid), do: Core.EpigeneticSupervisor.apoptosis(restarted_pid) end)
+      started_at = System.monotonic_time(:millisecond)
+      :ok = Core.EpigeneticSupervisor.apoptosis(original_pid)
+      wait_until(fn -> not Process.alive?(original_pid) end, @restart_timeout_ms)
 
-    recovery_ms = System.monotonic_time(:millisecond) - started_at
-    assert_cell_beliefs(restarted_pid, beliefs)
+      {:ok, restarted_pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
 
-    %{
-      dna_path: dna_path,
-      original_pid: inspect(original_pid),
-      restarted_pid: inspect(restarted_pid),
-      recovery_ms: recovery_ms,
-      recovered_beliefs: true
-    }
+      on_exit(fn ->
+        if Process.alive?(restarted_pid), do: Core.EpigeneticSupervisor.apoptosis(restarted_pid)
+      end)
+
+      recovery_ms = System.monotonic_time(:millisecond) - started_at
+      assert_cell_beliefs(restarted_pid, beliefs)
+
+      %{
+        dna_path: dna_path,
+        original_pid: inspect(original_pid),
+        restarted_pid: inspect(restarted_pid),
+        recovery_ms: recovery_ms,
+        recovered_beliefs: true
+      }
+    end)
+  end
+
+  defp with_fake_low_pressure_daemon(fun) do
+    original_pid = Process.whereis(Core.MetabolicDaemon)
+
+    if Process.whereis(Core.Supervisor) && is_pid(original_pid) do
+      Supervisor.terminate_child(Core.Supervisor, Core.MetabolicDaemon)
+      Supervisor.delete_child(Core.Supervisor, Core.MetabolicDaemon)
+    end
+
+    {:ok, fake_daemon} = FakeMetabolicDaemon.start_link(pressure: :low)
+
+    try do
+      fun.()
+    after
+      if Process.alive?(fake_daemon), do: GenServer.stop(fake_daemon)
+
+      if Process.whereis(Core.Supervisor) do
+        Supervisor.start_child(Core.Supervisor, {Core.MetabolicDaemon, []})
+      end
+    end
   end
 
   defp verify_metabolic_daemon do
@@ -134,7 +183,23 @@ defmodule Core.RecoveryChaosIntegrationTest do
     assert is_pid(pain_synapse)
     assert Process.alive?(pain_synapse)
 
-    NervousSystem.PainReceptor.trigger_nociception(%{module: Core.RecoveryChaosIntegrationTest})
+    NervousSystem.PainReceptor.trigger_nociception(%{module: Core.RecoveryChaosIntegrationTest, reason: "restart_probe"})
+
+    metadata =
+      wait_until(
+        fn ->
+          case :sys.get_state(pain_receptor) do
+            %{last_emitted_pain: %{} = metadata} -> {:ok, metadata}
+            _ -> :retry
+          end
+        end,
+        @restart_timeout_ms
+      )
+
+    assert Map.get(metadata, "schema_version") == "2026-03-18"
+    assert Map.get(metadata, "correction_type") == "pending_graph_correction"
+    assert Map.get(metadata, "correction_status") == "pending"
+    assert Map.get(metadata, "learning_phase") == "prediction_error"
   end
 
   defp verify_consolidation_manager do
