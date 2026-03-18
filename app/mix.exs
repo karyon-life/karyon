@@ -18,6 +18,8 @@ defmodule App.MixProject do
       preferred_envs: [
         "biology.invariants": :test,
         "chapter2.conformance": :test,
+        "chapter8.conformance": :test,
+        "chapter7.conformance": :test,
         "chapter6.conformance": :test,
         "chapter5.conformance": :test,
         "chapter4.conformance": :test,
@@ -53,6 +55,8 @@ defmodule App.MixProject do
     [
       "biology.invariants": ["run --no-start test/biology_first_invariants_runner.exs"],
       "chapter2.conformance": ["run --no-start test/chapter2_conformance_runner.exs"],
+      "chapter8.conformance": ["run --no-start test/chapter8_conformance_runner.exs"],
+      "chapter7.conformance": ["run --no-start test/chapter7_conformance_runner.exs"],
       "chapter6.conformance": ["run --no-start test/chapter6_conformance_runner.exs"],
       "chapter5.conformance": ["run --no-start test/chapter5_conformance_runner.exs"],
       "chapter4.conformance": ["run --no-start test/chapter4_conformance_runner.exs"],
