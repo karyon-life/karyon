@@ -1180,7 +1180,7 @@ Chapter 6 adaptive-map parity is defended by dedicated tests.
 Milestone condition:
 All Chapter 7 and Chapter 8 phases are `[done]`, sensory and motor boundaries are deterministic and secure, and all physical action crosses a validated planning-to-action membrane.
 
-## C07-S01 [todo] Chapter 7 / Section 1
+## C07-S01 [done] Chapter 7 / Section 1
 
 **Source**
 `docs/src/content/docs/part-4/chapter-7/1-introduction.md`
@@ -1204,7 +1204,14 @@ The sensory perimeter is not explicitly defined or enforced.
 **Exit Criteria**
 The sensory perimeter is explicit and enforced.
 
-## C07-S02 [todo] Chapter 7 / Section 2
+**Progress Notes**
+- 2026-03-18: Added `app/sensory/lib/sensory/perimeter.ex` as the canonical sensory perimeter contract, defining the allowed organs (`eyes`, `ears`, `skin`), their explicit ingest surfaces, and the permitted transport for each surface.
+- 2026-03-18: Updated `app/sensory/lib/sensory.ex` to expose the perimeter contract and validation API so sensory ingress policy is available through the top-level boundary instead of remaining implicit.
+- 2026-03-18: Updated `app/sensory/lib/sensory/stream_supervisor.ex` so subscriptions are validated against the perimeter at startup and unsupported ingest paths are rejected before any listener loop begins.
+- 2026-03-18: Added `app/sensory/test/sensory/perimeter_test.exs` and validated the stream boundary in `app/sensory/test/sensory/stream_test.exs` so unsupported organs, surfaces, and transports are rejected by policy.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix compile`; `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix test test/sensory/perimeter_test.exs test/sensory/stream_test.exs` -> sensory perimeter contract and supervisor enforcement suites passed.
+
+## C07-S02 [done] Chapter 7 / Section 2
 
 **Source**
 `docs/src/content/docs/part-4/chapter-7/2-the-eyes-deterministic-parsing.md`
@@ -1230,7 +1237,14 @@ The Eyes are not yet a production deterministic parsing organ.
 **Exit Criteria**
 Repository parsing is deterministic, structural, and graph-projected.
 
-## C07-S03 [todo] Chapter 7 / Section 3
+**Progress Notes**
+- 2026-03-18: Added `app/sensory/lib/sensory/eyes.ex` as the deterministic repository perception pipeline. It walks repository files in sorted order, restricts parsing to supported source types, and builds stable repository/file/AST summaries from the native `parse_to_graph/2` path.
+- 2026-03-18: Updated `app/sensory/lib/sensory.ex` to expose `parse_repository/2` and `project_repository/2`, making the Eyes organ a first-class sensory boundary instead of requiring direct raw NIF access.
+- 2026-03-18: Implemented typed Rhizome projection for repository topology through `Repository`, `RepositoryFile`, and `AstProjection` graph entities linked by `CONTAINS_FILE` and `PARSED_AS` relations.
+- 2026-03-18: Added `app/sensory/test/sensory/eyes_test.exs` to prove repository parsing is deterministic across repeated runs and that repository topology is persisted through typed memory calls.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix test test/sensory/eyes_test.exs test/sensory/ast_accuracy_test.exs test/sensory/perception_fidelity_test.exs` -> deterministic Eyes parsing and fidelity suites passed.
+
+## C07-S03 [done] Chapter 7 / Section 3
 
 **Source**
 `docs/src/content/docs/part-4/chapter-7/3-the-ears-telemetry-events.md`
@@ -1256,7 +1270,15 @@ Telemetry and event ingestion are not modeled as a first-class sensory organ.
 **Exit Criteria**
 Telemetry and events are ingested through a dedicated typed sensory path.
 
-## C07-S04 [todo] Chapter 7 / Section 4
+**Progress Notes**
+- 2026-03-18: Added `app/sensory/lib/sensory/ears.ex` as the passive typed ingestion boundary for telemetry events, log lines, webhook payloads, and tensor streams.
+- 2026-03-18: Updated `app/sensory/lib/sensory.ex` to expose `normalize_event/1` and `ingest_event/2`, making Ears a first-class sensory organ instead of implicit listener behavior.
+- 2026-03-18: Updated `app/sensory/lib/sensory/stream_supervisor.ex` so non-tensor ear subscriptions are normalized and projected through `Sensory.Ears` rather than being dropped as untyped payloads.
+- 2026-03-18: Added `app/sensory/test/sensory/ears_test.exs` to validate event normalization, typed Rhizome projection, and policy rejection for malformed or disallowed ear payloads.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix compile`; `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix test test/sensory/ears_test.exs test/sensory/perimeter_test.exs test/sensory/stream_test.exs` -> sensory Ears suites passed.
+- 2026-03-18: Dashboard compatibility check is still blocked by an existing dashboard dependency compile issue: running `mix test test/dashboard/telemetry_bridge_test.exs` in `app/dashboard` currently pulls `nervous_system` and fails before test execution because `protoc` is unavailable in that app-local dependency build path.
+
+## C07-S04 [done] Chapter 7 / Section 4
 
 **Source**
 `docs/src/content/docs/part-4/chapter-7/4-the-skin-spatial-poolers.md`
@@ -1281,7 +1303,14 @@ The generic protocol-discovery layer does not exist.
 **Exit Criteria**
 Unknown payload structures can be pooled and projected without ad hoc parsing shortcuts.
 
-## C07-S05 [todo] Chapter 7 / Section 5
+**Progress Notes**
+- 2026-03-18: Added `app/sensory/lib/sensory/skin.ex` as the generic opaque-payload discovery layer for text and binary protocol frames.
+- 2026-03-18: Updated `app/sensory/lib/sensory.ex` to expose `discover_payload/2`, making Skin a first-class sensory organ instead of leaving unknown payload handling to raw byte quantization.
+- 2026-03-18: Bound Skin output to the existing Rhizome pooling path by persisting `opaque_structure` abstractions through `persist_pooled_pattern/1`, reusing the same Hebbian memory surface as other pooled patterns.
+- 2026-03-18: Added `app/sensory/test/sensory/skin_test.exs` to validate repeated opaque-text and opaque-binary structure discovery and projection through the pooling boundary.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix compile`; `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix test test/sensory/skin_test.exs test/sensory/spatial_pooler_test.exs test/sensory/quantizer_test.exs` -> Skin and pooling suites passed.
+
+## C07-S05 [done] Chapter 7 / Section 5
 
 **Source**
 `docs/src/content/docs/part-4/chapter-7/5-chapter-wrap-up.md`
@@ -1304,7 +1333,13 @@ Sensory drift can reintroduce heuristic or blocking behavior.
 **Exit Criteria**
 Chapter 7 sensory parity is continuously validated.
 
-## C08-S01 [todo] Chapter 8 / Section 1
+**Progress Notes**
+- 2026-03-18: Added the umbrella Chapter 7 runner at `app/test/chapter7_conformance_runner.exs` and wired `mix chapter7.conformance` through `app/mix.exs` so the sensory perimeter, Eyes, Ears, Skin, and non-blocking stream surface are defended by one repeatable gate.
+- 2026-03-18: Added `docs/DEVELOPER/CHAPTER7_CONFORMANCE.md` to document the Chapter 7 sensory contract and the regressions that should break the gate.
+- 2026-03-18: Added `.github/workflows/chapter7-conformance.yml` so the Chapter 7 sensory suite is enforced in CI on pushes and pull requests.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix chapter7.conformance` -> umbrella Chapter 7 sensory conformance passed.
+
+## C08-S01 [done] Chapter 8 / Section 1
 
 **Source**
 `docs/src/content/docs/part-4/chapter-8/1-introduction.md`
@@ -1329,7 +1364,14 @@ There is no single authoritative boundary object for planned action.
 **Exit Criteria**
 Every action is derived from and validated against a typed execution-intent contract.
 
-## C08-S02 [todo] Chapter 8 / Section 2
+**Progress Notes**
+- 2026-03-18: Added `Core.ExecutionIntent` as the typed planning-to-action membrane, carrying executor identity, default args, plan attractor linkage, step lineage, target state, transition delta, and execution metadata.
+- 2026-03-18: Updated `Core.MotorDriver` to derive execution intents from typed plans and dispatch them through `{:execute_intent, intent}` instead of raw plan maps.
+- 2026-03-18: Updated `Core.StemCell` so both direct `{:execute, action, params}` calls and plan-driven dispatch are normalized into validated execution intents before executor invocation, with execution outcome and prediction-error persistence now recording `execution_intent_id` and the typed intent snapshot.
+- 2026-03-18: Updated `Sandbox.Executor` and the execution stubs to consume the membrane as a typed data payload rather than a loosely shaped params-only map, and added dedicated core and sandbox tests for the contract.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs test/core/stem_cell_test.exs test/core/microkernel_sterility_test.exs` -> passed with 12 tests, 0 failures, 2 excluded. `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/executor_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_isolation_test.exs` -> passed with 17 tests, 0 failures, 1 excluded; sandbox teardown still emitted the expected non-root `iptables` cleanup noise.
+
+## C08-S02 [done] Chapter 8 / Section 2
 
 **Source**
 `docs/src/content/docs/part-4/chapter-8/2-linguistic-motor-cells.md`
@@ -1355,7 +1397,13 @@ Human-facing output is not modeled as a dedicated motor organ.
 **Exit Criteria**
 Human-facing output is produced by a bounded linguistic motor surface derived from internal state.
 
-## C08-S03 [todo] Chapter 8 / Section 3
+**Progress Notes**
+- 2026-03-18: Added `Core.OperatorOutput` as a deterministic operator-language surface with bounded templates for status reports, plans, and execution intents under the `karyon.operator-output.v1` format.
+- 2026-03-18: Added core regression coverage to enforce deterministic phrasing, bounded line lengths, and rejection of unsupported free-form payloads.
+- 2026-03-18: Updated `Dashboard.OperatorHealth` and the health controller responses so `live`, `ready`, and `status` all expose an `operator_brief` generated from typed internal state rather than ad hoc prose.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/operator_output_test.exs` -> passed with 4 tests, 0 failures. `cd /home/adrian/Projects/nexical/karyon/app/dashboard && env PATH=/tmp/protoc/bin:$PATH mix test test/dashboard_web/controllers/health_controller_test.exs test/dashboard/telemetry_bridge_test.exs` -> passed with 4 tests, 0 failures after supplying the fallback `protoc` toolchain required by the dashboard-local `nervous_system` compile path.
+
+## C08-S03 [done] Chapter 8 / Section 3
 
 **Source**
 `docs/src/content/docs/part-4/chapter-8/3-the-sandbox.md`
@@ -1382,7 +1430,14 @@ The sandbox is a partial membrane rather than the full planning Rubicon the book
 **Exit Criteria**
 Irreversible action is gated, isolated, auditable, and telemetry-fed end to end.
 
-## C08-S04 [todo] Chapter 8 / Section 4
+**Progress Notes**
+- 2026-03-18: Added `Sandbox.WRS` as a world-reliability gate for sandbox execution intents, requiring sandbox-owned executors, typed plan lineage for `execute_plan`, and sandbox-jail validation for any host path surfaced through the membrane.
+- 2026-03-18: Extended `Sandbox.Executor` so plan-carrying execution intents no longer short-circuit to output capture. They now stage an intent, pass WRS authorization, provision a dedicated microVM membrane, run a plan-driven mutation/compile/test loop, and then return telemetry plus audit provenance.
+- 2026-03-18: Extended `Sandbox.Provisioner` with staged execution-intent manifests, execution telemetry, audit persistence, and enriched capture results that include WRS decisions, audit records, and telemetry snapshots in both mock and host-backed modes.
+- 2026-03-18: Updated `motor_firecracker.yml` so the Firecracker motor cell explicitly authorizes `execute_plan`, closing the previously missing action admission path for plan-driven sandbox execution.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/executor_test.exs test/sandbox/wrs_test.exs test/sandbox/provisioner_test.exs test/sandbox/security_audit_test.exs test/sandbox/security_isolation_test.exs` -> passed with 23 tests, 0 failures, 1 excluded. `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/dna_control_plane_test.exs test/core/motor_driver_test.exs` -> passed with 7 tests, 0 failures, 1 excluded. The dedicated real-host Firecracker end-to-end action exercise remains a separate host-environment validation step beyond the current mock-backed test run.
+
+## C08-S04 [done] Chapter 8 / Section 4
 
 **Source**
 `docs/src/content/docs/part-4/chapter-8/4-friction-mirror-neurons.md`
@@ -1408,7 +1463,14 @@ The alignment loop for human interaction is missing entirely.
 **Exit Criteria**
 Human feedback affects bounded socio-linguistic pathways without contaminating core logic.
 
-## C08-S05 [todo] Chapter 8 / Section 5
+**Progress Notes**
+- 2026-03-18: Added `Core.OperatorFeedback` as the typed operator-friction surface, with explicit rejection of protected architectural domains such as `core_planning`, `execution_membrane`, and `sandbox_policy`.
+- 2026-03-18: Added `template_id` tagging to bounded operator-language briefs so friction and approval events can prune or reinforce phrase pathways at the template and field level without altering planning or execution contracts.
+- 2026-03-18: Added `Rhizome.Memory.submit_operator_feedback_event/1` and the corresponding topology contract so socio-linguistic friction is persisted as a typed temporal document and projected into graph form as `OperatorFeedbackEvent -> OperatorTemplate` relationships.
+- 2026-03-18: Added `Dashboard.OperatorFeedback` as the dashboard-facing adapter for bounded operator correction capture, keeping the UI surface thin and delegating all enforcement to the core feedback module.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/operator_output_test.exs test/core/operator_feedback_test.exs` -> passed with 7 tests, 0 failures. `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs` -> passed with 11 tests, 0 failures. `cd /home/adrian/Projects/nexical/karyon/app/dashboard && env PATH=/tmp/protoc/bin:$PATH mix test test/dashboard/operator_feedback_test.exs test/dashboard_web/controllers/health_controller_test.exs` -> passed with 4 tests, 0 failures after supplying the fallback `protoc` toolchain required by the dashboard-local compile path.
+
+## C08-S05 [done] Chapter 8 / Section 5
 
 **Source**
 `docs/src/content/docs/part-4/chapter-8/5-chapter-wrap-up.md`
@@ -1431,6 +1493,12 @@ Planning, membrane, and operator feedback can drift independently.
 
 **Exit Criteria**
 Chapter 8 action parity is protected by dedicated validation.
+
+**Progress Notes**
+- 2026-03-18: Added the umbrella `mix chapter8.conformance` gate in `app/mix.exs` and implemented it in `app/test/chapter8_conformance_runner.exs` to compose the Chapter 8 core, sandbox, Rhizome, and dashboard validation surfaces.
+- 2026-03-18: Added `docs/DEVELOPER/CHAPTER8_CONFORMANCE.md` to document the Chapter 8 behavioral contract and the specific failure modes the gate is designed to catch.
+- 2026-03-18: Added `.github/workflows/chapter8-conformance.yml` so Chapter 8 action parity is enforced in CI, including installation of `protobuf-compiler` for the dashboard-local `nervous_system` compile path.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix chapter8.conformance` -> passed. The umbrella gate covered typed execution-intent dispatch, bounded operator output, WRS-gated sandbox execution with audit and telemetry, Rhizome operator-feedback persistence, and dashboard feedback plus health output surfaces. Existing startup noise still includes the known `:karyon` config warning, non-distributed node warning, and expected sandbox negative-path security logs.
 
 ## Part V Milestone
 
