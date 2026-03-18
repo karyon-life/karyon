@@ -36,15 +36,15 @@ defmodule NervousSystem.PainReceptorTest do
     # 2. Start the PainReceptor for the test with EXPLICIT address
     {:ok, pid} = NervousSystem.PainReceptor.start_link(%{address: address})
     
-    on_exit(fn -> 
-      if Process.alive?(pid), do: GenServer.stop(pid)
+    on_exit(fn ->
+      stop_if_alive(pid)
       stop_if_alive(:pain_synapse)
     end)
     
     {:ok, pid: pid, address: address}
   end
 
-  defp wait_for_ready(name, attempts \\ 20) do
+  defp wait_for_ready(name, attempts) do
     if Process.whereis(name) do
       :ok
     else
@@ -57,16 +57,23 @@ defmodule NervousSystem.PainReceptorTest do
     end
   end
 
+  defp stop_if_alive(pid) when is_pid(pid) do
+    if Process.alive?(pid) do
+      try do
+        Process.unlink(pid)
+        GenServer.stop(pid)
+      catch
+        :exit, _ -> :ok
+      end
+    else
+      :ok
+    end
+  end
+
   defp stop_if_alive(name) do
     case GenServer.whereis(name) do
       nil -> :ok
-      pid ->
-        try do
-          Process.unlink(pid)
-          GenServer.stop(pid)
-        catch
-          :exit, _ -> :ok
-        end
+      pid -> stop_if_alive(pid)
     end
   end
 
@@ -105,6 +112,14 @@ defmodule NervousSystem.PainReceptorTest do
     assert decoded.type == "nociception"
     assert Map.get(decoded.metadata, "reason") == "crash"
     assert Map.get(decoded.metadata, "event_source") == "telemetry"
+    assert Map.get(decoded.metadata, "schema_version") == "2026-03-18"
+    assert Map.get(decoded.metadata, "learning_phase") == "prediction_error"
+    assert Map.get(decoded.metadata, "learning_edge") == "prediction_error->plasticity"
+    assert Map.get(decoded.metadata, "timestamp_unit") == "iso8601"
+    assert Map.get(decoded.metadata, "proto_timestamp_unit") == "second"
+    assert Map.get(decoded.metadata, "correction_type") == "pending_graph_correction"
+    assert Map.get(decoded.metadata, "correction_status") == "pending"
+    assert is_binary(Map.get(decoded.metadata, "recorded_at"))
     assert Map.get(decoded.metadata, "event_fingerprint") == "Elixir.NervousSystem.PainReceptorTest:crash"
     assert is_binary(Map.get(decoded.metadata, "trace_id"))
   end
@@ -126,6 +141,28 @@ defmodule NervousSystem.PainReceptorTest do
     metadata = %{reason: "loop", module: NervousSystem.Synapse}
     :telemetry.execute([:logger, :error], %{count: 1}, metadata)
 
+    refute_receive {:synapse_recv, ^sub_pid, _payload}, 500
+  end
+
+  test "suppresses duplicate pain bursts for the same fingerprint", %{address: address} do
+    {:ok, sub_pid} =
+      NervousSystem.Synapse.start_link(
+        type: :sub,
+        bind: address,
+        action: :connect,
+        owner: self()
+      )
+
+    on_exit(fn -> if Process.alive?(sub_pid), do: GenServer.stop(sub_pid) end)
+
+    :ok = GenServer.call(sub_pid, {:subscribe, ""})
+    Process.sleep(200)
+
+    metadata = %{reason: "burst", module: __MODULE__}
+    :telemetry.execute([:logger, :error], %{count: 1}, metadata)
+    :telemetry.execute([:logger, :error], %{count: 1}, metadata)
+
+    assert_receive {:synapse_recv, ^sub_pid, _payload}, 5_000
     refute_receive {:synapse_recv, ^sub_pid, _payload}, 500
   end
 end

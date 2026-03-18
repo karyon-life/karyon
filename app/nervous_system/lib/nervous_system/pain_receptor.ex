@@ -7,6 +7,8 @@ defmodule NervousSystem.PainReceptor do
   use GenServer
   require Logger
 
+  @prediction_error_schema_version "2026-03-18"
+
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -39,7 +41,15 @@ defmodule NervousSystem.PainReceptor do
       %{receptor: self()}
     )
 
-    {:ok, %{synapse: synapse_pid, original_opts: opts, telemetry_handler_id: handler_id, last_pain_time: 0, last_fingerprint: nil}}
+    {:ok,
+     %{
+       synapse: synapse_pid,
+       original_opts: opts,
+       telemetry_handler_id: handler_id,
+       last_pain_time: 0,
+       last_fingerprint: nil,
+       last_emitted_pain: nil
+     }}
   end
 
   def handle_pain_signal(_event, _measurements, metadata, %{receptor: receptor_pid}) do
@@ -75,6 +85,8 @@ defmodule NervousSystem.PainReceptor do
   def trigger_nociception(metadata) do
     GenServer.cast(__MODULE__, {:trigger_nociception, metadata})
   end
+
+  def learning_phase, do: "prediction_error"
 
   @impl true
   def handle_cast({:trigger_nociception, metadata}, state) do
@@ -113,24 +125,36 @@ defmodule NervousSystem.PainReceptor do
       true ->
         Logger.info("[PainReceptor] Structural error intercepted! Preparing active inference nociception signal.")
 
+        proto_timestamp = System.system_time(:second)
+        recorded_at = iso_timestamp()
+
         enriched_metadata =
           normalized_metadata
           |> Map.put_new("event_source", source)
           |> Map.put_new("severity", "high")
+          |> Map.put_new("schema_version", @prediction_error_schema_version)
+          |> Map.put_new("learning_phase", learning_phase())
+          |> Map.put_new("learning_edge", "prediction_error->plasticity")
+          |> Map.put_new("recorded_at", recorded_at)
+          |> Map.put_new("timestamp_unit", "iso8601")
+          |> Map.put_new("proto_timestamp", Integer.to_string(proto_timestamp))
+          |> Map.put_new("proto_timestamp_unit", "second")
+          |> Map.put_new("correction_type", "pending_graph_correction")
+          |> Map.put_new("correction_status", "pending")
           |> Map.put("event_fingerprint", fingerprint)
           |> Map.put_new("trace_id", "pain:#{fingerprint}:#{System.system_time(:millisecond)}")
 
         msg = %Karyon.NervousSystem.PredictionError{
           type: "nociception",
           message: "Structural error intercepted in #{msg_mod || "unknown_module"}",
-          timestamp: System.system_time(:second),
+          timestamp: proto_timestamp,
           metadata: sanitize_metadata(enriched_metadata),
           cell_id: "pain-receptor"
         }
 
         send_encoded_pain(msg, state)
 
-        %{state | last_pain_time: now, last_fingerprint: fingerprint}
+        %{state | last_pain_time: now, last_fingerprint: fingerprint, last_emitted_pain: enriched_metadata}
     end
   end
 
@@ -169,6 +193,10 @@ defmodule NervousSystem.PainReceptor do
     module = Map.get(metadata, "module", "unknown")
     reason = Map.get(metadata, "reason") || Map.get(metadata, "error") || "unknown"
     "#{module}:#{reason}"
+  end
+
+  defp iso_timestamp do
+    DateTime.utc_now() |> DateTime.truncate(:microsecond) |> DateTime.to_iso8601()
   end
 
   defp serialize_term(term) when is_atom(term), do: Atom.to_string(term)
