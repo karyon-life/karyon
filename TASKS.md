@@ -94,37 +94,37 @@ Completion criterion: every `C03-*` and `C04-*` item is complete and validated.
 
 ## Part III: The Rhizome
 
-- [ ] `C05-S01` Introduction
+- [x] `C05-S01` Introduction
 Completion criterion: memory-topology contracts are explicit across the Rhizome boundary.
 
-- [ ] `C05-S02` Graph vs Matrix
+- [x] `C05-S02` Graph vs Matrix
 Completion criterion: high-level memory interfaces expose graph semantics and reject opaque shortcuts.
 
-- [ ] `C05-S03` Working Memory vs Archive
+- [x] `C05-S03` Working Memory vs Archive
 Completion criterion: working-memory and archive operations are clearly separated and tested.
 
-- [ ] `C05-S04` Multi-Version Concurrency Control
+- [x] `C05-S04` Multi-Version Concurrency Control
 Completion criterion: bitemporal and MVCC behavior is validated under concurrent access.
 
-- [ ] `C05-S05` Chapter Wrap-Up
+- [x] `C05-S05` Chapter Wrap-Up
 Completion criterion: Chapter 5 temporal graph parity is enforced by dedicated tests.
 
-- [ ] `C06-S01` Introduction
+- [x] `C06-S01` Introduction
 Completion criterion: the end-to-end learning and consolidation loop is explicit and validated.
 
-- [ ] `C06-S02` Hebbian Wiring & Spatial Pooling
+- [x] `C06-S02` Hebbian Wiring & Spatial Pooling
 Completion criterion: repeated structures produce validated pooled graph organization.
 
-- [ ] `C06-S03` The Pain Receptor
+- [x] `C06-S03` The Pain Receptor
 Completion criterion: pain signals are typed, reliable, and directly linked to graph correction.
 
-- [ ] `C06-S04` The Sleep Cycle
+- [x] `C06-S04` The Sleep Cycle
 Completion criterion: sleep performs abstraction, archival projection, and targeted pruning instead of blunt deletion.
 
-- [ ] `C06-S05` Chapter Wrap-Up
+- [x] `C06-S05` Chapter Wrap-Up
 Completion criterion: Chapter 6 adaptive-map parity is defended by dedicated tests.
 
-- [ ] Part III Complete
+- [x] Part III Complete
 Completion criterion: every `C05-*` and `C06-*` item is complete and validated.
 
 ## Part IV: Perception And Action

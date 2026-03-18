@@ -856,7 +856,7 @@ Chapter 4 regulation behavior is protected by dedicated regression coverage.
 Milestone condition:
 All Chapter 5 and Chapter 6 phases are `[done]`, working memory and archive are clearly separated, and learning or consolidation behavior operates on real graph semantics with validated temporal consistency.
 
-## C05-S01 [todo] Chapter 5 / Section 1
+## C05-S01 [done] Chapter 5 / Section 1
 
 **Source**
 `docs/src/content/docs/part-3/chapter-5/1-introduction.md`
@@ -880,7 +880,13 @@ The repo lacks a shared topological memory contract governing working memory, ar
 **Exit Criteria**
 Memory topology expectations are explicit and used across the Rhizome boundary.
 
-## C05-S02 [todo] Chapter 5 / Section 2
+**Progress Notes**
+- 2026-03-18: Added `Rhizome.MemoryTopology` in `app/rhizome/lib/rhizome/memory_topology.ex` as the canonical topology contract naming the working graph (`Memgraph`), temporal archive (`XTDB`), and consolidation flow (`Memgraph+XTDB`) layers plus their allowed operations.
+- 2026-03-18: Updated `app/rhizome/lib/rhizome/memory.ex` so the public Rhizome memory boundary now routes every memory-facing operation through the topology contract and exposes `topology_contract/0` plus `topology_for/1` for downstream conformance checks.
+- 2026-03-18: Added `app/rhizome/test/support/memory_topology_contract.exs` and expanded `app/rhizome/test/rhizome/memory_test.exs` so Chapter 5 now asserts both layer-level contracts and operation-level ownership for working graph state, archive state, and consolidation flow.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix compile` and `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs` -> compile passed; target Rhizome memory suite passed with 5 tests, 0 failures.
+
+## C05-S02 [done] Chapter 5 / Section 2
 
 **Source**
 `docs/src/content/docs/part-3/chapter-5/2-graph-vs-matrix.md`
@@ -905,7 +911,13 @@ Graph semantics are not enforced across all interfaces.
 **Exit Criteria**
 High-level memory interfaces expose graph semantics directly and forbid opaque shortcuts.
 
-## C05-S03 [todo] Chapter 5 / Section 3
+**Progress Notes**
+- 2026-03-18: Tightened `app/rhizome/lib/rhizome/memory.ex` so the public Rhizome memory boundary now rejects opaque raw Cypher strings and opaque JSON archive blobs, keeping blob-oriented access in the lower-level `Rhizome.Native` layer instead of the high-level memory API.
+- 2026-03-18: Added typed graph operations `upsert_graph_node/1` and `relate_graph_nodes/1` and rewired the existing execution-outcome, prediction-error, and differentiation-event projection paths through those graph-shaped contracts instead of hand-assembling open-coded Memgraph updates in each projection function.
+- 2026-03-18: Expanded `app/rhizome/test/rhizome/memory_test.exs` so Chapter 5 now enforces operation-level ownership for the new typed graph APIs and explicitly rejects opaque storage shortcuts at the high-level memory boundary.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix compile` and `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs test/rhizome_test.exs` -> compile passed; targeted Rhizome memory suites passed with 8 tests, 0 failures, 3 excluded.
+
+## C05-S03 [done] Chapter 5 / Section 3
 
 **Source**
 `docs/src/content/docs/part-3/chapter-5/3-working-memory-vs-archive.md`
@@ -931,7 +943,14 @@ Tier separation is incomplete and inconsistently enforced.
 **Exit Criteria**
 Every memory path clearly targets working memory, archive, or projection between them.
 
-## C05-S04 [todo] Chapter 5 / Section 4
+**Progress Notes**
+- 2026-03-18: Added explicit tier-named Rhizome APIs in `app/rhizome/lib/rhizome/memory.ex`: `query_working_memory/1` for active Memgraph state, `write_archive_document/2` and `query_archive/1` for immutable XTDB state, and `bridge_working_memory_to_archive/0` for projection between the tiers.
+- 2026-03-18: Extended `app/rhizome/lib/rhizome/memory_topology.ex` so the topology contract now names working-memory, archive, and projection operations directly instead of only exposing store-specific helper names.
+- 2026-03-18: Updated `app/rhizome/lib/rhizome/archiver.ex` and `app/rhizome/lib/rhizome/consolidation_manager.ex` so the runtime archive bridge flows through the explicit Rhizome memory boundary instead of reaching straight into `Rhizome.Native`.
+- 2026-03-18: Updated `app/rhizome/test/rhizome/service_integration_test.exs` and `app/rhizome/test/rhizome/bitemporal_test.exs` so Chapter 5 validation now exercises working-memory writes/reads, archive writes/queries, and the Memgraph-to-XTDB projection path as distinct semantics.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix compile` and `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs test/rhizome/bitemporal_test.exs test/rhizome/service_integration_test.exs` -> compile passed; targeted Rhizome tier-separation suites passed with 11 tests, 0 failures, 4 excluded.
+
+## C05-S04 [done] Chapter 5 / Section 4
 
 **Source**
 `docs/src/content/docs/part-3/chapter-5/4-multi-version-concurrency-control.md`
@@ -957,7 +976,14 @@ Bitemporal guarantees, version retention, and concurrency semantics are underpow
 **Exit Criteria**
 MVCC and bitemporal behavior are real, tested, and stable under concurrent access.
 
-## C05-S05 [todo] Chapter 5 / Section 5
+**Progress Notes**
+- 2026-03-18: Strengthened `app/rhizome/lib/rhizome/xtdb.ex` so archive writes now append revisioned documents instead of implicitly behaving like destructive overwrites. Each archive row now carries logical `xt/id`, `xt/revision`, `xt/valid_time`, and `xt/tx_time` metadata.
+- 2026-03-18: Updated archive query semantics so Rhizome returns the latest revision by default, while explicit `opts.history` returns the full revision stream and `opts.as_of` resolves archive state at a valid/transaction-time cutoff.
+- 2026-03-18: Expanded `app/rhizome/test/rhizome/temporal_query_test.exs` to validate latest-state, full-history, and `as_of` behavior for a single logical archive document across multiple revisions.
+- 2026-03-18: Reworked `app/rhizome/test/property/memory_consistency_test.exs` so concurrent archive writes must retain both revision history and correct latest-state semantics for each logical document instead of only checking that writes do not crash.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix compile`; `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/temporal_query_test.exs --include external`; `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/property/memory_consistency_test.exs --include external` -> compile passed; the external temporal suite passed with 1 test, 0 failures, and the external MVCC property suite passed with 1 property, 0 failures.
+
+## C05-S05 [done] Chapter 5 / Section 5
 
 **Source**
 `docs/src/content/docs/part-3/chapter-5/5-chapter-wrap-up.md`
@@ -981,7 +1007,14 @@ Topology and temporal guarantees can regress independently.
 **Exit Criteria**
 Chapter 5 temporal graph parity is enforced by dedicated tests.
 
-## C06-S01 [todo] Chapter 6 / Section 1
+**Progress Notes**
+- 2026-03-18: Added the umbrella Chapter 5 gate in `app/test/chapter5_conformance_runner.exs`, which composes the Rhizome memory-topology tests and, when Memgraph and XTDB are reachable, the service-backed temporal, integration, and MVCC property suites.
+- 2026-03-18: Wired `mix chapter5.conformance` into `app/mix.exs` as the canonical Chapter 5 temporal graph parity command.
+- 2026-03-18: Documented the gate in `docs/DEVELOPER/CHAPTER5_CONFORMANCE.md`, including the requirement that service-backed temporal validation must run automatically when the environment exposes Memgraph and XTDB.
+- 2026-03-18: Added CI enforcement in `.github/workflows/chapter5-conformance.yml` so pushes and pull requests must satisfy the Chapter 5 parity gate. The runner self-detects whether Memgraph and XTDB are reachable before executing the external suites.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix chapter5.conformance` -> passed. In the current environment, the runner detected reachable Memgraph and XTDB services and ran both the baseline Rhizome memory suites and the service-backed temporal suites successfully.
+
+## C06-S01 [done] Chapter 6 / Section 1
 
 **Source**
 `docs/src/content/docs/part-3/chapter-6/1-introduction.md`
@@ -1006,7 +1039,14 @@ The learning loop is fragmented and not defined end to end.
 **Exit Criteria**
 The learning loop is documented, implemented, and validated as one flow.
 
-## C06-S02 [todo] Chapter 6 / Section 2
+**Progress Notes**
+- 2026-03-18: Added `Core.LearningLoop` in `app/core/lib/core/learning_loop.ex` as the canonical contract for the five learning phases: perception, action feedback, prediction error, plasticity, and consolidation.
+- 2026-03-18: Threaded explicit learning-loop metadata through `Core.StemCell`, `NervousSystem.PainReceptor`, and `Rhizome.ConsolidationManager` so successful actions, failures, nociception, and sleep-cycle consolidation now expose stable phase and edge identifiers instead of remaining implicit.
+- 2026-03-18: Added `app/core/test/core/learning_loop_contract_test.exs` and extended `stem_cell_test.exs`, `pain_receptor_test.exs`, and `consolidation_manager_test.exs` so the organism validates the learning-loop contract across execution, prediction error, and consolidation boundaries.
+- 2026-03-18: Documented the explicit loop in `docs/DEVELOPER/LEARNING_LOOP.md`.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/learning_loop_contract_test.exs test/core/stem_cell_test.exs`; `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/pain_receptor_test.exs`; `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/consolidation_manager_test.exs` -> all targeted suites passed.
+
+## C06-S02 [done] Chapter 6 / Section 2
 
 **Source**
 `docs/src/content/docs/part-3/chapter-6/2-hebbian-wiring-spatial-pooling.md`
@@ -1032,7 +1072,14 @@ Learning from repeated structure is missing at the algorithmic level.
 **Exit Criteria**
 Repeated structural patterns produce validated pooled graph organization.
 
-## C06-S03 [todo] Chapter 6 / Section 3
+**Progress Notes**
+- 2026-03-18: Added `Sensory.SpatialPooler` in `app/sensory/lib/sensory/spatial_pooler.ex`, which derives repeated parent/child type co-occurrences from deterministic Tree-sitter graphs and treats them as Hebbian pooling candidates.
+- 2026-03-18: Added `Rhizome.Memory.persist_pooled_pattern/1` so pooled abstractions are persisted as typed `PooledPattern` and `PatternType` graph entities, while repeated co-occurrence reinforces `CO_OCCURS_WITH` pathways in working memory.
+- 2026-03-18: Added `app/sensory/test/sensory/spatial_pooler_test.exs` to validate that repeated sensory structures are pooled and persisted through the Rhizome boundary without using opaque query shortcuts.
+- 2026-03-18: Extended `app/rhizome/test/rhizome/optimizer_complex_test.exs` so repeated pooled patterns must reinforce a structural co-occurrence pathway in Memgraph.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix test test/sensory/spatial_pooler_test.exs test/sensory/native_test.exs`; `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/optimizer_complex_test.exs test/rhizome/memory_test.exs` -> targeted sensory and Rhizome pooling suites passed.
+
+## C06-S03 [done] Chapter 6 / Section 3
 
 **Source**
 `docs/src/content/docs/part-3/chapter-6/3-the-pain-receptor.md`
@@ -1058,7 +1105,13 @@ Pain is not yet a complete typed failure-to-graph update mechanism.
 **Exit Criteria**
 Pain signals are typed, reliable, and directly linked to graph correction.
 
-## C06-S04 [todo] Chapter 6 / Section 4
+**Progress Notes**
+- 2026-03-18: Standardized prediction-error metadata across `app/nervous_system/lib/nervous_system/pain_receptor.ex` and `app/core/lib/core/stem_cell.ex` so nociception and execution-failure events now carry a stable schema version, ISO-8601 observation and record timestamps, explicit timestamp-unit metadata, and typed correction semantics.
+- 2026-03-18: Extended `app/rhizome/lib/rhizome/memory.ex` so prediction errors project into working memory as `PredictionError`, `GraphCorrection`, and `GraphCorrectionTarget` entities linked by explicit graph edges instead of remaining an incomplete side-effect path.
+- 2026-03-18: Hardened `app/nervous_system/test/nervous_system/pain_receptor_test.exs` for duplicate-suppression and enriched metadata coverage, extended `app/core/test/core/stem_cell_test.exs` for typed correction targets, and stabilized `app/core/test/core/recovery_chaos_integration_test.exs` with a deterministic low-pressure daemon shim so external recovery validates graph-correction behavior rather than failing on unrelated starvation pressure.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/pain_receptor_test.exs`; `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/stem_cell_test.exs`; `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/recovery_chaos_integration_test.exs --include external` -> all targeted suites passed.
+
+## C06-S04 [done] Chapter 6 / Section 4
 
 **Source**
 `docs/src/content/docs/part-3/chapter-6/4-the-sleep-cycle-memory-consolidation.md`
@@ -1084,7 +1137,14 @@ Consolidation is too destructive and not abstract enough.
 **Exit Criteria**
 Sleep produces validated abstraction and archival behavior instead of blunt deletion.
 
-## C06-S05 [todo] Chapter 6 / Section 5
+**Progress Notes**
+- 2026-03-18: Reworked `app/rhizome/lib/rhizome/consolidation_manager.ex` so the sleep cycle now classifies candidate engrams, materializes `SleepSuperNode` abstractions for prunable clusters, bridges working memory to XTDB, and performs targeted in-place pruning metadata updates instead of issuing blunt `DETACH DELETE` calls.
+- 2026-03-18: Added explicit consolidation result reporting for classified candidates, generated abstractions, archival projection, and targeted memory relief so the sleep cycle exposes concrete abstraction and pruning outcomes instead of an opaque side effect.
+- 2026-03-18: Extended `app/rhizome/test/rhizome/consolidation_manager_test.exs` and `app/rhizome/test/rhizome/sleep_consolidation_test.exs` so Chapter 6 now validates super-node generation, archival projection, and non-destructive pruning behavior with deterministic stubs.
+- 2026-03-18: Updated `app/rhizome/test/rhizome/service_integration_test.exs` so the real-service regression surface enforces the non-destructive archive guarantee during consolidation rather than the pre-refactor delete semantics.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix compile`; `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/consolidation_manager_test.exs`; `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/sleep_consolidation_test.exs`; `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/service_integration_test.exs --include external` -> targeted and external Rhizome sleep-cycle suites passed.
+
+## C06-S05 [done] Chapter 6 / Section 5
 
 **Source**
 `docs/src/content/docs/part-3/chapter-6/5-chapter-wrap-up.md`
@@ -1107,6 +1167,13 @@ Learning and consolidation can drift apart.
 
 **Exit Criteria**
 Chapter 6 adaptive-map parity is defended by dedicated tests.
+
+**Progress Notes**
+- 2026-03-18: Added the umbrella Chapter 6 runner at `app/test/chapter6_conformance_runner.exs` and wired `mix chapter6.conformance` through `app/mix.exs` so Hebbian pooling, pain signaling, stem-cell prediction-error behavior, and sleep-cycle consolidation are defended by one repeatable gate.
+- 2026-03-18: Added `docs/DEVELOPER/CHAPTER6_CONFORMANCE.md` to document the Chapter 6 adaptive-map contract and the specific failure modes that should break the gate.
+- 2026-03-18: Added `.github/workflows/chapter6-conformance.yml` so the Chapter 6 suite is enforced in CI on pushes and pull requests.
+- 2026-03-18: Stabilized the external Rhizome service integration retry window in `app/rhizome/test/rhizome/service_integration_test.exs` so the chapter-level conformance runner measures the real asynchronous sleep-cycle behavior instead of racing the optimizer.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix chapter6.conformance` -> umbrella Chapter 6 conformance passed, including the external recovery and Rhizome archive-retention suites when Memgraph, XTDB, and NATS were reachable.
 
 ## Part IV Milestone
 
