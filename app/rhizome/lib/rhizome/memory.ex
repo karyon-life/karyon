@@ -39,6 +39,22 @@ defmodule Rhizome.Memory do
   def query_memgraph(_opaque_query), do: {:error, :opaque_graph_query_forbidden}
 
   @doc """
+  Returns low-confidence graph candidates suitable for bounded epistemic foraging.
+  """
+  def query_low_confidence_candidates(spec \\ %{})
+
+  def query_low_confidence_candidates(spec) when is_map(spec) do
+    with_topology(:query_low_confidence_candidates, fn ->
+      with {:ok, normalized} <- normalize_low_confidence_query(spec),
+           {:ok, rows} <- run_memgraph_query(build_low_confidence_query(normalized)) do
+        {:ok, Enum.map(rows, &normalize_low_confidence_row/1)}
+      end
+    end)
+  end
+
+  def query_low_confidence_candidates(_spec), do: {:error, :invalid_low_confidence_query}
+
+  @doc """
   Upserts a typed graph node into working memory.
   """
   def upsert_graph_node(spec) when is_map(spec) do
@@ -148,6 +164,33 @@ defmodule Rhizome.Memory do
   def query_archive(_opaque_query), do: {:error, :invalid_archive_query}
 
   @doc """
+  Returns recent execution outcomes suitable for simulation-daemon replay.
+  """
+  def query_recent_execution_outcomes(opts \\ %{})
+
+  def query_recent_execution_outcomes(opts) when is_map(opts) do
+    with_topology(:query_recent_execution_outcomes, fn ->
+      limit = normalize_limit(Map.get(opts, :limit) || Map.get(opts, "limit") || 5)
+
+      if is_nil(limit) do
+        {:error, :invalid_recent_execution_outcomes_query}
+      else
+        query_archive(%{
+          "query" => %{
+            "find" => ["(pull ?e [xt/id cell_id action status vm_id plan_attractor_id plan_step_ids result recorded_at])"],
+            "where" => [
+              ["?e", "status", "success"]
+            ]
+          },
+          "limit" => limit
+        })
+      end
+    end)
+  end
+
+  def query_recent_execution_outcomes(_opts), do: {:error, :invalid_recent_execution_outcomes_query}
+
+  @doc """
   Projects active working-memory state into the temporal archive.
   """
   def bridge_working_memory_to_archive do
@@ -209,6 +252,130 @@ defmodule Rhizome.Memory do
   end
 
   def submit_prediction_error(_prediction_error), do: {:error, :invalid_prediction_error}
+
+  @doc """
+  Persists a workspace objective projection into XTDB and projects the selected
+  attractor surface back into Memgraph.
+  """
+  def submit_objective_projection(event) when is_map(event) do
+    with_topology(:submit_objective_projection, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", System.system_time(:second))
+
+      with :ok <- validate_objective_projection(document),
+           id when is_binary(id) <- objective_projection_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_objective_projection(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_objective_projection}
+      end
+    end)
+  end
+
+  def submit_objective_projection(_event), do: {:error, :invalid_objective_projection}
+
+  @doc """
+  Persists a shared-memory cross-workspace coordination record into XTDB and
+  projects workspace-limb relationships into Memgraph.
+  """
+  def submit_cross_workspace_coordination(event) when is_map(event) do
+    with_topology(:submit_cross_workspace_coordination, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", System.system_time(:second))
+
+      with :ok <- validate_cross_workspace_coordination(document),
+           id when is_binary(id) <- cross_workspace_coordination_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_cross_workspace_coordination(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_cross_workspace_coordination}
+      end
+    end)
+  end
+
+  def submit_cross_workspace_coordination(_event), do: {:error, :invalid_cross_workspace_coordination}
+
+  @doc """
+  Persists a sovereignty paradox, refusal, or negotiation event into XTDB and
+  projects the decision surface into Memgraph.
+  """
+  def submit_sovereignty_event(event) when is_map(event) do
+    with_topology(:submit_sovereignty_event, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", System.system_time(:second))
+
+      with :ok <- validate_sovereignty_event(document),
+           id when is_binary(id) <- sovereignty_event_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_sovereignty_event(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_sovereignty_event}
+      end
+    end)
+  end
+
+  def submit_sovereignty_event(_event), do: {:error, :invalid_sovereignty_event}
+
+  @doc """
+  Persists a bounded epistemic-foraging event and projects the confidence update
+  back into working memory.
+  """
+  def submit_epistemic_foraging_event(event) when is_map(event) do
+    with_topology(:submit_epistemic_foraging_event, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", System.system_time(:second))
+
+      with :ok <- validate_epistemic_foraging_event(document),
+           id when is_binary(id) <- epistemic_foraging_event_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_epistemic_foraging_event(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_epistemic_foraging_event}
+      end
+    end)
+  end
+
+  def submit_epistemic_foraging_event(_event), do: {:error, :invalid_epistemic_foraging_event}
+
+  @doc """
+  Persists a dream-state permutation result and projects it back into Rhizome.
+  """
+  def submit_simulation_daemon_event(event) when is_map(event) do
+    with_topology(:submit_simulation_daemon_event, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", System.system_time(:second))
+
+      with :ok <- validate_simulation_daemon_event(document),
+           id when is_binary(id) <- simulation_daemon_event_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_simulation_daemon_event(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_simulation_daemon_event}
+      end
+    end)
+  end
+
+  def submit_simulation_daemon_event(_event), do: {:error, :invalid_simulation_daemon_event}
 
   @doc """
   Persists a typed operator feedback event into XTDB and projects a bounded
@@ -352,6 +519,27 @@ defmodule Rhizome.Memory do
     "operator_feedback:#{template_id}:#{feedback_kind}:#{timestamp}"
   end
 
+  defp objective_projection_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+
+  defp objective_projection_id(document) do
+    workspace_root = Map.get(document, "workspace_root", "unknown_workspace")
+    "objective_projection:#{:erlang.phash2(workspace_root)}"
+  end
+
+  defp sovereignty_event_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+
+  defp sovereignty_event_id(document) do
+    intent_id = Map.get(document, "intent_id", "unknown_intent")
+    "sovereignty_event:#{intent_id}"
+  end
+
+  defp cross_workspace_coordination_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+
+  defp cross_workspace_coordination_id(document) do
+    roots = Map.get(document, "workspace_roots", [])
+    "cross_workspace:#{:erlang.phash2(roots)}"
+  end
+
   defp validate_operator_feedback_event(%{
          "feedback_kind" => feedback_kind,
          "template_id" => template_id,
@@ -364,6 +552,108 @@ defmodule Rhizome.Memory do
   end
 
   defp validate_operator_feedback_event(_document), do: {:error, :invalid_operator_feedback_event}
+
+  defp validate_objective_projection(%{
+         "workspace_root" => workspace_root,
+         "manifest_ids" => manifest_ids,
+         "hard_mandates" => hard_mandates,
+         "soft_values" => soft_values,
+         "evolving_needs" => evolving_needs,
+         "objective_priors" => objective_priors,
+         "precedence" => precedence,
+         "projected_attractors" => projected_attractors
+       })
+       when is_binary(workspace_root) and workspace_root != "" and is_list(manifest_ids) and is_map(hard_mandates) and
+              is_map(soft_values) and is_map(evolving_needs) and is_map(objective_priors) and is_map(precedence) and
+              is_list(projected_attractors) do
+    :ok
+  end
+
+  defp validate_objective_projection(_document), do: {:error, :invalid_objective_projection}
+
+  defp validate_sovereignty_event(%{
+         "intent_id" => intent_id,
+         "decision" => decision,
+         "event_kind" => event_kind,
+         "action" => action,
+         "lineage_id" => lineage_id,
+         "metabolic_risk" => metabolic_risk,
+         "paradoxes" => paradoxes
+       })
+       when is_binary(intent_id) and intent_id != "" and is_binary(decision) and decision != "" and
+              is_binary(event_kind) and event_kind != "" and is_binary(action) and action != "" and
+              is_binary(lineage_id) and lineage_id != "" and is_binary(metabolic_risk) and metabolic_risk != "" and
+              is_list(paradoxes) do
+    :ok
+  end
+
+  defp validate_sovereignty_event(_document), do: {:error, :invalid_sovereignty_event}
+
+  defp validate_cross_workspace_coordination(%{
+         "central_workspace" => central_workspace,
+         "workspace_roots" => workspace_roots,
+         "localized_plan_paths" => localized_plan_paths,
+         "roles" => roles,
+         "coordination_scopes" => coordination_scopes,
+         "attractor_ids" => attractor_ids
+       })
+       when is_binary(central_workspace) and central_workspace != "" and is_list(workspace_roots) and
+              is_list(localized_plan_paths) and is_list(roles) and is_list(coordination_scopes) and
+              is_list(attractor_ids) do
+    :ok
+  end
+
+  defp validate_cross_workspace_coordination(_document), do: {:error, :invalid_cross_workspace_coordination}
+
+  defp epistemic_foraging_event_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+
+  defp epistemic_foraging_event_id(document) do
+    candidate_id = Map.get(document, "candidate_id", "unknown_candidate")
+    timestamp = Map.get(document, "recorded_at", System.system_time(:second))
+    "epistemic_foraging:#{candidate_id}:#{timestamp}"
+  end
+
+  defp simulation_daemon_event_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+
+  defp simulation_daemon_event_id(document) do
+    source_outcome_id = Map.get(document, "source_outcome_id", "unknown_outcome")
+    timestamp = Map.get(document, "recorded_at", System.system_time(:second))
+    "simulation_daemon:#{source_outcome_id}:#{timestamp}"
+  end
+
+  defp validate_epistemic_foraging_event(%{
+         "candidate_id" => candidate_id,
+         "candidate_label" => candidate_label,
+         "source_confidence" => source_confidence,
+         "updated_confidence" => updated_confidence,
+         "confidence_delta" => confidence_delta,
+         "outcome_status" => outcome_status
+       })
+       when is_binary(candidate_id) and candidate_id != "" and is_binary(candidate_label) and candidate_label != "" and
+              is_binary(outcome_status) and outcome_status != "" do
+    if Enum.all?([source_confidence, updated_confidence, confidence_delta], &is_number/1) do
+      :ok
+    else
+      {:error, :invalid_epistemic_foraging_event}
+    end
+  end
+
+  defp validate_epistemic_foraging_event(_document), do: {:error, :invalid_epistemic_foraging_event}
+
+  defp validate_simulation_daemon_event(%{
+         "source_outcome_id" => source_outcome_id,
+         "permutation_id" => permutation_id,
+         "intent_id" => intent_id,
+         "outcome_status" => outcome_status,
+         "vm_id" => vm_id
+       })
+       when is_binary(source_outcome_id) and source_outcome_id != "" and is_binary(permutation_id) and
+              permutation_id != "" and is_binary(intent_id) and intent_id != "" and is_binary(outcome_status) and
+              outcome_status != "" and is_binary(vm_id) and vm_id != "" do
+    :ok
+  end
+
+  defp validate_simulation_daemon_event(_document), do: {:error, :invalid_simulation_daemon_event}
 
   defp cell_state_id(lineage_id), do: "cell_state:#{lineage_id}"
 
@@ -501,6 +791,248 @@ defmodule Rhizome.Memory do
     end
   end
 
+  defp project_objective_projection(document) do
+    projection_id = objective_projection_id(document)
+    workspace_root = Map.get(document, "workspace_root", "unknown_workspace")
+    workspace_id = "workspace:#{:erlang.phash2(workspace_root)}"
+    manifest_ids = Map.get(document, "manifest_ids", [])
+
+    with {:ok, _workspace} <-
+           upsert_graph_node(%{
+             label: "Workspace",
+             id: workspace_id,
+             properties: %{root: workspace_root, manifest_count: length(manifest_ids)}
+           }),
+         {:ok, _projection} <-
+           upsert_graph_node(%{
+             label: "ObjectiveProjection",
+             id: projection_id,
+             properties: %{
+               workspace_root: workspace_root,
+               manifest_ids: Enum.join(manifest_ids, ","),
+               recorded_at: Map.get(document, "recorded_at", System.system_time(:second))
+             }
+           }),
+         {:ok, _edge} <-
+           relate_graph_nodes(%{
+             from: %{label: "Workspace", id: workspace_id},
+             to: %{label: "ObjectiveProjection", id: projection_id},
+             relationship_type: "PROJECTS_OBJECTIVES"
+           }) do
+      project_objective_attractors(projection_id, Map.get(document, "projected_attractors", []))
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of objective projection failed: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp project_sovereignty_event(document) do
+    event_id = sovereignty_event_id(document)
+    intent_id = Map.get(document, "intent_id", "unknown_intent")
+    paradoxes = List.wrap(Map.get(document, "paradoxes", []))
+
+    with {:ok, _event} <-
+           upsert_graph_node(%{
+             label: "SovereigntyEvent",
+             id: event_id,
+             properties: %{
+               decision: Map.get(document, "decision", "unknown"),
+               event_kind: Map.get(document, "event_kind", "unknown"),
+               action: Map.get(document, "action", "unknown"),
+               metabolic_risk: Map.get(document, "metabolic_risk", "unknown"),
+               paradoxes: Enum.join(paradoxes, ","),
+               recorded_at: Map.get(document, "recorded_at", System.system_time(:second))
+             }
+           }),
+         {:ok, _intent} <-
+           upsert_graph_node(%{
+             label: "ExecutionIntentSurface",
+             id: intent_id,
+             properties: %{action: Map.get(document, "action", "unknown")}
+           }),
+         {:ok, _edge} <-
+           relate_graph_nodes(%{
+             from: %{label: "SovereigntyEvent", id: event_id},
+             to: %{label: "ExecutionIntentSurface", id: intent_id},
+             relationship_type: "ASSESSES_INTENT"
+           }) do
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of sovereignty event failed: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp project_cross_workspace_coordination(document) do
+    coordination_id = cross_workspace_coordination_id(document)
+    central_workspace = Map.get(document, "central_workspace", "unknown_workspace")
+    workspace_roots = List.wrap(Map.get(document, "workspace_roots", []))
+    roles = List.wrap(Map.get(document, "roles", []))
+
+    with {:ok, _coordination} <-
+           upsert_graph_node(%{
+             label: "CrossWorkspaceCoordination",
+             id: coordination_id,
+             properties: %{
+               central_workspace: central_workspace,
+               workspace_count: length(workspace_roots),
+               recorded_at: Map.get(document, "recorded_at", System.system_time(:second))
+             }
+           }) do
+      Enum.zip(workspace_roots, roles)
+      |> Enum.each(fn {workspace_root, role} ->
+        workspace_id = "workspace:#{:erlang.phash2(workspace_root)}"
+
+        with {:ok, _workspace} <-
+               upsert_graph_node(%{
+                 label: "Workspace",
+                 id: workspace_id,
+                 properties: %{root: workspace_root, role: role}
+               }),
+             {:ok, _edge} <-
+               relate_graph_nodes(%{
+                 from: %{label: "CrossWorkspaceCoordination", id: coordination_id},
+                 to: %{label: "Workspace", id: workspace_id},
+                 relationship_type: "COORDINATES_LIMB",
+                 properties: %{role: role}
+               }) do
+          :ok
+        else
+          {:error, reason} ->
+            Logger.warning("[Rhizome.Memory] Memgraph projection of cross-workspace limb failed: #{inspect(reason)}")
+            :ok
+        end
+      end)
+
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of cross-workspace coordination failed: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp project_epistemic_foraging_event(document) do
+    event_id = epistemic_foraging_event_id(document)
+    candidate_label = Map.get(document, "candidate_label", "SuperNode")
+    candidate_id = Map.get(document, "candidate_id", "unknown_candidate")
+
+    with {:ok, _candidate} <-
+           upsert_graph_node(%{
+             label: candidate_label,
+             id: candidate_id,
+             properties: %{
+               confidence: normalize_float(document["updated_confidence"]),
+               last_foraged_at: Map.get(document, "recorded_at", System.system_time(:second)),
+               last_foraging_status: Map.get(document, "outcome_status", "unknown")
+             }
+           }),
+         {:ok, _event} <-
+           upsert_graph_node(%{
+             label: "EpistemicForagingEvent",
+             id: event_id,
+             properties: %{
+               mode: Map.get(document, "mode", "idle_probe"),
+               source_confidence: normalize_float(document["source_confidence"]),
+               updated_confidence: normalize_float(document["updated_confidence"]),
+               confidence_delta: normalize_float(document["confidence_delta"]),
+               outcome_status: Map.get(document, "outcome_status", "unknown"),
+               intent_id: Map.get(document, "intent_id", "unknown_intent"),
+               recorded_at: Map.get(document, "recorded_at", System.system_time(:second))
+             }
+           }),
+         {:ok, _edge} <-
+           relate_graph_nodes(%{
+             from: %{label: "EpistemicForagingEvent", id: event_id},
+             to: %{label: candidate_label, id: candidate_id},
+             relationship_type: "PROBED",
+             properties: %{
+               confidence_delta: normalize_float(document["confidence_delta"]),
+               outcome_status: Map.get(document, "outcome_status", "unknown")
+             }
+           }) do
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of epistemic foraging event failed: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp project_simulation_daemon_event(document) do
+    event_id = simulation_daemon_event_id(document)
+    source_outcome_id = Map.get(document, "source_outcome_id", "unknown_outcome")
+
+    with {:ok, _source_outcome} <-
+           upsert_graph_node(%{
+             label: "ExecutionOutcome",
+             id: source_outcome_id,
+             properties: %{status: "success"}
+           }),
+         {:ok, _event} <-
+           upsert_graph_node(%{
+             label: "SimulationDaemonEvent",
+             id: event_id,
+             properties: %{
+               permutation_id: Map.get(document, "permutation_id", "unknown_permutation"),
+               permutation_mode: Map.get(document, "permutation_mode", "dream"),
+               outcome_status: Map.get(document, "outcome_status", "unknown"),
+               vm_id: Map.get(document, "vm_id", "unknown_vm"),
+               recorded_at: Map.get(document, "recorded_at", System.system_time(:second))
+             }
+           }),
+         {:ok, _edge} <-
+           relate_graph_nodes(%{
+             from: %{label: "SimulationDaemonEvent", id: event_id},
+             to: %{label: "ExecutionOutcome", id: source_outcome_id},
+             relationship_type: "DREAMED_FROM",
+             properties: %{
+               permutation_mode: Map.get(document, "permutation_mode", "dream"),
+               outcome_status: Map.get(document, "outcome_status", "unknown")
+             }
+           }) do
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of simulation-daemon event failed: #{inspect(reason)}")
+      :ok
+    end
+  end
+
+  defp project_objective_attractors(projection_id, projected_attractors) do
+    Enum.each(projected_attractors, fn attractor ->
+      attractor_id = Map.get(attractor, "id", "unknown_attractor")
+      attractor_kind = Map.get(attractor, "kind", "SuperNode")
+
+      with {:ok, _attractor} <-
+             upsert_graph_node(%{
+               label: "ObjectiveAttractor",
+               id: attractor_id,
+               properties: %{
+                 kind: attractor_kind,
+                 objective_priors: Jason.encode!(Map.get(attractor, "objective_priors", %{})),
+                 needs: Jason.encode!(Map.get(attractor, "needs", %{})),
+                 values: Jason.encode!(Map.get(attractor, "values", %{}))
+               }
+             }),
+           {:ok, _edge} <-
+             relate_graph_nodes(%{
+               from: %{label: "ObjectiveProjection", id: projection_id},
+               to: %{label: "ObjectiveAttractor", id: attractor_id},
+               relationship_type: "PROJECTS_ATTRACTOR"
+             }) do
+        :ok
+      else
+        {:error, reason} ->
+          Logger.warning("[Rhizome.Memory] Memgraph projection of objective attractor failed: #{inspect(reason)}")
+          :ok
+      end
+    end)
+  end
+
   defp project_differentiation_event(document) do
     with {:ok, _cell} <- upsert_graph_node(%{label: "Cell", id: Map.get(document, "lineage_id", "unknown_lineage")}),
          {:ok, _event} <-
@@ -541,6 +1073,28 @@ defmodule Rhizome.Memory do
     else
       {:ok, %{label: label, filters: filters, return_fields: return_fields, limit: limit}}
     end
+  end
+
+  defp normalize_low_confidence_query(spec) do
+    label = normalize_graph_label(Map.get(spec, :label) || Map.get(spec, "label") || "SuperNode")
+    threshold = normalize_float(Map.get(spec, :threshold) || Map.get(spec, "threshold") || 0.5)
+    limit = normalize_limit(Map.get(spec, :limit) || Map.get(spec, "limit") || 5)
+
+    if is_nil(label) or is_nil(limit) do
+      {:error, :invalid_low_confidence_query}
+    else
+      {:ok, %{label: label, threshold: threshold, limit: limit}}
+    end
+  end
+
+  defp normalize_low_confidence_row(row) when is_map(row) do
+    %{
+      "id" => Map.get(row, "id", "unknown_candidate"),
+      "label" => Map.get(row, "label", "SuperNode"),
+      "summary" => Map.get(row, "summary", ""),
+      "confidence" => normalize_float(Map.get(row, "confidence", 0.0)),
+      "type" => Map.get(row, "type", "unknown")
+    }
   end
 
   defp normalize_graph_node(spec) do
@@ -636,6 +1190,21 @@ defmodule Rhizome.Memory do
       end
 
     "MATCH (n:#{label})#{where_clause} #{return_clause} LIMIT #{limit}"
+  end
+
+  defp build_low_confidence_query(%{label: label, threshold: threshold, limit: limit}) do
+    """
+    MATCH (n:#{label})
+    WHERE coalesce(n.confidence, 0.0) <= #{property_literal(threshold)}
+    RETURN
+      n.id AS id,
+      '#{escape_cypher(label)}' AS label,
+      coalesce(n.summary, '') AS summary,
+      coalesce(n.confidence, 0.0) AS confidence,
+      coalesce(n.type, '#{escape_cypher(label)}') AS type
+    ORDER BY coalesce(n.confidence, 0.0) ASC, coalesce(n.id, '') ASC
+    LIMIT #{limit}
+    """
   end
 
   defp upsert_graph_node_query(%{label: label, properties: properties}) do

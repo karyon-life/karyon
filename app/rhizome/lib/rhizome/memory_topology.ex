@@ -26,6 +26,7 @@ defmodule Rhizome.MemoryTopology do
       operations: [
         :query_working_memory,
         :query_memgraph,
+        :query_low_confidence_candidates,
         :upsert_graph_node,
         :relate_graph_nodes,
         :persist_pooled_pattern,
@@ -40,9 +41,15 @@ defmodule Rhizome.MemoryTopology do
       operations: [
         :write_archive_document,
         :query_archive,
+        :query_recent_execution_outcomes,
         :submit_xtdb,
         :submit_execution_outcome,
         :submit_prediction_error,
+        :submit_objective_projection,
+        :submit_cross_workspace_coordination,
+        :submit_sovereignty_event,
+        :submit_epistemic_foraging_event,
+        :submit_simulation_daemon_event,
         :submit_operator_feedback_event,
         :submit_differentiation_event,
         :load_cell_state,
