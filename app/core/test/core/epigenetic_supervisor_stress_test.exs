@@ -59,6 +59,12 @@ defmodule Core.EpigeneticSupervisorStressTest do
     
     # Verify all are alive
     Enum.each(pids, fn pid -> assert Process.alive?(pid) end)
+    assert Enum.sort(EpigeneticSupervisor.members_for_role(:motor)) == Enum.sort(pids)
+
+    Enum.each(1..20, fn _ ->
+      assert {:ok, discovered_pid} = EpigeneticSupervisor.discover_cell(:motor)
+      assert discovered_pid in pids
+    end)
 
     # 2. Kill them all rapidly
     Enum.each(pids, fn pid -> EpigeneticSupervisor.apoptosis(pid) end)
@@ -68,6 +74,8 @@ defmodule Core.EpigeneticSupervisorStressTest do
 
     # Verify all are dead
     Enum.each(pids, fn pid -> refute Process.alive?(pid) end)
+    assert EpigeneticSupervisor.members_for_role(:motor) == []
+    assert {:error, :no_gradient_detected} = EpigeneticSupervisor.discover_cell(:motor)
   end
 
   test "metabolic starvation refusal", %{daemon: daemon} do

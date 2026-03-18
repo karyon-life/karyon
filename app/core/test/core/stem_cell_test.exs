@@ -3,12 +3,40 @@ defmodule Core.StemCellTest do
   alias Core.StemCell
 
   defmodule MemoryStub do
+    def load_cell_state(_lineage_id), do: {:error, :not_found}
+    def checkpoint_cell_state(_snapshot), do: {:ok, %{id: "checkpoint"}}
+    def submit_prediction_error(prediction_error) do
+      if pid = Process.whereis(:stem_cell_test_observer) do
+        send(pid, {:prediction_error_persisted, prediction_error})
+      end
+
+      {:ok, %{id: prediction_error["id"] || "prediction_error"}}
+    end
+
     def submit_execution_outcome(outcome) do
       if pid = Process.whereis(:stem_cell_test_observer) do
         send(pid, {:execution_outcome_persisted, outcome})
       end
 
       {:ok, %{id: outcome["cell_id"]}}
+    end
+  end
+
+  defmodule RhizomeStub do
+    def prune_pathway(pathway) do
+      if pid = Process.whereis(:stem_cell_test_observer) do
+        send(pid, {:pathway_pruned, pathway})
+      end
+
+      {:ok, %{message: "pruned", from_id: pathway[:from_id], to_id: pathway[:to_id]}}
+    end
+
+    def reinforce_pathway(pathway) do
+      if pid = Process.whereis(:stem_cell_test_observer) do
+        send(pid, {:pathway_reinforced, pathway})
+      end
+
+      {:ok, %{message: "reinforced", from_id: pathway[:from_id], to_id: pathway[:to_id]}}
     end
   end
 
@@ -92,10 +120,45 @@ defmodule Core.StemCellTest do
     """)
     on_exit(fn -> File.rm(active_dna) end)
 
+    Process.register(self(), :stem_cell_test_observer)
+
+    on_exit(fn ->
+      if Process.whereis(:stem_cell_test_observer) == self(), do: Process.unregister(:stem_cell_test_observer)
+    end)
+
+    original_module = Application.get_env(:core, :memory_module)
+    original_rhizome_module = Application.get_env(:core, :rhizome_module)
+    Application.put_env(:core, :memory_module, MemoryStub)
+    Application.put_env(:core, :rhizome_module, RhizomeStub)
+
+    on_exit(fn ->
+      if original_module do
+        Application.put_env(:core, :memory_module, original_module)
+      else
+        Application.delete_env(:core, :memory_module)
+      end
+
+      if original_rhizome_module do
+        Application.put_env(:core, :rhizome_module, original_rhizome_module)
+      else
+        Application.delete_env(:core, :rhizome_module)
+      end
+    end)
+
     {:ok, pid} = StemCell.start_link(active_dna)
     
     # Form an expectation
-    :ok = GenServer.call(pid, {:form_expectation, 1001, :low_vfe, 0.8})
+    :ok =
+      GenServer.call(
+        pid,
+        {:form_expectation, 1001, :low_vfe, 0.8,
+         %{
+           trace_id: "trace-1001",
+           source_step_id: "step-1001",
+           source_attractor_id: "attractor-1",
+           metadata: %{objective: "latency"}
+         }}
+      )
     
     # Simulate nociception
     noc_msg = %Karyon.NervousSystem.PredictionError{
@@ -105,10 +168,80 @@ defmodule Core.StemCellTest do
     {:ok, payload} = Karyon.NervousSystem.PredictionError.encode(noc_msg)
     
     send(pid, {:synapse_recv, self(), payload})
-    
+
     Process.sleep(100)
-    
+
+    assert_received {:prediction_error_persisted, prediction_error}
+    assert prediction_error["type"] == "nociception"
+    assert prediction_error["status"] == "pruned"
+    assert prediction_error["vfe"] == 0.8
+    assert prediction_error["cell_id"] == active_dna
+    assert prediction_error["source_cell_id"] == ""
+    assert prediction_error["metadata"]["event_source"] == "nociception"
+    assert [%{"trace_id" => "trace-1001", "objective_weight" => 1.0}] = prediction_error["expectation_lineage"]
+    assert_received {:pathway_pruned, pathway}
+    assert pathway[:from_id] == "step-1001"
+    assert pathway[:to_id] == "attractor-1"
+    assert pathway[:weight_delta] == 0.8
     assert :active == GenServer.call(pid, :get_status)
+  end
+
+  test "StemCell uses objective weights when calculating variational free energy" do
+    weighted_dna = "/tmp/weighted_dna.yml"
+
+    File.write!(weighted_dna, """
+    cell_type: sensor
+    synapses: []
+    """)
+
+    on_exit(fn -> File.rm(weighted_dna) end)
+
+    Process.register(self(), :stem_cell_test_observer)
+
+    on_exit(fn ->
+      if Process.whereis(:stem_cell_test_observer) == self(), do: Process.unregister(:stem_cell_test_observer)
+    end)
+
+    original_module = Application.get_env(:core, :memory_module)
+    Application.put_env(:core, :memory_module, MemoryStub)
+
+    on_exit(fn ->
+      if original_module do
+        Application.put_env(:core, :memory_module, original_module)
+      else
+        Application.delete_env(:core, :memory_module)
+      end
+    end)
+
+    {:ok, pid} = StemCell.start_link(weighted_dna)
+
+    :ok =
+      GenServer.call(
+        pid,
+        {:form_expectation, "critical-goal", :stability, 0.5,
+         %{
+           objective_weight: 2.0,
+           trace_id: "weighted-trace",
+           source_step_id: "weighted-step",
+           source_attractor_id: "weighted-attractor",
+           metadata: %{objective: "stability"}
+         }}
+      )
+
+    noc_msg = %Karyon.NervousSystem.PredictionError{
+      type: "nociception",
+      metadata: %{"failed_expectation_id" => "critical-goal", "severity" => "high", "trace_id" => "weighted-trace"}
+    }
+
+    {:ok, payload} = Karyon.NervousSystem.PredictionError.encode(noc_msg)
+    send(pid, {:synapse_recv, self(), payload})
+
+    assert_receive {:prediction_error_persisted, prediction_error}
+    assert prediction_error["vfe"] == 1.0
+    assert prediction_error["metadata"]["expectation_lineage"] == prediction_error["expectation_lineage"]
+
+    assert [%{"id" => "critical-goal", "trace_id" => "weighted-trace", "objective_weight" => 2.0}] =
+             prediction_error["expectation_lineage"]
   end
 
   test "StemCell correctly dispatches motor actions based on DNA motor_executor" do
@@ -124,6 +257,69 @@ defmodule Core.StemCellTest do
     {:ok, pid} = StemCell.start_link(specialized_dna)
 
     original_module = Application.get_env(:core, :memory_module)
+    original_rhizome_module = Application.get_env(:core, :rhizome_module)
+    Application.put_env(:core, :memory_module, MemoryStub)
+    Application.put_env(:core, :rhizome_module, RhizomeStub)
+    Process.register(self(), :stem_cell_test_observer)
+
+    on_exit(fn ->
+      if Process.whereis(:stem_cell_test_observer) == self(), do: Process.unregister(:stem_cell_test_observer)
+
+      if original_module do
+        Application.put_env(:core, :memory_module, original_module)
+      else
+        Application.delete_env(:core, :memory_module)
+      end
+
+      if original_rhizome_module do
+        Application.put_env(:core, :rhizome_module, original_rhizome_module)
+      else
+        Application.delete_env(:core, :rhizome_module)
+      end
+    end)
+
+    :ok =
+      GenServer.call(
+        pid,
+        {:form_expectation, "motor-step", :patched, 0.6,
+         %{
+           source_step_id: "motor-step",
+           source_attractor_id: "motor-attractor",
+           trace_id: "motor-trace"
+         }}
+      )
+
+    assert {:ok, %{exit_code: 0, mode: :mock, vm_id: "test_vm", stdout: "mock execution", stderr: ""}} ==
+           GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "test_vm"]})
+
+    assert_received {:execution_outcome_persisted, outcome}
+    assert_received {:pathway_reinforced, pathway}
+    assert pathway[:from_id] == "motor-step"
+    assert pathway[:to_id] == "motor-attractor"
+    assert pathway[:weight_delta] == 0.6
+    assert outcome["status"] == "success"
+    assert outcome["action"] == "patch_codebase"
+    assert outcome["vm_id"] == "test_vm"
+    assert outcome["executor"] == "firecracker_python"
+    assert outcome["cell_id"] == "unknown_cell"
+    assert outcome["result"]["exit_code"] == 0
+  end
+
+  test "StemCell persists execution failures into the prediction-error pipeline" do
+    failure_dna = "/tmp/failure_dna.yml"
+
+    File.write!(failure_dna, """
+    id: "failure_cell"
+    cell_type: "specialized_motor"
+    allowed_actions: ["patch_codebase"]
+    motor_executor: "error_test"
+    """)
+
+    on_exit(fn -> File.rm(failure_dna) end)
+
+    {:ok, pid} = StemCell.start_link(failure_dna)
+
+    original_module = Application.get_env(:core, :memory_module)
     Application.put_env(:core, :memory_module, MemoryStub)
     Process.register(self(), :stem_cell_test_observer)
 
@@ -137,16 +333,43 @@ defmodule Core.StemCellTest do
       end
     end)
 
-    assert {:ok, %{exit_code: 0, mode: :mock, vm_id: "test_vm", stdout: "mock execution", stderr: ""}} ==
-           GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "test_vm"]})
+    assert {:error, :simulated_failure} ==
+             GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "failure_vm"]})
 
-    assert_received {:execution_outcome_persisted, outcome}
-    assert outcome["status"] == "success"
-    assert outcome["action"] == "patch_codebase"
-    assert outcome["vm_id"] == "test_vm"
-    assert outcome["executor"] == "firecracker_python"
-    assert outcome["cell_id"] == "unknown_cell"
-    assert outcome["result"]["exit_code"] == 0
+    assert_received {:prediction_error_persisted, prediction_error}
+    assert prediction_error["type"] == "execution_failure"
+    assert prediction_error["status"] == "failure"
+    assert prediction_error["cell_id"] == "failure_cell"
+    assert prediction_error["metadata"]["action"] == "patch_codebase"
+    assert is_list(prediction_error["expectation_lineage"])
+  end
+
+  test "StemCell denies execution when ATP budget is below DNA requirement" do
+    constrained_dna = "/tmp/constrained_dna.yml"
+
+    File.write!(constrained_dna, """
+    id: "constrained_cell"
+    cell_type: "specialized_motor"
+    allowed_actions: ["patch_codebase"]
+    motor_executor: "firecracker_python"
+    atp_requirement: 0.9
+    """)
+
+    on_exit(fn -> File.rm(constrained_dna) end)
+
+    {:ok, pid} = StemCell.start_link(constrained_dna)
+
+    high_spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(high_spike)
+    send(pid, {:msg, "metabolic.spike", IO.iodata_to_binary(iodata)})
+    Process.sleep(100)
+
+    assert {:error, :insufficient_atp} ==
+             GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "budget_vm"]})
+
+    runtime_state = GenServer.call(pid, :get_runtime_state)
+    assert runtime_state.atp_metabolism == 0.1
+    assert runtime_state.status == :torpor
   end
 
   @tag :external

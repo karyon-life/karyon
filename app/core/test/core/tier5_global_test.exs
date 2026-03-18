@@ -2,6 +2,9 @@ defmodule Core.GlobalTier5Test do
   use ExUnit.Case
   alias Core.Engram
   alias Core.MotorDriver
+  alias Core.Plan
+  alias Core.Plan.AbstractState
+  alias Core.Plan.Step
 
   @engram_name "test_knowledge_base"
 
@@ -33,16 +36,16 @@ defmodule Core.GlobalTier5Test do
     case MotorDriver.sequence_plan("attractor_001") do
       {:error, :attractor_not_found} -> :ok
       {:error, :graph_plan_empty} -> :ok
-      {:ok, plan} ->
-        assert is_map(plan)
-        assert plan["attractor"] == "attractor_001"
-        assert is_list(plan["steps"])
+      {:ok, %Plan{} = plan} ->
+        assert plan.attractor.id == "attractor_001"
+        assert is_list(plan.steps)
 
-        Enum.each(plan["steps"], fn step ->
-          assert Map.has_key?(step, "action")
-          assert Map.has_key?(step, "params")
-          assert Map.has_key?(step, "id")
-          assert Map.has_key?(step, "predicted_outcome")
+        Enum.each(plan.steps, fn %Step{} = step ->
+          assert is_binary(step.action)
+          assert is_map(step.params)
+          assert is_binary(step.id)
+          assert %AbstractState{} = step.predicted_state
+          assert is_binary(step.predicted_state.summary)
         end)
     end
   end

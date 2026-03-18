@@ -1,21 +1,21 @@
 defmodule Core.StemCellPropertyTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
+
+  alias Core.StemCell
   
   # Import the module to test private functions if needed, 
   # but here we test the logic via public API or by exposing it for testing.
   # For VFE, we'll test the calculation logic which is deterministic.
   
-  property "Variational Free Energy is calculated as the sum of precisions on nociception" do
+  property "Variational Free Energy is calculated as the weighted sum of expectation errors" do
     check all expectations <- list_of(expectation_gen()) do
-      # Calculate local VFE using the same logic as in StemCell
-      expected_vfe = Enum.reduce(expectations, 0.0, fn {_, %{precision: p}}, acc ->
-        acc + p
+      expected_vfe = Enum.reduce(expectations, 0.0, fn {_, %{precision: p, objective_weight: weight}}, acc ->
+        acc + (p * weight)
       end)
-      
-      # We test the calculation logic directly
+
       actual_vfe = calculate_vfe(expectations)
-      
+
       assert_in_delta actual_vfe, expected_vfe, 0.0001
     end
   end
@@ -56,12 +56,41 @@ defmodule Core.StemCellPropertyTest do
     end
   end
 
+  property "role membership discovery returns only live unique peers" do
+    check all member_count <- integer(1..8) do
+      role = {:property_motor, System.unique_integer([:positive])}
+      pids = spawn_members(role, member_count)
+
+      try do
+        members = StemCell.role_members(role)
+
+        assert Enum.sort(members) == Enum.sort(pids)
+        assert length(members) == member_count
+
+        Enum.each(pids, fn pid ->
+          if member_count == 1 do
+            assert {:error, :no_gradient_detected} = StemCell.sense_gradient(role, exclude: pid)
+          else
+            assert {:ok, discovered_pid} = StemCell.sense_gradient(role, exclude: pid)
+            assert discovered_pid in pids
+            refute discovered_pid == pid
+          end
+        end)
+      after
+        Enum.each(pids, fn pid ->
+          if Process.alive?(pid), do: Process.exit(pid, :kill)
+        end)
+      end
+    end
+  end
+
   # Generators
   
   defp expectation_gen do
     gen all id <- string(:alphanumeric, min_length: 1),
-            precision <- float(min: 0.0, max: 1.0) do
-      {id, %{precision: precision}}
+            precision <- float(min: 0.0, max: 1.0),
+            objective_weight <- float(min: 0.1, max: 3.0) do
+      {id, %{precision: precision, objective_weight: objective_weight}}
     end
   end
 
@@ -73,8 +102,17 @@ defmodule Core.StemCellPropertyTest do
 
   # Logic extraction for testing
   defp calculate_vfe(expectations) do
-    Enum.reduce(expectations, 0.0, fn {_id, %{precision: p}}, acc ->
-      acc + (p * 1.0)
+    Enum.reduce(expectations, 0.0, fn {_id, %{precision: p, objective_weight: weight}}, acc ->
+      acc + (p * weight * 1.0)
     end)
+  end
+
+  defp spawn_members(role, member_count) do
+    for _ <- 1..member_count do
+      pid = spawn(fn -> Process.sleep(:infinity) end)
+      :pg.join(role, pid)
+      :pg.join({:cell_role, role}, pid)
+      pid
+    end
   end
 end

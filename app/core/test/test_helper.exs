@@ -6,6 +6,9 @@ case :pg.start_link() do
   {:error, {:already_started, _}} -> :ok
 end
 
+Code.require_file("support/architecture_rubric.exs", __DIR__)
+Code.require_file("support/chapter2_rubric.exs", __DIR__)
+
 defmodule TestUtils do
   def wait_for_process(name, attempts \\ 10) do
     if Process.whereis(name) do

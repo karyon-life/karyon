@@ -12,6 +12,7 @@ defmodule Core.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       compilers: Mix.compilers(),
+      aliases: aliases(),
       rustler_crates: [
         metabolic_nif: [
           path: "native/metabolic_nif",
@@ -30,6 +31,14 @@ defmodule Core.MixProject do
     ]
   end
 
+  def cli do
+    [
+      preferred_envs: [
+        "chapter1.conformance": :test
+      ]
+    ]
+  end
+
   defp deps do
     [
       {:yaml_elixir, "~> 2.9"},
@@ -39,6 +48,14 @@ defmodule Core.MixProject do
       {:sensory, in_umbrella: true},
       {:sandbox, in_umbrella: true},
       {:rustler, "~> 0.37.0", runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      "chapter1.conformance": [
+        "test test/core/architecture_conformance_test.exs test/core/motor_driver_test.exs test/core/state_recovery_test.exs test/core/stem_cell_test.exs"
+      ]
     ]
   end
 end

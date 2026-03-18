@@ -36,6 +36,20 @@ defmodule Core.EpigeneticSupervisor do
     end
   end
 
+  @doc """
+  Returns the live cells currently advertising a given role through :pg routing topics.
+  """
+  def members_for_role(role) do
+    Core.StemCell.role_members(role)
+  end
+
+  @doc """
+  Selects a live peer for the requested role using decentralized gradient sensing.
+  """
+  def discover_cell(role, opts \\ []) do
+    Core.StemCell.sense_gradient(role, opts)
+  end
+
   defp get_metabolic_pressure do
     # Query the MetabolicDaemon or ETS for current pressure
     case GenServer.whereis(Core.MetabolicDaemon) do
