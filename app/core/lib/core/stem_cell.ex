@@ -6,6 +6,7 @@ defmodule Core.StemCell do
   """
   use GenServer
   require Logger
+  alias Core.ExecutionIntent
 
   @doc """
   Spawns a new Stem Cell given a declarative DNA specification.
@@ -89,36 +90,46 @@ defmodule Core.StemCell do
   end
 
   @impl true
-  def handle_call({:execute, action, params}, _from, state) do
+  def handle_call({:execute, action, params}, from, state) do
+    with {:ok, executor_spec} <- resolve_executor(state.dna_spec),
+         {:ok, intent} <- ExecutionIntent.from_action(state.dna_spec, action, params, executor_spec) do
+      handle_call({:execute_intent, intent}, from, state)
+    else
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:execute_intent, %ExecutionIntent{} = intent}, _from, state) do
     allowed_actions = Core.DNA.allowed_actions(state.dna)
+
     cond do
-      action not in allowed_actions ->
-        Logger.error("[StemCell] ACTION DENIED: #{action} not in DNA allowed_actions.")
+      intent.action not in allowed_actions ->
+        Logger.error("[StemCell] ACTION DENIED: #{intent.action} not in DNA allowed_actions.")
         {:reply, {:error, :unauthorized}, state}
 
       below_execution_budget?(state) ->
-        Logger.warning("[StemCell] ACTION DENIED: #{action} exceeds current ATP budget.")
+        Logger.warning("[StemCell] ACTION DENIED: #{intent.action} exceeds current ATP budget.")
         persisted_state = checkpoint_state(state)
         {:reply, {:error, :insufficient_atp}, persisted_state}
 
       true ->
-        Logger.info("[StemCell] Executing allowed action: #{action}")
-      
-        # Phase 1: Dynamic Dispatch based on DNA
-        case dispatch_motor_action(state.dna_spec, action, params) do
+        Logger.info("[StemCell] Executing validated intent: #{intent.id} / #{intent.action}")
+
+        case dispatch_motor_action(state.dna_spec, intent) do
           {:ok, result} ->
-            persist_execution_outcome(state, action, params, {:ok, result})
+            persist_execution_outcome(state, intent, {:ok, result})
             reinforce_rhizome_pathways(state.expectations)
             {:reply, {:ok, result}, checkpoint_state(state)}
 
           {:error, reason} ->
-            persist_execution_outcome(state, action, params, {:error, reason})
-            persist_prediction_error(execution_failure_payload(state, action, params, reason))
+            persist_execution_outcome(state, intent, {:error, reason})
+            persist_prediction_error(execution_failure_payload(state, intent, reason))
             {:reply, {:error, reason}, checkpoint_state(state)}
 
-          # Catch-all for dynamic dispatch safety
           other ->
-            persist_execution_outcome(state, action, params, {:ok, other})
+            persist_execution_outcome(state, intent, {:ok, other})
             {:reply, {:ok, other}, checkpoint_state(state)}
         end
     end
@@ -153,6 +164,7 @@ defmodule Core.StemCell do
       Map.take(state, [:lineage_id, :dna_path, :beliefs, :expectations, :status, :atp_metabolism])
       |> Map.put(:role, Core.DNA.role(state.dna))
       |> Map.put(:safety_critical, Core.DNA.safety_critical?(state.dna))
+      |> Map.put(:executor_spec, Map.get(state.dna_spec, "executor", %{}))
 
     {:reply, runtime_state, state}
   end
@@ -168,10 +180,10 @@ defmodule Core.StemCell do
     end
   end
 
-  defp dispatch_motor_action(dna_spec, action, params) do
+  defp dispatch_motor_action(dna_spec, %ExecutionIntent{} = intent) do
     with {:ok, executor_spec} <- resolve_executor(dna_spec),
          {:ok, module, function} <- resolve_executor_target(executor_spec) do
-      invoke_executor(module, function, executor_payload(dna_spec, action, params, executor_spec))
+      invoke_executor(module, function, ExecutionIntent.to_map(intent))
     else
       {:error, :executor_not_configured} ->
         Logger.warning("[StemCell] No declarative executor defined for this cell.")
@@ -366,10 +378,10 @@ defmodule Core.StemCell do
     end)
   end
 
-  defp persist_execution_outcome(state, action, params, outcome) do
+  defp persist_execution_outcome(state, %ExecutionIntent{} = intent, outcome) do
     payload =
       state
-      |> execution_outcome_base(action, params)
+      |> execution_outcome_base(intent)
       |> Map.merge(execution_outcome_payload(outcome))
       |> Core.LearningLoop.annotate_execution_outcome()
 
@@ -378,7 +390,7 @@ defmodule Core.StemCell do
         :ok
 
       {:error, reason} ->
-        Logger.warning("[StemCell] Failed to persist execution outcome for #{action}: #{inspect(reason)}")
+        Logger.warning("[StemCell] Failed to persist execution outcome for #{intent.action}: #{inspect(reason)}")
         :ok
     end
   end
@@ -394,23 +406,28 @@ defmodule Core.StemCell do
     end
   end
 
-  defp execution_outcome_base(state, action, params) do
+  defp execution_outcome_base(state, %ExecutionIntent{} = intent) do
     cell_id = Map.get(state.dna_spec, "id", "unknown_cell")
-    executor = executor_label(state.dna_spec)
-    vm_id = extract_vm_id(params)
+    executor = executor_label(intent.executor)
+    vm_id = extract_vm_id(intent.params)
 
     %{
+      "execution_intent_id" => intent.id,
       "cell_id" => cell_id,
-      "action" => action,
+      "action" => intent.action,
       "executor" => executor,
       "vm_id" => vm_id,
-      "params" => normalize_execution_params(params),
+      "params" => intent.params,
+      "default_args" => intent.default_args,
+      "plan_attractor_id" => intent.plan_attractor_id,
+      "plan_step_ids" => intent.plan_step_ids,
+      "execution_intent" => ExecutionIntent.to_map(intent),
       "belief_snapshot" => stringify_nested(state.beliefs),
       "recorded_at" => System.system_time(:second)
     }
   end
 
-  defp execution_failure_payload(state, action, params, reason) do
+  defp execution_failure_payload(state, %ExecutionIntent{} = intent, reason) do
     recorded_at = iso_timestamp()
 
     %{
@@ -418,19 +435,23 @@ defmodule Core.StemCell do
       "cell_id" => state.lineage_id,
       "source_cell_id" => state.lineage_id,
       "type" => "execution_failure",
-      "message" => "execution failed for #{action}",
+      "message" => "execution failed for #{intent.action}",
       "recorded_at" => recorded_at,
       "observed_at" => recorded_at,
       "timestamp_unit" => "iso8601",
       "metadata" => %{
-        "action" => action,
-        "executor" => executor_label(state.dna_spec),
-        "vm_id" => extract_vm_id(params),
+        "action" => intent.action,
+        "executor" => executor_label(intent.executor),
+        "vm_id" => extract_vm_id(intent.params),
         "reason" => inspect(reason),
         "event_source" => "execution",
         "schema_version" => "2026-03-18",
         "correction_type" => "prune_pathway",
         "correction_status" => "applied",
+        "execution_intent_id" => intent.id,
+        "plan_attractor_id" => intent.plan_attractor_id,
+        "plan_step_ids" => intent.plan_step_ids,
+        "execution_intent" => ExecutionIntent.to_map(intent),
         "expectation_lineage" => expectation_lineage(state.expectations),
         "correction_targets" => correction_targets(expectation_lineage(state.expectations))
       },
@@ -508,10 +529,6 @@ defmodule Core.StemCell do
   defp extract_vm_id(params) when is_map(params), do: Map.get(params, :vm_id) || Map.get(params, "vm_id") || "default_vm"
   defp extract_vm_id(_params), do: "default_vm"
 
-  defp normalize_execution_params(params) when is_list(params), do: params |> Enum.into(%{}) |> stringify_nested()
-  defp normalize_execution_params(params) when is_map(params), do: stringify_nested(params)
-  defp normalize_execution_params(other), do: %{"value" => stringify_nested(other)}
-
   defp memory_module do
     Application.get_env(:core, :memory_module, Rhizome.Memory)
   end
@@ -523,7 +540,15 @@ defmodule Core.StemCell do
   defp stateful_error_id(%{"id" => id}) when is_binary(id), do: id
   defp stateful_error_id(_payload), do: "prediction_error"
 
-  defp executor_label(dna_spec) do
+  defp executor_label(%{"module" => module_name, "function" => function_name}) do
+    "#{module_name}.#{function_name}"
+  end
+
+  defp executor_label(%{module: module_name, function: function_name}) do
+    "#{module_name}.#{function_name}"
+  end
+
+  defp executor_label(dna_spec) when is_map(dna_spec) do
     case Map.get(dna_spec, "executor") do
       %{"module" => module_name, "function" => function_name} ->
         "#{module_name}.#{function_name}"
@@ -535,6 +560,8 @@ defmodule Core.StemCell do
         "none"
     end
   end
+
+  defp executor_label(_), do: "none"
 
   defp checkpoint_state(state) do
     snapshot = state_snapshot(state)
@@ -744,15 +771,6 @@ defmodule Core.StemCell do
     else
       {:error, {:invalid_executor_function, function}}
     end
-  end
-
-  defp executor_payload(dna_spec, action, params, executor_spec) do
-    %{
-      "action" => action,
-      "cell_type" => Map.get(dna_spec, "cell_type"),
-      "params" => normalize_execution_params(params),
-      "default_args" => normalize_metadata_map(Map.get(executor_spec, "default_args") || Map.get(executor_spec, :default_args) || %{})
-    }
   end
 
   defp build_expectation(id, goal, precision, attrs, state) do

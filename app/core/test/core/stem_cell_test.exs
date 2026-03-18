@@ -307,9 +307,12 @@ defmodule Core.StemCellTest do
     assert pathway[:to_id] == "motor-attractor"
     assert pathway[:weight_delta] == 0.6
     assert outcome["status"] == "success"
+    assert String.starts_with?(outcome["execution_intent_id"], "intent:specialized_motor:patch_codebase:")
     assert outcome["action"] == "patch_codebase"
     assert outcome["vm_id"] == "test_vm"
     assert outcome["executor"] == "Core.TestSupport.ExecutorStub.capture_output"
+    assert outcome["execution_intent"]["action"] == "patch_codebase"
+    assert outcome["execution_intent"]["executor"]["module"] == "Core.TestSupport.ExecutorStub"
     assert outcome["cell_id"] == specialized_dna
     assert outcome["learning_phase"] == "action_feedback"
     assert outcome["learning_edge"] == "action_feedback->plasticity"
@@ -362,6 +365,8 @@ defmodule Core.StemCellTest do
     assert prediction_error["metadata"]["correction_type"] == "prune_pathway"
     assert prediction_error["metadata"]["correction_status"] == "applied"
     assert prediction_error["metadata"]["action"] == "patch_codebase"
+    assert String.starts_with?(prediction_error["metadata"]["execution_intent_id"], "intent:specialized_motor:patch_codebase:")
+    assert prediction_error["metadata"]["execution_intent"]["executor"]["function"] == "simulate_failure"
     assert is_list(prediction_error["expectation_lineage"])
   end
 

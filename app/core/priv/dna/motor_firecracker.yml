@@ -4,6 +4,7 @@ executor:
   module: "Sandbox.Executor"
   function: "capture_output"
 allowed_actions:
+  - "execute_plan"
   - "provision_vm"
   - "execute_patch"
   - "capture_output"

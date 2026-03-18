@@ -1,10 +1,47 @@
 defmodule Core.MotorDriverTest do
   use ExUnit.Case
   alias Core.MotorDriver
+  alias Core.Plan.Attractor
   alias Core.Plan
   alias Core.Plan.AbstractState
   alias Core.Plan.Step
   alias Core.StemCell
+
+  defmodule PlanExecutionProbe do
+    use GenServer
+
+    def start_link(test_pid) do
+      GenServer.start_link(__MODULE__, test_pid)
+    end
+
+    @impl true
+    def init(test_pid), do: {:ok, test_pid}
+
+    @impl true
+    def handle_call(:get_runtime_state, _from, test_pid) do
+      {:reply,
+       %{
+         lineage_id: "probe-lineage",
+         role: :planner,
+         executor_spec: %{
+           "module" => "Core.TestSupport.ExecutorStub",
+           "function" => "capture_output"
+         }
+       }, test_pid}
+    end
+
+    @impl true
+    def handle_call({:form_expectation, id, goal, precision, attrs}, _from, test_pid) do
+      send(test_pid, {:expectation_formed, id, goal, precision, attrs})
+      {:reply, :ok, test_pid}
+    end
+
+    @impl true
+    def handle_call({:execute_intent, intent}, _from, test_pid) do
+      send(test_pid, {:execution_intent_dispatched, intent})
+      {:reply, {:ok, :captured}, test_pid}
+    end
+  end
 
   setup do
     # Mocking Rhizome.Native for testing if necessary
@@ -123,5 +160,58 @@ defmodule Core.MotorDriverTest do
     assert :active == GenServer.call(pid, :get_status)
     
     GenServer.stop(pid)
+  end
+
+  test "dispatch_plan/2 sends a typed execution intent across the membrane" do
+    {:ok, probe} = PlanExecutionProbe.start_link(self())
+
+    plan = %Plan{
+      attractor: %Attractor{
+        id: "typed-attractor",
+        kind: "SuperNode",
+        properties: %{},
+        target_state: %AbstractState{
+          entity: "typed-attractor",
+          phase: "target",
+          summary: "target_state:typed-attractor",
+          attributes: %{},
+          needs: %{"stability" => 0.8},
+          values: %{"safety" => 1.0},
+          objective_priors: %{"repair" => 1.2}
+        },
+        objective_priors: %{"repair" => 1.2},
+        needs: %{"stability" => 0.8},
+        values: %{"safety" => 1.0}
+      },
+      steps: [
+        %Step{
+          id: "step-1",
+          action: "patch_codebase",
+          params: %{"vm_id" => "intent-vm"},
+          predicted_state: %AbstractState{
+            entity: "step-1",
+            phase: "transition",
+            summary: "patched",
+            attributes: %{},
+            needs: %{},
+            values: %{},
+            objective_priors: %{}
+          }
+        }
+      ],
+      transition_delta: %{step_count: 1, actions: ["patch_codebase"]},
+      created_at: 1_710_000_000
+    }
+
+    assert {:ok, :captured} = MotorDriver.dispatch_plan(plan, probe)
+    assert_receive {:expectation_formed, "step-1", "patched", 0.9, _attrs}
+    assert_receive {:execution_intent_dispatched, intent}
+    assert intent.id == "intent:typed-attractor:1710000000"
+    assert intent.action == "execute_plan"
+    assert intent.plan_attractor_id == "typed-attractor"
+    assert intent.plan_step_ids == ["step-1"]
+    assert intent.target_state.summary == "target_state:typed-attractor"
+    assert intent.executor["module"] == "Core.TestSupport.ExecutorStub"
+    assert intent.params["steps"] == [%{"id" => "step-1", "action" => "patch_codebase", "params" => %{"vm_id" => "intent-vm"}, "predicted_state" => %{"entity" => "step-1", "phase" => "transition", "summary" => "patched", "attributes" => %{}, "needs" => %{}, "values" => %{}, "objective_priors" => %{}}, "predicted_outcome" => "patched"}]
   end
 end

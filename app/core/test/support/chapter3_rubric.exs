@@ -8,7 +8,7 @@ defmodule Core.TestSupport.Chapter3Rubric do
       %{
         id: :stem_cell_uses_declarative_executor_contracts,
         path: "app/core/lib/core/stem_cell.ex",
-        required: ["resolve_executor(", "invoke_executor(", "executor_payload(", "executor_spec"],
+        required: ["resolve_executor(", "invoke_executor(", "ExecutionIntent.from_action(", "executor_spec"],
         forbidden: ["Sandbox.Provisioner.capture_output", "\"firecracker_python\"", "\"error_test\""]
       },
       %{

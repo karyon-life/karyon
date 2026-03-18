@@ -5,6 +5,7 @@ defmodule Core.MotorDriver do
   Implements token-free Active Inference for architectural modification.
   """
   require Logger
+  alias Core.ExecutionIntent
   alias Core.Plan
   alias Core.Plan.Attractor
   alias Core.Plan.AbstractState
@@ -82,8 +83,29 @@ defmodule Core.MotorDriver do
       )
     end)
 
-    GenServer.call(cell_pid, {:execute, "execute_plan", Plan.to_execution_payload(plan)})
+    runtime_state = GenServer.call(cell_pid, :get_runtime_state)
+
+    executor_spec =
+      runtime_state
+      |> Map.get(:executor_spec, %{})
+      |> normalize_executor_spec()
+
+    dna_spec = %{
+      "cell_type" => Map.get(runtime_state, :role, "motor"),
+      "id" => Map.get(runtime_state, :lineage_id, "unknown_lineage")
+    }
+
+    case ExecutionIntent.from_plan(plan, dna_spec, executor_spec) do
+      {:ok, intent} ->
+        GenServer.call(cell_pid, {:execute_intent, intent})
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
+
+  defp normalize_executor_spec(spec) when is_map(spec), do: Plan.stringify_nested(spec)
+  defp normalize_executor_spec(_spec), do: %{}
 
   defp fetch_causal_chain(super_node_id) do
     query = """
