@@ -76,17 +76,42 @@ defmodule Sandbox.ExecutorTest do
           %{"id" => "step-2", "action" => "run_tests", "params" => %{"suite" => "core"}}
         ],
         "transition_delta" => %{"step_count" => 2}
+      },
+      "transition_delta" => %{
+        "metabolism_admission" => %{"status" => "admitted", "lane" => "expedite", "pressure" => "high"}
       }
     }
 
     assert {:ok, result} = Executor.execute_plan(intent)
     assert result.mode == :mock
     assert result.status == :exited
+    assert result.metabolism_admission["lane"] == "expedite"
     assert result.wrs_decision["status"] == "authorized"
     assert result.audit["host_mutation"] == "forbidden_outside_sandbox"
     assert result.audit["plan_attractor_id"] == "repair-attractor"
     assert result.telemetry["summary"]["mutation_count"] == 2
     assert Enum.any?(result.telemetry["stages"], &(&1["name"] == "compile"))
     assert result.provenance.intent_id == "intent:sandbox-execute-plan"
+  end
+
+  test "execute_plan denies sandbox work when metabolic admission is deferred" do
+    intent = %{
+      "id" => "intent:sandbox-deferred",
+      "action" => "execute_plan",
+      "plan_attractor_id" => "refinement-attractor",
+      "plan_step_ids" => ["step-1"],
+      "executor" => %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+      "params" => %{
+        "attractor" => "refinement-attractor",
+        "steps" => [
+          %{"id" => "step-1", "action" => "refine_notes", "params" => %{}}
+        ]
+      },
+      "transition_delta" => %{
+        "metabolism_admission" => %{"status" => "deferred", "lane" => "deferred", "pressure" => "high"}
+      }
+    }
+
+    assert {:error, :insufficient_atp_budget} = Executor.execute_plan(intent)
   end
 end

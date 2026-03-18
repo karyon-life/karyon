@@ -7,13 +7,15 @@ defmodule Sandbox.Executor do
   alias Sandbox.WRS
 
   def execute_plan(%{"id" => _intent_id, "params" => %{"steps" => _steps}} = intent) do
-    with {:ok, wrs_decision} <- WRS.authorize_intent(intent),
+    with {:ok, admission} <- authorize_metabolism(intent),
+         {:ok, wrs_decision} <- WRS.authorize_intent(intent),
          {:ok, plan_path} <- Provisioner.stage_execution_intent(intent, wrs_decision),
          {:ok, vm_id} <- Provisioner.provision_vm(plan_path),
          :ok <- Provisioner.run_execution_loop(vm_id, intent, wrs_decision),
          {:ok, result} <- Provisioner.capture_output(vm_id) do
       {:ok,
        result
+       |> Map.put(:metabolism_admission, admission)
        |> Map.put(:wrs_decision, wrs_decision)
        |> Map.put(:provenance, %{
          intent_id: intent["id"],
@@ -24,6 +26,14 @@ defmodule Sandbox.Executor do
   end
 
   def execute_plan(_intent), do: {:error, {:wrs_denied, :invalid_plan_contract}}
+
+  defp authorize_metabolism(%{"transition_delta" => %{"metabolism_admission" => %{"status" => "admitted"} = profile}}),
+    do: {:ok, profile}
+
+  defp authorize_metabolism(%{"transition_delta" => %{"metabolism_admission" => _profile}}),
+    do: {:error, :insufficient_atp_budget}
+
+  defp authorize_metabolism(_intent), do: {:ok, %{"status" => "admitted", "lane" => "normal", "source" => "sandbox_fallback"}}
 
   def capture_output(%{"id" => intent_id, "params" => params, "executor" => executor} = payload) do
     case Map.get(params, "steps") do
