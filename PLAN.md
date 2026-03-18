@@ -1505,7 +1505,7 @@ Chapter 8 action parity is protected by dedicated validation.
 Milestone condition:
 All Chapter 9 and Chapter 10 phases are `[done]`, metabolism is a real policy input, and sovereign directives plus cross-workspace behavior are implemented and validated.
 
-## C09-S01 [todo] Chapter 9 / Section 1
+## C09-S01 [done] Chapter 9 / Section 1
 
 **Source**
 `docs/src/content/docs/part-5/chapter-9/1-introduction.md`
@@ -1532,7 +1532,15 @@ Needs are not yet a first-class runtime policy layer, and the system does not ye
 **Exit Criteria**
 Metabolism is an authoritative runtime policy input, not just a monitor, and needs or values are represented as explicit weighted priors.
 
-## C09-S02 [todo] Chapter 9 / Section 2
+**Progress Notes**
+- 2026-03-18: Added [`app/core/lib/core/metabolism_policy.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/metabolism_policy.ex) as the shared runtime policy contract for metabolic pressure, ATP state, weighted needs, weighted values, and weighted objective priors.
+- 2026-03-18: Updated [`app/core/lib/core/metabolic_daemon.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/metabolic_daemon.ex) so the daemon exposes `:get_policy` and emits typed metabolism policy snapshots in telemetry metadata rather than only raw pressure state.
+- 2026-03-18: Updated [`app/core/lib/core/motor_driver.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/motor_driver.ex) so plans are enriched with metabolism policy data and weighted priors before dispatch, making planning consume metabolic state as an explicit policy input.
+- 2026-03-18: Added and extended validation in [`app/core/test/core/metabolism_policy_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/metabolism_policy_test.exs), [`app/core/test/core/metabolic_daemon_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/metabolic_daemon_test.exs), [`app/core/test/core/metabolic_tier4_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/metabolic_tier4_test.exs), and [`app/core/test/core/motor_driver_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/motor_driver_test.exs).
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/metabolism_policy_test.exs test/core/metabolic_daemon_test.exs test/core/metabolic_tier4_test.exs test/core/motor_driver_test.exs` -> passed with 16 tests, 0 failures, 1 excluded.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/metabolism_policy_test.exs test/core/metabolic_tier4_test.exs test/core/motor_driver_test.exs` -> passed with 8 tests, 0 failures, 1 excluded after the planner type-warning cleanup.
+
+## C09-S02 [done] Chapter 9 / Section 2
 
 **Source**
 `docs/src/content/docs/part-5/chapter-9/2-the-atp-analogue.md`
@@ -1559,7 +1567,19 @@ Metabolic pressure is too reactive and not sufficiently integrated into all acti
 **Exit Criteria**
 ATP pressure changes real scheduling and admission decisions across the organism, and those decisions are modulated by weighted needs and values.
 
-## C09-S03 [todo] Chapter 9 / Section 3
+**Progress Notes**
+- 2026-03-18: Extended [`app/core/lib/core/metabolism_policy.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/metabolism_policy.ex) with explicit ATP admission and scheduling profiles for spawn, plan, and execution paths so weighted needs, values, and objective priors now shape budget decisions instead of pressure acting only as telemetry.
+- 2026-03-18: Updated [`app/core/lib/core/epigenetic_supervisor.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/epigenetic_supervisor.ex) so cell spawning now uses ATP admission profiles, persists denied spawn decisions, preserves high-pressure spawn refusal, and biases medium-pressure transcription away from speculative high-cost variants.
+- 2026-03-18: Updated [`app/core/lib/core/motor_driver.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/motor_driver.ex) so plans now carry `metabolism_admission` and `scheduling` data in their transition delta, and dispatch refuses deferred work instead of treating every plan as equally admissible.
+- 2026-03-18: Updated [`app/core/lib/core/stem_cell.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/stem_cell.ex) so direct intent execution now merges local ATP state with the global metabolism policy before authorizing work.
+- 2026-03-18: Updated [`app/sandbox/lib/sandbox/executor.ex`](/home/adrian/Projects/nexical/karyon/app/sandbox/lib/sandbox/executor.ex) so sandbox execution now enforces the propagated ATP admission decision and surfaces the admission profile in execution results.
+- 2026-03-18: Updated [`app/core/lib/core/service_health.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/service_health.ex) so runtime health reports now expose the current metabolism policy and admission budget surface alongside service dependency status.
+- 2026-03-18: Added and extended deterministic validation in [`app/core/test/core/metabolism_policy_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/metabolism_policy_test.exs), [`app/core/test/core/epigenetic_supervision_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/epigenetic_supervision_test.exs), [`app/core/test/core/motor_driver_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/motor_driver_test.exs), [`app/core/test/core/service_health_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/service_health_test.exs), and [`app/sandbox/test/sandbox/executor_test.exs`](/home/adrian/Projects/nexical/karyon/app/sandbox/test/sandbox/executor_test.exs).
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/epigenetic_supervision_test.exs test/core/motor_driver_test.exs test/core/metabolism_policy_test.exs test/core/service_health_test.exs` -> passed with 20 tests, 0 failures, 1 excluded.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/metabolic_tier4_test.exs test/core/service_health_test.exs test/core/epigenetic_supervision_test.exs test/core/motor_driver_test.exs` -> passed with 17 tests, 0 failures, 1 excluded.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/executor_test.exs` -> passed with 3 tests, 0 failures.
+
+## C09-S03 [done] Chapter 9 / Section 3
 
 **Source**
 `docs/src/content/docs/part-5/chapter-9/3-epistemic-foraging-curiosity.md`
@@ -1585,7 +1605,17 @@ Curiosity-driven low-confidence probing is missing.
 **Exit Criteria**
 Low-confidence edges can be safely and deterministically probed during idle periods.
 
-## C09-S04 [todo] Chapter 9 / Section 4
+**Progress Notes**
+- 2026-03-18: Added [`app/core/lib/core/epistemic_forager.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/epistemic_forager.ex) as the bounded curiosity path for idle-time low-confidence probing. It gates on low-pressure idle state, selects the lowest-confidence candidate, builds a typed exploratory plan, and routes execution through the sandbox `execute_plan` membrane.
+- 2026-03-18: Extended [`app/rhizome/lib/rhizome/memory.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory.ex) and [`app/rhizome/lib/rhizome/memory_topology.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory_topology.ex) with explicit `query_low_confidence_candidates/1` and `submit_epistemic_foraging_event/1` operations so low-confidence candidate selection and confidence updates resolve through the Rhizome topology boundary instead of ad hoc Memgraph calls.
+- 2026-03-18: The Rhizome foraging event path now projects `EpistemicForagingEvent` nodes and `PROBED` relationships back into working memory, and updates the candidate node confidence after exploration outcomes are observed.
+- 2026-03-18: Added focused coverage in [`app/core/test/core/epistemic_forager_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/epistemic_forager_test.exs) and extended [`app/rhizome/test/rhizome/memory_test.exs`](/home/adrian/Projects/nexical/karyon/app/rhizome/test/rhizome/memory_test.exs) to validate idle gating, membrane routing, low-confidence query normalization, and bounded foraging-event validation.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/epistemic_forager_test.exs test/core/metabolism_policy_test.exs` -> passed with 7 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs` -> passed with 13 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/executor_test.exs test/sandbox/wrs_test.exs` -> passed with 5 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/epistemic_forager_test.exs` -> passed with 3 tests, 0 failures after the Rhizome warning cleanup.
+
+## C09-S04 [done] Chapter 9 / Section 4
 
 **Source**
 `docs/src/content/docs/part-5/chapter-9/4-the-simulation-daemon-dreams.md`
@@ -1611,7 +1641,19 @@ Macro-architectural dreaming and permutation search are absent.
 **Exit Criteria**
 Idle dream-state permutation and consolidation behavior exists and is validated.
 
-## C09-S05 [todo] Chapter 9 / Section 5
+**Progress Notes**
+- 2026-03-18: Added [`app/core/lib/core/simulation_daemon.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/simulation_daemon.ex) as a supervised dream-state daemon that only runs under low-pressure idle conditions, queries recent successful execution outcomes, generates bounded architectural permutations, routes them through typed `execute_plan` intents, and persists dream results back into Rhizome.
+- 2026-03-18: Updated [`app/core/lib/core/application.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/application.ex) so the simulation daemon is part of the organism supervision tree instead of a detached helper path.
+- 2026-03-18: Extended [`app/rhizome/lib/rhizome/memory.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory.ex) and [`app/rhizome/lib/rhizome/memory_topology.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory_topology.ex) with explicit `query_recent_execution_outcomes/1` and `submit_simulation_daemon_event/1` operations so historical telemetry selection and dream-result persistence resolve through the Rhizome topology boundary.
+- 2026-03-18: Dream-state projection now materializes `SimulationDaemonEvent` nodes and `DREAMED_FROM` edges back into working memory, tying each permutation result to the historical execution outcome it was replayed from.
+- 2026-03-18: Added focused coverage in [`app/core/test/core/simulation_daemon_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/simulation_daemon_test.exs) and extended [`app/rhizome/test/rhizome/memory_test.exs`](/home/adrian/Projects/nexical/karyon/app/rhizome/test/rhizome/memory_test.exs) to validate idle gating, historical outcome replay, membrane routing, recent-outcome query validation, and dream-event validation.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/simulation_daemon_test.exs test/core/epistemic_forager_test.exs` -> passed with 6 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs` -> passed with 15 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/executor_test.exs test/sandbox/wrs_test.exs` -> passed with 5 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/simulation_daemon_test.exs` -> passed with 3 tests, 0 failures after the Rhizome warning cleanup.
+- 2026-03-18: Real Firecracker-backed dream-state validation on a non-mock host remains an environment-level follow-up; the implementation is currently validated by the deterministic mock-backed membrane suite.
+
+## C09-S05 [done] Chapter 9 / Section 5
 
 **Source**
 `docs/src/content/docs/part-5/chapter-9/5-chapter-wrap-up.md`
@@ -1634,7 +1676,14 @@ Metabolic policy features can drift apart.
 **Exit Criteria**
 Chapter 9 drive behavior is defended by dedicated validation.
 
-## C10-S01 [todo] Chapter 10 / Section 1
+**Progress Notes**
+- 2026-03-18: Added the umbrella Chapter 9 gate in [`app/test/chapter9_conformance_runner.exs`](/home/adrian/Projects/nexical/karyon/app/test/chapter9_conformance_runner.exs) and wired `mix chapter9.conformance` through [`app/mix.exs`](/home/adrian/Projects/nexical/karyon/app/mix.exs) so ATP policy, curiosity, and dream-state behavior are validated together instead of as disconnected subsystem checks.
+- 2026-03-18: Added the developer-facing gate description in [`docs/DEVELOPER/CHAPTER9_CONFORMANCE.md`](/home/adrian/Projects/nexical/karyon/docs/DEVELOPER/CHAPTER9_CONFORMANCE.md).
+- 2026-03-18: Added CI enforcement in [`.github/workflows/chapter9-conformance.yml`](/home/adrian/Projects/nexical/karyon/.github/workflows/chapter9-conformance.yml) so the Chapter 9 drive surface is checked on pushes and pull requests.
+- 2026-03-18: The Chapter 9 conformance runner composes the ATP admission surface, epigenetic pressure gating, plan scheduling, epistemic foraging, simulation-daemon replay, Rhizome memory contracts, and sandbox membrane checks under one gate.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix chapter9.conformance` -> passed. The composed suite ran the serialized core Chapter 9 tests, the Rhizome memory contract tests, and the sandbox membrane tests with 0 failures.
+
+## C10-S01 [done] Chapter 10 / Section 1
 
 **Source**
 `docs/src/content/docs/part-5/chapter-10/1-introduction.md`
@@ -1660,7 +1709,15 @@ Persistent sovereign law and symbiotic governance are absent, and there is no fo
 **Exit Criteria**
 Sovereignty becomes an explicit runtime control plane with weighted mandates, values, and needs.
 
-## C10-S02 [todo] Chapter 10 / Section 2
+**Progress Notes**
+- 2026-03-18: Added [`app/core/lib/core/sovereignty.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/sovereignty.ex) as the explicit Chapter 10 sovereignty contract, normalizing hard mandates, soft values, evolving needs, objective priors, and precedence into a stable `karyon.sovereignty.v1` runtime surface.
+- 2026-03-18: Updated [`app/core/lib/core/metabolism_policy.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/metabolism_policy.ex) so runtime policy now carries a `sovereignty` payload, merges sovereign directives into weighted needs, values, and objective priors, and lets sovereign values and needs influence objective weighting instead of limiting free-energy weighting to objective priors alone.
+- 2026-03-18: Updated [`app/core/lib/core/motor_driver.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/motor_driver.ex) so sequence-planned attractors and transition deltas expose sovereignty state directly on the planning boundary, making sovereign law visible to downstream execution, audit, and later refusal work.
+- 2026-03-18: Added focused coverage in [`app/core/test/core/sovereignty_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/sovereignty_test.exs) and extended [`app/core/test/core/metabolism_policy_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/metabolism_policy_test.exs) plus [`app/core/test/core/motor_driver_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/motor_driver_test.exs) to validate sovereign normalization, weighted-prior projection, metabolism integration, and planning-boundary propagation.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/sovereignty_test.exs test/core/metabolism_policy_test.exs` -> passed with 7 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/motor_driver_test.exs --include external` -> passed with 7 tests, 0 failures.
+
+## C10-S02 [done] Chapter 10 / Section 2
 
 **Source**
 `docs/src/content/docs/part-5/chapter-10/2-sovereign-directives.md`
@@ -1690,7 +1747,17 @@ Persistent objectives, attractor projection, and localized execution blueprints 
 **Exit Criteria**
 Persistent objectives and localized execution blueprints exist, weighted priors are represented in Rhizome attractors, and changing objective weights changes planning behavior.
 
-## C10-S03 [todo] Chapter 10 / Section 3
+**Progress Notes**
+- 2026-03-18: Added [`app/core/lib/core/objective_manifest.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/objective_manifest.ex) to ingest persistent objective manifests from `~/.karyon/objectives/`, normalize hard mandates, soft values, evolving needs, objective priors, and precedence, and merge workspace-specific sovereignty overlays without routing planning through ephemeral textual control inputs.
+- 2026-03-18: The objective-manifest boundary now ranks competing attractors against workspace objective priors and preferred-attractor directives, making objective-weight changes measurably change attractor ordering before localized planning is emitted.
+- 2026-03-18: Added localized workspace blueprint generation in [`app/core/lib/core/objective_manifest.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/objective_manifest.ex), which writes typed `.nexical/plan.yml` execution blueprints containing the selected attractor, workspace sovereignty state, manifest IDs, and the typed plan payload.
+- 2026-03-18: Added Rhizome support for persistent objective projection in [`app/rhizome/lib/rhizome/memory.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory.ex) and [`app/rhizome/lib/rhizome/memory_topology.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory_topology.ex), so workspace objective manifests are archived in XTDB and projected into Memgraph as `ObjectiveProjection` and `ObjectiveAttractor` graph entities.
+- 2026-03-18: Added focused coverage in [`app/core/test/core/objective_manifest_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/objective_manifest_test.exs) to validate manifest ingestion, workspace sovereignty merging, attractor re-ranking from changed objective weights, `.nexical/plan.yml` generation, and objective projection persistence through the memory boundary.
+- 2026-03-18: Extended [`app/rhizome/test/rhizome/memory_test.exs`](/home/adrian/Projects/nexical/karyon/app/rhizome/test/rhizome/memory_test.exs) so the Rhizome topology contract explicitly includes objective projection and rejects invalid projection payloads.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/objective_manifest_test.exs test/core/metabolism_policy_test.exs test/core/sovereignty_test.exs` -> passed with 10 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs` -> passed with 16 tests, 0 failures.
+
+## C10-S03 [done] Chapter 10 / Section 3
 
 **Source**
 `docs/src/content/docs/part-5/chapter-10/3-defiance-and-homeostasis.md`
@@ -1717,7 +1784,19 @@ The sovereignty safety loop is missing, and refusal policy cannot yet account fo
 **Exit Criteria**
 The system can refuse or renegotiate conflicting directives through explicit policy grounded in mandate precedence, weighted values, weighted needs, and metabolic risk.
 
-## C10-S04 [todo] Chapter 10 / Section 4
+**Progress Notes**
+- 2026-03-18: Added [`app/core/lib/core/sovereign_guard.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/sovereign_guard.ex) as the explicit sovereignty safety loop, evaluating execution intents against hard mandates, soft values, evolving needs, action surface, and metabolic risk to return `allow`, `negotiate`, or `refuse` decisions.
+- 2026-03-18: Updated [`app/core/lib/core/stem_cell.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/stem_cell.ex) so validated intents now pass through the sovereign guard before membrane crossing, and refusal or negotiation decisions are persisted and returned as typed errors instead of being treated as generic ATP failures.
+- 2026-03-18: Extended [`app/core/lib/core/operator_output.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/operator_output.ex) with deterministic `operator.sovereignty.refuse` and `operator.sovereignty.negotiate` briefs so paradoxes and compromise requests are visible through the bounded operator surface.
+- 2026-03-18: Added dashboard exposure in [`app/dashboard/lib/dashboard/operator_negotiation.ex`](/home/adrian/Projects/nexical/karyon/app/dashboard/lib/dashboard/operator_negotiation.ex), keeping refusal and negotiation rendering inside the existing bounded operator-output pathway instead of introducing a free-form UI surface.
+- 2026-03-18: Added Rhizome persistence for paradox, refusal, and negotiation events in [`app/rhizome/lib/rhizome/memory.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory.ex) and [`app/rhizome/lib/rhizome/memory_topology.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory_topology.ex), materializing `SovereigntyEvent` nodes and `ASSESSES_INTENT` relationships for later audit and learning.
+- 2026-03-18: Added focused validation in [`app/core/test/core/sovereign_guard_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/sovereign_guard_test.exs), extended [`app/core/test/core/operator_output_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/operator_output_test.exs) and [`app/core/test/core/stem_cell_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/stem_cell_test.exs), extended [`app/rhizome/test/rhizome/memory_test.exs`](/home/adrian/Projects/nexical/karyon/app/rhizome/test/rhizome/memory_test.exs), and added dashboard coverage in [`app/dashboard/test/dashboard/operator_negotiation_test.exs`](/home/adrian/Projects/nexical/karyon/app/dashboard/test/dashboard/operator_negotiation_test.exs).
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/metabolism_policy_test.exs` -> passed with 5 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/sovereign_guard_test.exs test/core/operator_output_test.exs test/core/stem_cell_test.exs` -> passed with 16 tests, 0 failures, 1 excluded.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs` -> passed with 17 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/dashboard && env PATH=/tmp/protoc/bin:$PATH mix test test/dashboard/operator_negotiation_test.exs test/dashboard/operator_feedback_test.exs` -> passed with 2 tests, 0 failures.
+
+## C10-S04 [done] Chapter 10 / Section 4
 
 **Source**
 `docs/src/content/docs/part-5/chapter-10/4-the-cross-workspace-architect.md`
@@ -1743,7 +1822,17 @@ Multi-workspace planning and localized execution contracts are absent.
 **Exit Criteria**
 Cross-workspace planning and localized limb execution are implemented and validated.
 
-## C10-S05 [todo] Chapter 10 / Section 5
+**Progress Notes**
+- 2026-03-18: Added [`app/core/lib/core/cross_workspace_architect.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/cross_workspace_architect.ex) as the shared-memory multi-workspace coordination surface, defining a central architect workspace plus localized limb workspaces that each receive their own `.nexical/plan.yml` execution blueprint.
+- 2026-03-18: The cross-workspace architect now composes the existing objective-manifest projection path so multi-repo planning stays consistent with Chapter 10 sovereignty directives instead of inventing a second planning channel.
+- 2026-03-18: Added Rhizome support for shared-memory workspace coordination in [`app/rhizome/lib/rhizome/memory.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory.ex) and [`app/rhizome/lib/rhizome/memory_topology.ex`](/home/adrian/Projects/nexical/karyon/app/rhizome/lib/rhizome/memory_topology.ex), materializing `CrossWorkspaceCoordination` nodes and `COORDINATES_LIMB` relationships that tie the central planner surface to localized workspace limbs.
+- 2026-03-18: Extended [`app/rhizome/test/rhizome/memory_test.exs`](/home/adrian/Projects/nexical/karyon/app/rhizome/test/rhizome/memory_test.exs) so the Rhizome topology contract explicitly includes shared cross-workspace coordination and rejects invalid coordination payloads.
+- 2026-03-18: Added focused coverage in [`app/core/test/core/cross_workspace_architect_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/cross_workspace_architect_test.exs) to validate central-versus-local workspace boundaries, localized plan emission for multiple repos, and shared-memory coordination persistence across the workspace set.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix compile` -> passed.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/cross_workspace_architect_test.exs test/core/objective_manifest_test.exs` -> passed with 5 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs` -> passed with 18 tests, 0 failures.
+
+## C10-S05 [done] Chapter 10 / Section 5
 
 **Source**
 `docs/src/content/docs/part-5/chapter-10/5-chapter-wrap-up.md`
@@ -1761,10 +1850,17 @@ Objectives, defiance, and cross-workspace behavior can drift apart.
 - Add Chapter 10 conformance tests covering objectives, blueprint generation, paradox handling, and cross-workspace planning.
 
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix chapter10.conformance`
 
 **Exit Criteria**
 Chapter 10 sovereignty parity is guarded by dedicated validation.
+
+**Progress Notes**
+- 2026-03-18: Added the dedicated Chapter 10 umbrella gate in [`app/test/chapter10_conformance_runner.exs`](/home/adrian/Projects/nexical/karyon/app/test/chapter10_conformance_runner.exs) and wired it through [`app/mix.exs`](/home/adrian/Projects/nexical/karyon/app/mix.exs) as `mix chapter10.conformance`, covering weighted sovereignty policy, objective projection, refusal and negotiation behavior, cross-workspace planning, Rhizome audit persistence, and dashboard operator surfaces.
+- 2026-03-18: Added the developer-facing conformance reference in [`docs/DEVELOPER/CHAPTER10_CONFORMANCE.md`](/home/adrian/Projects/nexical/karyon/docs/DEVELOPER/CHAPTER10_CONFORMANCE.md) and CI enforcement in [`.github/workflows/chapter10-conformance.yml`](/home/adrian/Projects/nexical/karyon/.github/workflows/chapter10-conformance.yml), including the dashboard `protoc` prerequisite so the Chapter 10 gate is repeatable in automation.
+- 2026-03-18: Split the core portion of the Chapter 10 gate into a sovereignty-policy batch plus a dedicated stem-cell sovereignty boundary batch so application-env mutations in the control-plane tests cannot race each other during conformance.
+- 2026-03-18: Hardened the runtime sovereignty path while closing the gate: [`app/core/lib/core/metabolism_policy.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/metabolism_policy.ex) now refreshes live sovereignty directives over daemon snapshots before admission and guard evaluation, and [`app/core/lib/core/sovereign_guard.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/sovereign_guard.ex) now uses a stable homeostasis-conflict threshold for preemptive refusal of mutation plans.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix chapter10.conformance` -> passed with 19 core sovereignty tests, 9 stem-cell boundary tests (1 excluded), 18 Rhizome/dashboard integration tests, and 2 dashboard operator-surface tests all green. The run still emitted the existing `:karyon` configuration warning and non-distributed node warning, but the Chapter 10 conformance gate itself passed.
 
 ## Part VI Milestone
 
@@ -2053,6 +2149,6 @@ Chapter 12 validates a full closed maturation loop from baseline to drift correc
 - `[todo]` Part II Complete: Chapters 3 and 4 are implemented and validated.
 - `[todo]` Part III Complete: Chapters 5 and 6 are implemented and validated.
 - `[todo]` Part IV Complete: Chapters 7 and 8 are implemented and validated.
-- `[todo]` Part V Complete: Chapters 9 and 10 are implemented and validated.
+- `[done]` Part V Complete: Chapters 9 and 10 are implemented and validated.
 - `[todo]` Part VI Complete: Chapters 11 and 12 are implemented and validated.
 - `[todo]` Whole-Book Architectural Parity Complete: Every `Cxx-Syy` phase is `[done]`, all conflict-ledger items are either resolved or explicitly accepted, and the implementation matches the canonical book guidance with validated runtime behavior.

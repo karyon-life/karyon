@@ -164,37 +164,37 @@ Completion criterion: every `C07-*` and `C08-*` item is complete and validated.
 
 ## Part V: Consciousness And Autonomy
 
-- [ ] `C09-S01` Introduction
+- [x] `C09-S01` Introduction
 Completion criterion: metabolism is an authoritative runtime policy input, and needs or values are represented as explicit weighted priors.
 
-- [ ] `C09-S02` The ATP Analogue
+- [x] `C09-S02` The ATP Analogue
 Completion criterion: ATP pressure changes scheduling and admission decisions across the organism, and those decisions are modulated by weighted needs and values.
 
-- [ ] `C09-S03` Epistemic Foraging
+- [x] `C09-S03` Epistemic Foraging
 Completion criterion: low-confidence edges can be safely probed during idle periods.
 
-- [ ] `C09-S04` The Simulation Daemon
+- [x] `C09-S04` The Simulation Daemon
 Completion criterion: dream-state permutation and consolidation behavior exists and is validated.
 
-- [ ] `C09-S05` Chapter Wrap-Up
+- [x] `C09-S05` Chapter Wrap-Up
 Completion criterion: Chapter 9 drive behavior is defended by dedicated validation.
 
-- [ ] `C10-S01` Introduction
+- [x] `C10-S01` Introduction
 Completion criterion: sovereignty is implemented as an explicit runtime control plane with weighted mandates, values, and needs.
 
-- [ ] `C10-S02` Sovereign Directives
+- [x] `C10-S02` Sovereign Directives
 Completion criterion: persistent objectives and localized `.nexical/plan.yml` blueprints drive planning, and changing objective weights changes attractor ranking and plan output.
 
-- [ ] `C10-S03` Defiance and Homeostasis
+- [x] `C10-S03` Defiance and Homeostasis
 Completion criterion: paradox detection, refusal, and negotiation behavior are explicit and validated against mandate precedence, weighted values, weighted needs, and metabolic risk.
 
-- [ ] `C10-S04` The Cross-Workspace Architect
+- [x] `C10-S04` The Cross-Workspace Architect
 Completion criterion: cross-workspace planning and localized limb execution are implemented and verified.
 
-- [ ] `C10-S05` Chapter Wrap-Up
+- [x] `C10-S05` Chapter Wrap-Up
 Completion criterion: Chapter 10 sovereignty parity is guarded by dedicated validation.
 
-- [ ] Part V Complete
+- [x] Part V Complete
 Completion criterion: every `C09-*` and `C10-*` item is complete and validated.
 
 ## Part VI: Maturation & Lifecycle Execution
