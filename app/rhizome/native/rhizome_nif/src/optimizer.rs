@@ -16,18 +16,19 @@ use single_clustering::network::grouping::VectorGrouping;
 use single_clustering::community_search::leiden::{LeidenOptimizer, LeidenConfig};
 use single_clustering::community_search::leiden::partition::{VertexPartition, ModularityPartition};
 
-pub fn identify_communities(edges: Vec<(usize, usize, f64)>, node_count: usize) -> Vec<Vec<usize>> {
+pub fn identify_communities(edges: Vec<(usize, usize, f64)>, node_count: usize) -> Result<Vec<Vec<usize>>, String> {
     if edges.is_empty() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
     
     let network = CSRNetwork::from_edges(&edges, vec![1.0; node_count]);
     let mut optimizer = LeidenOptimizer::new(LeidenConfig::default());
-    
-    // find_partition returns Result<P, anyhow::Error>
-    let partition: ModularityPartition<f64, VectorGrouping> = optimizer.find_partition(network).unwrap();
-    
-    partition.get_communities()
+
+    let partition: ModularityPartition<f64, VectorGrouping> = optimizer
+        .find_partition(network)
+        .map_err(|error| format!("Partition Error: {}", error))?;
+
+    Ok(partition.get_communities())
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -37,7 +38,10 @@ pub fn optimize_graph() -> NifResult<(rustler::Atom, String)> {
         if client_lock.is_none() {
             return (atoms::error(), "Error: Memgraph client not initialized".to_string());
         }
-        let client = client_lock.as_ref().unwrap();
+        let client = match client_lock.as_ref() {
+            Some(client) => client,
+            None => return (atoms::error(), "Error: Memgraph client unavailable".to_string()),
+        };
 
         // 1. Fetch all nodes and edges from Memgraph
         let mut result = match client.graph.execute(query("MATCH (n)-[r]->(m) RETURN id(n) as start, id(m) as end, coalesce(r.weight, 1.0) as weight")).await {
@@ -51,9 +55,18 @@ pub fn optimize_graph() -> NifResult<(rustler::Atom, String)> {
         let mut next_internal_id = 0;
 
         while let Ok(Some(row)) = result.next().await {
-            let start: i64 = row.get("start").unwrap();
-            let end: i64 = row.get("end").unwrap();
-            let weight: f64 = row.get("weight").unwrap();
+            let start: i64 = match row.get("start") {
+                Ok(value) => value,
+                Err(error) => return (atoms::error(), format!("Decode Error: {}", error)),
+            };
+            let end: i64 = match row.get("end") {
+                Ok(value) => value,
+                Err(error) => return (atoms::error(), format!("Decode Error: {}", error)),
+            };
+            let weight: f64 = match row.get("weight") {
+                Ok(value) => value,
+                Err(error) => return (atoms::error(), format!("Decode Error: {}", error)),
+            };
 
             let u = *external_to_internal.entry(start as u64).or_insert_with(|| {
                 let id = next_internal_id;
@@ -78,13 +91,19 @@ pub fn optimize_graph() -> NifResult<(rustler::Atom, String)> {
         let node_count = next_internal_id;
 
         // 2. Identify communities using Leiden
-        let communities = identify_communities(edge_list, node_count);
+        let communities = match identify_communities(edge_list, node_count) {
+            Ok(communities) => communities,
+            Err(error) => return (atoms::error(), error),
+        };
         let community_count = communities.len();
 
         // 3. Super-Node Generation
         for (i, community) in communities.iter().enumerate() {
             if community.len() > 1 {
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                let now = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|duration| duration.as_secs())
+                    .unwrap_or(0);
                 let super_node_id = format!("sn_{}_{}", now, i);
                 
                 // Calculate confidence based on cluster density/size
@@ -123,7 +142,7 @@ mod tests {
         ];
         let node_count = 2;
 
-        let communities = identify_communities(edges, node_count);
+        let communities = identify_communities(edges, node_count).unwrap();
         assert_eq!(communities.len(), 1);
         assert_eq!(communities[0].len(), 2);
     }
@@ -133,7 +152,7 @@ mod tests {
         let edges = vec![];
         let node_count = 2;
 
-        let communities = identify_communities(edges, node_count);
+        let communities = identify_communities(edges, node_count).unwrap();
         // If there are no edges, it returns empty Vec or 1-node communities?
         // Let's check implementation: if edges.is_empty() { return Vec::new(); }
         assert_eq!(communities.len(), 0);

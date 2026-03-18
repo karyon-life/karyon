@@ -61,6 +61,27 @@ defmodule Rhizome.Memory do
   def submit_prediction_error(_prediction_error), do: {:error, :invalid_prediction_error}
 
   @doc """
+  Persists a differentiation decision into XTDB and projects a summary edge into Memgraph.
+  """
+  def submit_differentiation_event(event) when is_map(event) do
+    document =
+      event
+      |> stringify_keys()
+      |> Map.put_new("recorded_at", System.system_time(:second))
+
+    with id when is_binary(id) <- differentiation_event_id(document),
+         {:ok, xtdb_result} <- submit_xtdb(id, document),
+         :ok <- project_differentiation_event(document) do
+      {:ok, %{id: id, xtdb: xtdb_result}}
+    else
+      {:error, reason} -> {:error, reason}
+      _ -> {:error, :invalid_differentiation_event}
+    end
+  end
+
+  def submit_differentiation_event(_event), do: {:error, :invalid_differentiation_event}
+
+  @doc """
   Loads the latest durable state snapshot for a cell lineage.
   """
   def load_cell_state(lineage_id) when is_binary(lineage_id) and lineage_id != "" do
@@ -141,6 +162,15 @@ defmodule Rhizome.Memory do
 
   defp cell_state_id(lineage_id), do: "cell_state:#{lineage_id}"
 
+  defp differentiation_event_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+
+  defp differentiation_event_id(document) do
+    lineage_id = Map.get(document, "lineage_id", "unknown_lineage")
+    role = Map.get(document, "role", "unknown_role")
+    timestamp = Map.get(document, "recorded_at", System.system_time(:second))
+    "differentiation_event:#{lineage_id}:#{role}:#{timestamp}"
+  end
+
   defp project_execution_outcome(document) do
     cell_id = escape_cypher(Map.get(document, "cell_id", "unknown_cell"))
     outcome_id = escape_cypher(execution_outcome_id(document))
@@ -203,6 +233,36 @@ defmodule Rhizome.Memory do
 
       {:error, reason} ->
         Logger.warning("[Rhizome.Memory] Memgraph projection of prediction error failed: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp project_differentiation_event(document) do
+    lineage_id = escape_cypher(Map.get(document, "lineage_id", "unknown_lineage"))
+    event_id = escape_cypher(differentiation_event_id(document))
+    role = escape_cypher(Map.get(document, "role", "unknown_role"))
+    pressure = escape_cypher(Map.get(document, "pressure", "unknown"))
+    source = escape_cypher(Map.get(document, "source", "epigenetic_supervisor"))
+    dna_path = escape_cypher(Map.get(document, "dna_path", "unknown"))
+    status = escape_cypher(Map.get(document, "status", "selected"))
+    timestamp = Map.get(document, "recorded_at", System.system_time(:second))
+
+    query = """
+    MERGE (c:Cell {id: '#{lineage_id}'})
+    MERGE (d:DifferentiationEvent {id: '#{event_id}'})
+    SET d.role = '#{role}',
+        d.pressure = '#{pressure}',
+        d.source = '#{source}',
+        d.status = '#{status}',
+        d.dna_path = '#{dna_path}',
+        d.recorded_at = #{timestamp}
+    MERGE (c)-[:DIFFERENTIATED_AS]->(d)
+    """
+
+    case query_memgraph(query) do
+      {:ok, _} -> :ok
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of differentiation event failed: #{inspect(reason)}")
         :ok
     end
   end

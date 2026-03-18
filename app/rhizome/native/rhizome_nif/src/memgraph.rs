@@ -1,5 +1,6 @@
 use crate::client::{parse_service_config, CLIENT, MemgraphClient, RUNTIME};
 use rustler::NifResult;
+use serde_json::{Map, Number, Value};
 use std::sync::Arc;
 
 
@@ -31,7 +32,10 @@ pub fn memgraph_query(query: String, service_config: String) -> NifResult<(rustl
             }
         }
 
-        let client = client_lock.as_ref().unwrap().clone();
+        let client = match client_lock.as_ref() {
+            Some(client) => client.clone(),
+            None => return Ok((atoms::error(), "Connection Error: client unavailable".to_string())),
+        };
         match client.execute_query(&query).await {
             Ok(rows) => Ok((atoms::ok(), serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()))),
             Err(e) => Ok((atoms::error(), e)),
@@ -63,10 +67,16 @@ pub fn weaken_edge(
             }
         }
 
-        let client = client_lock.as_ref().unwrap().clone();
+        let client = match client_lock.as_ref() {
+            Some(client) => client.clone(),
+            None => return Ok((atoms::error(), "Connection Error: client unavailable".to_string())),
+        };
         
         let node_id = {
-            let pointer = resource.pointer.read().unwrap();
+            let pointer = match resource.pointer.read() {
+                Ok(pointer) => pointer,
+                Err(_) => return Ok((atoms::error(), "Resource Lock Error".to_string())),
+            };
             pointer.node_id
         };
 
@@ -99,7 +109,10 @@ pub fn bridge_to_xtdb(service_config: String) -> NifResult<(rustler::Atom, Strin
             }
         }
 
-        let client = client_lock.as_ref().unwrap().clone();
+        let client = match client_lock.as_ref() {
+            Some(client) => client.clone(),
+            None => return Ok((atoms::error(), "Connection Error: client unavailable".to_string())),
+        };
         let xtdb = crate::client::XtdbClient::new(config.xtdb.url.clone());
 
         // 1. Fetch unarchived nodes
@@ -111,20 +124,20 @@ pub fn bridge_to_xtdb(service_config: String) -> NifResult<(rustler::Atom, Strin
 
         let mut count = 0;
         while let Ok(Some(row)) = result.next().await {
-            let id: i64 = row.get("id").unwrap();
-            let props: neo4rs::BoltMap = row.get("props").unwrap();
+            let id: i64 = match row.get("id") {
+                Ok(value) => value,
+                Err(error) => return Ok((atoms::error(), format!("Decode Error: {}", error))),
+            };
+            let props: neo4rs::BoltMap = match row.get("props") {
+                Ok(value) => value,
+                Err(error) => return Ok((atoms::error(), format!("Decode Error: {}", error))),
+            };
             
             // Convert properties to JSON
-            let mut map = serde_json::Map::new();
+            let mut map = Map::new();
             for (key, value) in props.value {
                 let key_str = key.value;
-                let val = match value {
-                    neo4rs::BoltType::String(s) => serde_json::Value::String(s.value),
-                    neo4rs::BoltType::Integer(i) => serde_json::Value::Number(i.value.into()),
-                    neo4rs::BoltType::Float(f) => serde_json::Value::Number(serde_json::Number::from_f64(f.value).unwrap()),
-                    neo4rs::BoltType::Boolean(b) => serde_json::Value::Bool(b.value),
-                    _ => serde_json::Value::Null,
-                };
+                let val = bolt_type_to_json(value);
                 map.insert(key_str, val);
             }
 
@@ -140,4 +153,16 @@ pub fn bridge_to_xtdb(service_config: String) -> NifResult<(rustler::Atom, Strin
 
         Ok((atoms::ok(), format!("Successfully bridged {} nodes to XTDB ledger", count)))
     })
+}
+
+fn bolt_type_to_json(value: neo4rs::BoltType) -> Value {
+    match value {
+        neo4rs::BoltType::String(s) => Value::String(s.value),
+        neo4rs::BoltType::Integer(i) => Value::Number(i.value.into()),
+        neo4rs::BoltType::Float(f) => Number::from_f64(f.value)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
+        neo4rs::BoltType::Boolean(b) => Value::Bool(b.value),
+        _ => Value::Null,
+    }
 }
