@@ -1,0 +1,42 @@
+name: Chapter 4 Conformance
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  chapter4:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup BEAM
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19.5"
+          otp-version: "28.0.1"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Mix
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/deps
+            app/_build
+          key: ${{ runner.os }}-mix-${{ hashFiles('app/mix.lock', 'app/**/mix.exs') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install Dependencies
+        working-directory: app
+        run: mix deps.get
+
+      - name: Run Chapter 4 Conformance Suite
+        working-directory: app
+        run: mix chapter4.conformance
