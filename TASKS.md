@@ -28,7 +28,7 @@ Completion criterion: durable recovery and hardware-budget enforcement are valid
 Completion criterion: prediction error is the sole authoritative trigger for structural adaptation, and surprise is computed through a typed variational free energy model rather than a hardcoded placeholder.
 
 - [x] `C01-S05` Chapter Wrap-Up
-Completion criterion: Chapter 1 conformance tests exist and fail on regression.
+Completion criterion: Chapter 1 conformance uses the same umbrella runner, documentation, and CI pattern as the later chapters and fails on regression.
 
 - [x] `C02-S01` Introduction
 Completion criterion: biology-first architecture invariants are executable across the umbrella.
@@ -72,7 +72,7 @@ Completion criterion: all mutation and compile actions cross a validated `virtio
 Completion criterion: ZeroMQ and NATS role separation plus backpressure behavior are validated.
 
 - [x] `C03-S07` Chapter Wrap-Up
-Completion criterion: Chapter 3 cross-app contract tests exist and pass.
+Completion criterion: Chapter 3 cross-app contract tests are enforced through the standardized conformance runner, documentation, and CI pattern.
 
 - [x] `C04-S01` Introduction
 Completion criterion: DNA and epigenetic control-plane boundaries are explicit and test-backed.
