@@ -1,20 +1,12 @@
 # Chapter 1 Conformance
 
-This document defines the forbidden architectural regressions derived from Part 1 Chapter 1 of the Karyon book source at `docs/src/content/docs/part-1/chapter-1/**`.
+This document captures the Chapter 1 conformance gate for:
 
-## Forbidden Regressions
-
-Do not introduce any of the following into the core reasoning boundary:
-
-- Prompt-response orchestration as the primary planning mechanism.
-- Stateless planning that does not depend on graph-backed memory or recovered lineage state.
-- Unstructured planning payloads where typed planning contracts should exist.
-- Direct ad hoc mutation paths that bypass typed prediction-error persistence.
-- Execution that ignores metabolic or ATP budget constraints.
-- Learning updates that do not persist durable recovery state for cells.
-- New APIs named around prompt, completion, or chat-style interaction inside the planning, execution, or memory boundary.
-
-## Required Invariants
+- `docs/src/content/docs/part-1/chapter-1/1-introduction.md`
+- `docs/src/content/docs/part-1/chapter-1/2-the-statistical-dead-end.md`
+- `docs/src/content/docs/part-1/chapter-1/3-catastrophic-forgetting-and-hardware-economics.md`
+- `docs/src/content/docs/part-1/chapter-1/4-why-current-ai-fails-predictive-coding-and-active-inference.md`
+- `docs/src/content/docs/part-1/chapter-1/5-chapter-wrap-up.md`
 
 Chapter 1 conformance requires these behaviors:
 
@@ -23,14 +15,17 @@ Chapter 1 conformance requires these behaviors:
 - Execution respects DNA `atp_requirement` before action.
 - Nociception and execution failures persist typed prediction errors through the memory pipeline.
 
-## Enforcement
-
 Local command:
 
 ```bash
-cd /home/adrian/Projects/nexical/karyon/app/core && mix chapter1.conformance
+cd /home/adrian/Projects/nexical/karyon/app && mix chapter1.conformance
 ```
 
-CI requirement:
+This suite is expected to fail when:
 
-- The GitHub Actions workflow `chapter1-conformance.yml` must pass on pushes and pull requests that touch the repository.
+- Prompt-response orchestration reappears inside the planning boundary.
+- Cells stop checkpointing durable state or fail to recover lineage state after restart.
+- Execution bypasses ATP admission or prediction errors bypass typed persistence.
+- New prompt, completion, or chat-style APIs enter the planning, execution, or memory boundary.
+
+The GitHub Actions workflow `chapter1-conformance.yml` must pass on pushes and pull requests.
