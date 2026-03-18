@@ -1867,7 +1867,7 @@ Chapter 10 sovereignty parity is guarded by dedicated validation.
 Milestone condition:
 All Chapter 11 and Chapter 12 phases are `[done]`, the organism has a validated bootstrapping and observability model, and curriculum plus memory distribution features operate as a closed lifecycle.
 
-## C11-S01 [todo] Chapter 11 / Section 1
+## C11-S01 [done] Chapter 11 / Section 1
 
 **Source**
 `docs/src/content/docs/part-6/chapter-11/1-introduction.md`
@@ -1887,11 +1887,23 @@ Bootstrapping targets are not expressed as a single implementation program.
 
 **Validation**
 - `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/operational_maturity_test.exs test/core/service_health_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/dashboard && env PATH=/tmp/protoc/bin:$PATH mix test test/dashboard_web/controllers/health_controller_test.exs`
 
 **Exit Criteria**
 Bootstrapping and maturity targets are explicit and actionable.
 
-## C11-S02 [todo] Chapter 11 / Section 2
+**Progress Notes**
+- 2026-03-18: Added the typed Chapter 11 maturity contract in [`app/core/lib/core/operational_maturity.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/operational_maturity.ex), making `build`, `deploy`, `observe`, and `distribute` explicit targets with validation commands, blockers, evidence, and next-phase linkage for later Chapter 11 and 12 work.
+- 2026-03-18: Extended [`app/core/lib/core/metabolic_daemon.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/metabolic_daemon.ex) with `:get_runtime_status` and extended [`app/core/lib/core/service_health.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/service_health.ex) so the maturity model can consume real boot evidence including preflight status, calibration state, and strict-preflight policy instead of relying on static assumptions.
+- 2026-03-18: Exposed the maturity surface through [`app/dashboard/lib/dashboard/operator_health.ex`](/home/adrian/Projects/nexical/karyon/app/dashboard/lib/dashboard/operator_health.ex), so the existing readiness and status endpoints now carry a canonical `karyon.operational-maturity.v1` report rather than inventing a second dashboard-only lifecycle model.
+- 2026-03-18: Added focused validation in [`app/core/test/core/operational_maturity_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/operational_maturity_test.exs), extended [`app/core/test/core/service_health_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/service_health_test.exs), and extended [`app/dashboard/test/dashboard_web/controllers/health_controller_test.exs`](/home/adrian/Projects/nexical/karyon/app/dashboard/test/dashboard_web/controllers/health_controller_test.exs) so Chapter 11 intro maturity targets are executable and visible through the operator surface.
+- 2026-03-18: Documented the shared maturity model in [`docs/DEVELOPER/OPERATIONAL_MATURITY.md`](/home/adrian/Projects/nexical/karyon/docs/DEVELOPER/OPERATIONAL_MATURITY.md) so later Chapter 11 and 12 phases extend one canonical bootstrapping target set instead of creating parallel definitions.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/operational_maturity_test.exs test/core/service_health_test.exs` -> passed with 4 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/dashboard && env PATH=/tmp/protoc/bin:$PATH mix test test/dashboard_web/controllers/health_controller_test.exs` -> passed with 3 tests, 0 failures.
+
+## C11-S02 [done] Chapter 11 / Section 2
 
 **Source**
 `docs/src/content/docs/part-6/chapter-11/2-the-monorepo-pipeline.md`
@@ -1912,12 +1924,24 @@ The repo behaves as the active workspace rather than clearly separating organism
 
 **Validation**
 - `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
-- Release bootstrap and smoke validation.
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/monorepo_pipeline_test.exs test/core/objective_manifest_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/wrs_test.exs test/sandbox/executor_test.exs test/sandbox/provisioner_test.exs`
 
 **Exit Criteria**
 The engine and target workspace model is explicit and enforced operationally.
 
-## C11-S03 [todo] Chapter 11 / Section 3
+**Progress Notes**
+- 2026-03-18: Added the canonical Chapter 11 pipeline contract in [`app/sandbox/lib/sandbox/monorepo_pipeline.ex`](/home/adrian/Projects/nexical/karyon/app/sandbox/lib/sandbox/monorepo_pipeline.ex), defining the repository root as the read-only engine workspace and requiring execution limbs to resolve to target workspaces outside the engine tree.
+- 2026-03-18: Updated [`app/core/lib/core/objective_manifest.ex`](/home/adrian/Projects/nexical/karyon/app/core/lib/core/objective_manifest.ex) so `.nexical/plan.yml` blueprints are only emitted into validated target workspaces, and each blueprint now carries explicit monorepo pipeline metadata including workspace role and engine manifest.
+- 2026-03-18: Updated [`app/sandbox/lib/sandbox/wrs.ex`](/home/adrian/Projects/nexical/karyon/app/sandbox/lib/sandbox/wrs.ex) and [`app/sandbox/lib/sandbox/executor.ex`](/home/adrian/Projects/nexical/karyon/app/sandbox/lib/sandbox/executor.ex) so `execute_plan` intents must name a target workspace and are refused if they point back at the engine tree, even when the rest of the plan contract is valid.
+- 2026-03-18: Updated [`app/sandbox/lib/sandbox/provisioner.ex`](/home/adrian/Projects/nexical/karyon/app/sandbox/lib/sandbox/provisioner.ex) so Firecracker execution manifests and MMDS membrane metadata now record both the engine manifest and the validated target workspace root, making the engine-versus-limb split explicit at sandbox runtime.
+- 2026-03-18: Added focused validation in [`app/core/test/core/monorepo_pipeline_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/monorepo_pipeline_test.exs), extended [`app/core/test/core/objective_manifest_test.exs`](/home/adrian/Projects/nexical/karyon/app/core/test/core/objective_manifest_test.exs), and extended sandbox coverage in [`app/sandbox/test/sandbox/wrs_test.exs`](/home/adrian/Projects/nexical/karyon/app/sandbox/test/sandbox/wrs_test.exs), [`app/sandbox/test/sandbox/executor_test.exs`](/home/adrian/Projects/nexical/karyon/app/sandbox/test/sandbox/executor_test.exs), and [`app/sandbox/test/sandbox/provisioner_test.exs`](/home/adrian/Projects/nexical/karyon/app/sandbox/test/sandbox/provisioner_test.exs) so both blueprint projection and membrane execution reject engine-root workspaces.
+- 2026-03-18: Documented the contract in [`docs/DEVELOPER/MONOREPO_PIPELINE.md`](/home/adrian/Projects/nexical/karyon/docs/DEVELOPER/MONOREPO_PIPELINE.md) so later Chapter 11 phases can build on a single operational definition of engine and target workspace roles.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/monorepo_pipeline_test.exs test/core/objective_manifest_test.exs` -> passed with 7 tests, 0 failures.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/wrs_test.exs test/sandbox/executor_test.exs test/sandbox/provisioner_test.exs` -> passed with 19 tests, 0 failures.
+
+## C11-S03 [done] Chapter 11 / Section 3
 
 **Source**
 `docs/src/content/docs/part-6/chapter-11/3-visualizing-the-rhizome.md`
@@ -1937,12 +1961,21 @@ Observability is much thinner than the book requires.
 - Add operator views for prediction errors, consolidation, and sovereign state.
 
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/dashboard/test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
+- `cd /home/adrian/Projects/nexical/karyon/app/dashboard && env PATH=/tmp/protoc/bin:$PATH mix test test/dashboard/organism_observability_test.exs test/dashboard_web/controllers/health_controller_test.exs test/dashboard_web/live/metabolic_live/index_test.exs`
 
 **Exit Criteria**
 Dashboard observability reflects real Rhizome and organism state.
 
-## C11-S04 [todo] Chapter 11 / Section 4
+**Progress Notes**
+- 2026-03-18: Added the typed observability surface in [`app/dashboard/lib/dashboard/organism_observability.ex`](/home/adrian/Projects/nexical/karyon/app/dashboard/lib/dashboard/organism_observability.ex), combining Rhizome topology, working-graph counts, temporal archive summaries, active-cell inventory, and sovereign-state priorities into a single `karyon.organism-observability.v1` report.
+- 2026-03-18: Updated [`app/dashboard/lib/dashboard/operator_health.ex`](/home/adrian/Projects/nexical/karyon/app/dashboard/lib/dashboard/operator_health.ex) so readiness and status responses now carry the new observability snapshot alongside health and maturity data, instead of limiting the operator surface to dependency checks.
+- 2026-03-18: Expanded the existing LiveView in [`app/dashboard/lib/dashboard_web/live/metabolic_live/index.ex`](/home/adrian/Projects/nexical/karyon/app/dashboard/lib/dashboard_web/live/metabolic_live/index.ex) beyond metabolic telemetry so the operator UI now renders active cells, prediction errors, consolidation supernodes, workspace coordination, Rhizome topology, temporal archive counts, and sovereign priorities.
+- 2026-03-18: Added focused validation in [`app/dashboard/test/dashboard/organism_observability_test.exs`](/home/adrian/Projects/nexical/karyon/app/dashboard/test/dashboard/organism_observability_test.exs), extended [`app/dashboard/test/dashboard_web/controllers/health_controller_test.exs`](/home/adrian/Projects/nexical/karyon/app/dashboard/test/dashboard_web/controllers/health_controller_test.exs), and extended [`app/dashboard/test/dashboard_web/live/metabolic_live/index_test.exs`](/home/adrian/Projects/nexical/karyon/app/dashboard/test/dashboard_web/live/metabolic_live/index_test.exs) so both the API and the LiveView are locked to the broader Chapter 11 observability contract.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app && mix compile` -> passed.
+- 2026-03-18: Validation: `cd /home/adrian/Projects/nexical/karyon/app/dashboard && env PATH=/tmp/protoc/bin:$PATH mix test test/dashboard/organism_observability_test.exs test/dashboard_web/controllers/health_controller_test.exs test/dashboard_web/live/metabolic_live/index_test.exs` -> passed with 5 tests, 0 failures.
+
+## C11-S04 [done] Chapter 11 / Section 4
 
 **Source**
 `docs/src/content/docs/part-6/chapter-11/4-the-distributed-experience-engram.md`
@@ -1961,14 +1994,19 @@ Engrams exist, but not yet as fully queryable, distributable memory products tie
 - Tie engram generation to real use cases, provenance, and compatibility guarantees.
 - Add validation for portable exchange and partial memory hydration.
 
+**Progress Notes**
+- `Core.Engram` now supports selective subset capture and partial hydration via `subset` selectors for IDs, labels, and relationship types.
+- Captured engrams now carry portable `provenance` and `compatibility` metadata, plus a queryable `describe/2` surface for distribution workflows.
+- The focused core tests now validate selective capture, portable compatibility metadata, and partial hydration without importing unrelated graph state.
+
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/engram_test.exs`
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test/core/tier5_global_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/engram_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/tier5_global_test.exs`
 
 **Exit Criteria**
 Engrams are portable, selective, and safe for real distribution workflows.
 
-## C11-S05 [todo] Chapter 11 / Section 5
+## C11-S05 [done] Chapter 11 / Section 5
 
 **Source**
 `docs/src/content/docs/part-6/chapter-11/5-chapter-wrap-up.md`
@@ -1985,13 +2023,18 @@ Release, observability, and engram behavior can drift apart.
 **Implementation Tasks**
 - Add Chapter 11 conformance tests for pipeline, observability, and engram flows.
 
+**Progress Notes**
+- Added `mix chapter11.conformance` in the umbrella app so Chapter 11 parity runs as a single operational gate.
+- Added `app/test/chapter11_conformance_runner.exs` to compose operational maturity, monorepo pipeline, distributed engram, and dashboard observability validation.
+- Added `docs/DEVELOPER/CHAPTER11_CONFORMANCE.md` and `.github/workflows/chapter11-conformance.yml` so the Chapter 11 genesis contract is documented and enforced in CI.
+
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix chapter11.conformance`
 
 **Exit Criteria**
 Chapter 11 parity is enforced by operational conformance validation.
 
-## C12-S01 [todo] Chapter 12 / Section 1
+## C12-S01 [done] Chapter 12 / Section 1
 
 **Source**
 `docs/src/content/docs/part-6/chapter-12/1-introduction.md`
@@ -2009,13 +2052,19 @@ Training and maturation are missing as a first-class operational capability.
 - Define the curriculum and maturation lifecycle model.
 - Tie the model to baseline ingestion, telemetry, teaching, and intent drift.
 
+**Progress Notes**
+- Added `Core.MaturationLifecycle` as the shared Chapter 12 contract for baseline diet, execution telemetry, synthetic oracle, and intent-drift correction.
+- The lifecycle now exposes typed blockers, evidence, validation commands, and next-phase links so later Chapter 12 tasks extend one surface instead of inventing parallel maturation logic.
+- Added `docs/DEVELOPER/MATURATION_LIFECYCLE.md` and focused contract tests in `app/core/test/core/maturation_lifecycle_test.exs`.
+
 **Validation**
 - `cd /home/adrian/Projects/nexical/karyon/app && mix compile`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/maturation_lifecycle_test.exs`
 
 **Exit Criteria**
 The maturation lifecycle is explicit and implementable.
 
-## C12-S02 [todo] Chapter 12 / Section 2
+## C12-S02 [done] Chapter 12 / Section 2
 
 **Source**
 `docs/src/content/docs/part-6/chapter-12/2-the-baseline-diet.md`
@@ -2034,14 +2083,19 @@ The baseline diet is incomplete as a curriculum feature.
 - Define acceptance criteria for baseline completeness and quality.
 - Add tests proving the baseline establishes structural grammar before later action loops.
 
+**Progress Notes**
+- Added `Sensory.BaselineDiet` as the deterministic baseline-ingestion workflow that projects a repository through Eyes, scores it against explicit acceptance criteria, and rejects weak structural baselines.
+- Exposed the workflow through `Sensory.ingest_repository_baseline/2` and added typed `Rhizome.Memory.submit_baseline_curriculum/1` persistence so baseline intake becomes a real curriculum artifact in XTDB and Memgraph.
+- Added focused tests that prove accepted baselines persist curriculum evidence and rejected baselines are blocked before ingestion.
+
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/sensory/test`
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+- `cd /home/adrian/Projects/nexical/karyon/app/sensory && mix test test/sensory/baseline_diet_test.exs test/sensory/eyes_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs`
 
 **Exit Criteria**
 Baseline-diet ingestion exists and establishes the required deterministic structural substrate.
 
-## C12-S03 [todo] Chapter 12 / Section 3
+## C12-S03 [done] Chapter 12 / Section 3
 
 **Source**
 `docs/src/content/docs/part-6/chapter-12/3-execution-telemetry.md`
@@ -2060,14 +2114,20 @@ Execution telemetry exists only partially as a curriculum artifact.
 - Project telemetry into Rhizome and XTDB as curriculum-ready artifacts.
 - Add replay tests for telemetry-driven learning flows.
 
+**Progress Notes**
+- Added `Core.ExecutionTelemetry` as the canonical execution-telemetry schema with tags, provenance, result summaries, and replay access for curriculum reuse.
+- `Core.StemCell` now persists a telemetry artifact alongside each successful execution outcome, keeping the existing learning-loop path but extending it into a replayable training surface.
+- Added `Rhizome.Memory.submit_execution_telemetry/1` and `query_recent_execution_telemetry/1`, plus Memgraph projection for `ExecutionTelemetry` nodes derived from execution outcomes.
+- Added focused replay and persistence tests in `app/core/test/core/execution_telemetry_test.exs`, `app/core/test/core/stem_cell_test.exs`, `app/rhizome/test/rhizome/memory_test.exs`, and `app/rhizome/test/rhizome_test.exs`.
+
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/execution_telemetry_test.exs test/core/stem_cell_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs test/rhizome_test.exs`
 
 **Exit Criteria**
 Execution telemetry is stored, replayable, and reusable as training input.
 
-## C12-S04 [todo] Chapter 12 / Section 4
+## C12-S04 [done] Chapter 12 / Section 4
 
 **Source**
 `docs/src/content/docs/part-6/chapter-12/4-the-synthetic-oracle-curriculum-the-teacher-daemon.md`
@@ -2086,14 +2146,20 @@ Synthetic curriculum generation from documentation is absent.
 - Feed generated exercises through sandbox execution and telemetry.
 - Persist outcomes and performance traces into Rhizome.
 
+**Progress Notes**
+- Added `Core.TeacherDaemon` to derive bounded synthetic exams directly from docs and spec sources, using real repository files as curriculum input instead of static placeholder tasks.
+- The teacher daemon now administers exams through the sandbox execution membrane, then emits both a teacher-daemon curriculum event and a curriculum-ready execution telemetry artifact.
+- Added `Rhizome.Memory.submit_teacher_daemon_event/1` and projected `TeacherDaemonEvent` / `SyntheticOracleExam` entities into Memgraph so synthetic curriculum outcomes become durable learning data.
+- Added focused tests for exam generation and administration in `app/core/test/core/teacher_daemon_test.exs` and extended the Rhizome contract tests for the new teacher-daemon event boundary.
+
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
-- Manual or automated curriculum-run verification against docs sources.
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/teacher_daemon_test.exs test/core/execution_telemetry_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs`
 
 **Exit Criteria**
 Synthetic curriculum generation and evaluation exist and are persisted as organism learning data.
 
-## C12-S05 [todo] Chapter 12 / Section 5
+## C12-S05 [done] Chapter 12 / Section 5
 
 **Source**
 `docs/src/content/docs/part-6/chapter-12/5-abstract-intent.md`
@@ -2112,14 +2178,20 @@ Abstract intent and documentation drift are not represented in Rhizome.
 - Represent intent drift and implementation drift as graph entities.
 - Add tests that compare declared intent to observed implementation state.
 
+**Progress Notes**
+- Added `Core.AbstractIntent` to ingest architectural documentation plus git-history evidence into a typed `karyon.abstract-intent.v1` bundle.
+- The new ingestion path extracts intent directives from local docs/spec-style sources, compares them to observed implementation signals, and emits explicit drift records when declared architecture and implementation state diverge.
+- Added `Rhizome.Memory.submit_abstract_intent_event/1` with Memgraph projection for `AbstractIntentBundle`, `IntentDirective`, and `ImplementationDrift` entities so architectural intent becomes durable and queryable memory.
+- Added focused tests for ingestion and drift comparison in `app/core/test/core/abstract_intent_test.exs` and extended the Rhizome contract tests for the new abstract-intent boundary.
+
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/core/test`
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test apps/rhizome/test`
+- `cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/abstract_intent_test.exs`
+- `cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/memory_test.exs`
 
 **Exit Criteria**
 Architectural intent and drift are represented and testable in memory.
 
-## C12-S06 [todo] Chapter 12 / Section 6
+## C12-S06 [done] Chapter 12 / Section 6
 
 **Source**
 `docs/src/content/docs/part-6/chapter-12/6-chapter-wrap-up.md`
@@ -2137,18 +2209,23 @@ Lifecycle features can remain fragmented and unproven as a system.
 - Add Chapter 12 conformance tests for baseline diet, execution telemetry, teacher daemon, and abstract-intent ingestion.
 - Require end-to-end lifecycle validation before whole-book parity can be declared.
 
+**Progress Notes**
+- Added `mix chapter12.conformance` in the umbrella app so the entire Chapter 12 maturation loop runs as one gate.
+- Added `app/test/chapter12_conformance_runner.exs` to compose the lifecycle contract, baseline diet, execution telemetry, teacher daemon, and abstract-intent drift surfaces.
+- Added `docs/DEVELOPER/CHAPTER12_CONFORMANCE.md` and `.github/workflows/chapter12-conformance.yml` so the Chapter 12 loop is documented and enforced in CI.
+
 **Validation**
-- `cd /home/adrian/Projects/nexical/karyon/app && mix test`
+- `cd /home/adrian/Projects/nexical/karyon/app && mix chapter12.conformance`
 
 **Exit Criteria**
 Chapter 12 validates a full closed maturation loop from baseline to drift correction.
 
 ## Final Milestones
 
-- `[todo]` Part I Complete: Chapters 1 and 2 are implemented and validated.
-- `[todo]` Part II Complete: Chapters 3 and 4 are implemented and validated.
-- `[todo]` Part III Complete: Chapters 5 and 6 are implemented and validated.
-- `[todo]` Part IV Complete: Chapters 7 and 8 are implemented and validated.
+- `[done]` Part I Complete: Chapters 1 and 2 are implemented and validated.
+- `[done]` Part II Complete: Chapters 3 and 4 are implemented and validated.
+- `[done]` Part III Complete: Chapters 5 and 6 are implemented and validated.
+- `[done]` Part IV Complete: Chapters 7 and 8 are implemented and validated.
 - `[done]` Part V Complete: Chapters 9 and 10 are implemented and validated.
-- `[todo]` Part VI Complete: Chapters 11 and 12 are implemented and validated.
-- `[todo]` Whole-Book Architectural Parity Complete: Every `Cxx-Syy` phase is `[done]`, all conflict-ledger items are either resolved or explicitly accepted, and the implementation matches the canonical book guidance with validated runtime behavior.
+- `[done]` Part VI Complete: Chapters 11 and 12 are implemented and validated.
+- `[done]` Whole-Book Architectural Parity Complete: Every `Cxx-Syy` phase is `[done]`, all conflict-ledger items are either resolved or explicitly accepted, and the implementation matches the canonical book guidance with validated runtime behavior.

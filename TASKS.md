@@ -10,7 +10,7 @@ This file mirrors [`PLAN.md`](/home/adrian/Projects/nexical/karyon/PLAN.md) and 
 
 ## Conflict Ledger
 
-- [ ] Storage bridge contract resolved to `virtio-blk` plus overlay-backed writable workspaces and reflected in membrane work.
+- [x] Storage bridge contract resolved to `virtio-blk` plus overlay-backed writable workspaces and reflected in membrane work.
 Completion criterion: `PLAN.md` documents the resolved `virtio-blk` plus overlay contract, and sandbox implementation work follows that contract instead of `virtio-fs`.
 
 ## Part I: The Biological Edge In Systems
@@ -199,43 +199,43 @@ Completion criterion: every `C09-*` and `C10-*` item is complete and validated.
 
 ## Part VI: Maturation & Lifecycle Execution
 
-- [ ] `C11-S01` Introduction
+- [x] `C11-S01` Introduction
 Completion criterion: bootstrapping and operational maturity targets are explicit and actionable.
 
-- [ ] `C11-S02` The Monorepo Pipeline
+- [x] `C11-S02` The Monorepo Pipeline
 Completion criterion: engine and target workspace roles are enforced operationally.
 
-- [ ] `C11-S03` Visualizing the Rhizome
+- [x] `C11-S03` Visualizing the Rhizome
 Completion criterion: dashboard observability reflects real Rhizome and organism state.
 
-- [ ] `C11-S04` The Distributed Experience Engram
+- [x] `C11-S04` The Distributed Experience Engram
 Completion criterion: engrams are portable, selective, and safe for real distribution workflows.
 
-- [ ] `C11-S05` Chapter Wrap-Up
+- [x] `C11-S05` Chapter Wrap-Up
 Completion criterion: Chapter 11 parity is enforced by operational conformance validation.
 
-- [ ] `C12-S01` Introduction
+- [x] `C12-S01` Introduction
 Completion criterion: the maturation lifecycle is explicit and implementable.
 
-- [ ] `C12-S02` The Baseline Diet
+- [x] `C12-S02` The Baseline Diet
 Completion criterion: baseline-diet ingestion establishes the required deterministic structural substrate.
 
-- [ ] `C12-S03` Execution Telemetry
+- [x] `C12-S03` Execution Telemetry
 Completion criterion: execution telemetry is stored, replayable, and reusable as training input.
 
-- [ ] `C12-S04` The Synthetic Oracle Curriculum
+- [x] `C12-S04` The Synthetic Oracle Curriculum
 Completion criterion: synthetic curriculum generation and evaluation exist and persist learning data.
 
-- [ ] `C12-S05` Abstract Intent
+- [x] `C12-S05` Abstract Intent
 Completion criterion: architectural intent and implementation drift are represented and testable in memory.
 
-- [ ] `C12-S06` Chapter Wrap-Up
+- [x] `C12-S06` Chapter Wrap-Up
 Completion criterion: a full closed maturation loop from baseline to drift correction is validated.
 
-- [ ] Part VI Complete
+- [x] Part VI Complete
 Completion criterion: every `C11-*` and `C12-*` item is complete and validated.
 
 ## Final Milestone
 
-- [ ] Complete Architectural Parity
+- [x] Complete Architectural Parity
 Completion criterion: every `Cxx-Syy` item is complete, all required validations pass, and whole-book parity is achieved with any remaining conflict-ledger items explicitly resolved or accepted.
