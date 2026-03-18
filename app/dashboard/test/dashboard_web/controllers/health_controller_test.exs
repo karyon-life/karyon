@@ -45,15 +45,18 @@ defmodule DashboardWeb.HealthControllerTest do
   test "GET /health/live returns liveness metadata", %{conn: conn} do
     conn = get(conn, ~p"/health/live")
 
-    assert %{"status" => "ok", "release" => release, "node" => _node} = json_response(conn, 200)
+    assert %{"status" => "ok", "release" => release, "node" => _node, "operator_brief" => brief} = json_response(conn, 200)
     assert is_map(release)
+    assert brief["headline"] == "Organism ready"
+    assert brief["format"] == "karyon.operator-output.v1"
   end
 
   test "GET /health/ready returns 200 when dependencies are up", %{conn: conn} do
     conn = get(conn, ~p"/health/ready")
 
-    assert %{"status" => "ok", "services" => services} = json_response(conn, 200)
+    assert %{"status" => "ok", "services" => services, "operator_brief" => brief} = json_response(conn, 200)
     assert services["xtdb"]["status"] == "up"
+    assert brief["summary"] == "All required services report healthy status across 3 dependency checks."
   end
 
   test "GET /health/status returns 503 when dependencies are degraded", %{conn: conn} do
@@ -65,12 +68,15 @@ defmodule DashboardWeb.HealthControllerTest do
              "status" => "degraded",
              "services" => services,
              "runtime" => runtime,
-             "release" => release
+             "release" => release,
+             "operator_brief" => brief
            } = json_response(conn, 503)
 
     assert services["xtdb"]["status"] == "down"
     assert is_integer(runtime["beam_schedulers"])
     assert is_boolean(runtime["dashboard_server"])
     assert release["environment"] in ["test", "prod", "dev"]
+    assert brief["headline"] == "Organism degraded"
+    assert "Investigate xtdb before resuming plan-driven execution." in brief["directives"]
   end
 end
