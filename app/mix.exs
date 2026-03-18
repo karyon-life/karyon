@@ -17,6 +17,8 @@ defmodule App.MixProject do
     [
       preferred_envs: [
         "biology.invariants": :test,
+        "chapter10.conformance": :test,
+        "chapter9.conformance": :test,
         "chapter2.conformance": :test,
         "chapter8.conformance": :test,
         "chapter7.conformance": :test,
@@ -54,6 +56,8 @@ defmodule App.MixProject do
   defp aliases do
     [
       "biology.invariants": ["run --no-start test/biology_first_invariants_runner.exs"],
+      "chapter10.conformance": ["run --no-start test/chapter10_conformance_runner.exs"],
+      "chapter9.conformance": ["run --no-start test/chapter9_conformance_runner.exs"],
       "chapter2.conformance": ["run --no-start test/chapter2_conformance_runner.exs"],
       "chapter8.conformance": ["run --no-start test/chapter8_conformance_runner.exs"],
       "chapter7.conformance": ["run --no-start test/chapter7_conformance_runner.exs"],
