@@ -28,4 +28,12 @@ defmodule Rhizome.NifTest do
         assert String.contains?(reason, "Connection Error") or String.contains?(reason, "Query Error")
     end
   end
+
+  test "reinforce_pathway validates pathway shape" do
+    assert {:error, :invalid_pathway} = Native.reinforce_pathway(%{})
+  end
+
+  test "prune_pathway validates pathway shape" do
+    assert {:error, :invalid_pathway} = Native.prune_pathway(%{})
+  end
 end
