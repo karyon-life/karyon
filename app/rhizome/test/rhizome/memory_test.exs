@@ -52,13 +52,18 @@ defmodule Rhizome.MemoryTest do
         :write_archive_document,
         :query_archive,
         :query_recent_execution_outcomes,
+        :query_recent_execution_telemetry,
         :submit_execution_outcome,
+        :submit_execution_telemetry,
         :submit_prediction_error,
+        :submit_baseline_curriculum,
         :submit_objective_projection,
         :submit_cross_workspace_coordination,
         :submit_sovereignty_event,
         :submit_epistemic_foraging_event,
         :submit_simulation_daemon_event,
+        :submit_teacher_daemon_event,
+        :submit_abstract_intent_event,
         :submit_operator_feedback_event,
         :submit_differentiation_event,
         :load_cell_state,
@@ -84,14 +89,19 @@ defmodule Rhizome.MemoryTest do
     assert_operation(:write_archive_document, :temporal_archive, "xtdb")
     assert_operation(:query_archive, :temporal_archive, "xtdb")
     assert_operation(:query_recent_execution_outcomes, :temporal_archive, "xtdb")
+    assert_operation(:query_recent_execution_telemetry, :temporal_archive, "xtdb")
     assert_operation(:submit_xtdb, :temporal_archive, "xtdb")
     assert_operation(:submit_execution_outcome, :temporal_archive, "xtdb")
+    assert_operation(:submit_execution_telemetry, :temporal_archive, "xtdb")
     assert_operation(:submit_prediction_error, :temporal_archive, "xtdb")
+    assert_operation(:submit_baseline_curriculum, :temporal_archive, "xtdb")
     assert_operation(:submit_objective_projection, :temporal_archive, "xtdb")
     assert_operation(:submit_cross_workspace_coordination, :temporal_archive, "xtdb")
     assert_operation(:submit_sovereignty_event, :temporal_archive, "xtdb")
     assert_operation(:submit_epistemic_foraging_event, :temporal_archive, "xtdb")
     assert_operation(:submit_simulation_daemon_event, :temporal_archive, "xtdb")
+    assert_operation(:submit_teacher_daemon_event, :temporal_archive, "xtdb")
+    assert_operation(:submit_abstract_intent_event, :temporal_archive, "xtdb")
     assert_operation(:submit_operator_feedback_event, :temporal_archive, "xtdb")
     assert_operation(:submit_differentiation_event, :temporal_archive, "xtdb")
     assert_operation(:load_cell_state, :temporal_archive, "xtdb")
@@ -147,6 +157,11 @@ defmodule Rhizome.MemoryTest do
              Rhizome.Memory.submit_objective_projection(%{"workspace_root" => "/tmp/workspace"})
   end
 
+  test "submit_baseline_curriculum validates baseline-diet curriculum shape" do
+    assert {:error, :invalid_baseline_curriculum} =
+             Rhizome.Memory.submit_baseline_curriculum(%{"repository_id" => "repository:/tmp/workspace"})
+  end
+
   test "submit_cross_workspace_coordination validates shared-memory workspace coordination shape" do
     assert {:error, :invalid_cross_workspace_coordination} =
              Rhizome.Memory.submit_cross_workspace_coordination(%{"central_workspace" => "/tmp/workspace"})
@@ -162,8 +177,28 @@ defmodule Rhizome.MemoryTest do
              Rhizome.Memory.query_recent_execution_outcomes(%{"limit" => "bad"})
   end
 
+  test "query_recent_execution_telemetry/1 validates recent-telemetry query shape" do
+    assert {:error, :invalid_recent_execution_telemetry_query} =
+             Rhizome.Memory.query_recent_execution_telemetry(%{"limit" => "bad"})
+  end
+
+  test "submit_execution_telemetry validates curriculum telemetry shape" do
+    assert {:error, :invalid_execution_telemetry} =
+             Rhizome.Memory.submit_execution_telemetry(%{"telemetry_id" => "execution_telemetry:planner"})
+  end
+
   test "submit_simulation_daemon_event validates dream-state event shape" do
     assert {:error, :invalid_simulation_daemon_event} =
              Rhizome.Memory.submit_simulation_daemon_event(%{"source_outcome_id" => "execution_outcome:planner"})
+  end
+
+  test "submit_teacher_daemon_event validates synthetic curriculum event shape" do
+    assert {:error, :invalid_teacher_daemon_event} =
+             Rhizome.Memory.submit_teacher_daemon_event(%{"exam_id" => "teacher_exam:planner"})
+  end
+
+  test "submit_abstract_intent_event validates abstract intent and drift shape" do
+    assert {:error, :invalid_abstract_intent_event} =
+             Rhizome.Memory.submit_abstract_intent_event(%{"intent_bundle_id" => "abstract_intent:1"})
   end
 end

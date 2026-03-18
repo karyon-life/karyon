@@ -191,6 +191,33 @@ defmodule Rhizome.Memory do
   def query_recent_execution_outcomes(_opts), do: {:error, :invalid_recent_execution_outcomes_query}
 
   @doc """
+  Returns recent execution telemetry artifacts suitable for curriculum replay.
+  """
+  def query_recent_execution_telemetry(opts \\ %{})
+
+  def query_recent_execution_telemetry(opts) when is_map(opts) do
+    with_topology(:query_recent_execution_telemetry, fn ->
+      limit = normalize_limit(Map.get(opts, :limit) || Map.get(opts, "limit") || 10)
+
+      if is_nil(limit) do
+        {:error, :invalid_recent_execution_telemetry_query}
+      else
+        query_archive(%{
+          "query" => %{
+            "find" => [
+              "(pull ?e [xt/id source_document_id cell_id action status executor vm_id exit_code learning_phase learning_edge tags provenance result_summary result])"
+            ],
+            "where" => [["?e", "schema", "karyon.execution-telemetry.v1"]]
+          },
+          "limit" => limit
+        })
+      end
+    end)
+  end
+
+  def query_recent_execution_telemetry(_opts), do: {:error, :invalid_recent_execution_telemetry_query}
+
+  @doc """
   Projects active working-memory state into the temporal archive.
   """
   def bridge_working_memory_to_archive do
@@ -231,6 +258,31 @@ defmodule Rhizome.Memory do
   def submit_execution_outcome(_outcome), do: {:error, :invalid_execution_outcome}
 
   @doc """
+  Persists a typed execution-telemetry curriculum artifact into XTDB and projects
+  a replayable telemetry surface into Memgraph.
+  """
+  def submit_execution_telemetry(event) when is_map(event) do
+    with_topology(:submit_execution_telemetry, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", System.system_time(:second))
+
+      with :ok <- validate_execution_telemetry(document),
+           id when is_binary(id) <- execution_telemetry_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_execution_telemetry(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_execution_telemetry}
+      end
+    end)
+  end
+
+  def submit_execution_telemetry(_event), do: {:error, :invalid_execution_telemetry}
+
+  @doc """
   Persists a typed prediction error into XTDB and projects a summary edge back into Memgraph.
   """
   def submit_prediction_error(prediction_error) when is_map(prediction_error) do
@@ -252,6 +304,31 @@ defmodule Rhizome.Memory do
   end
 
   def submit_prediction_error(_prediction_error), do: {:error, :invalid_prediction_error}
+
+  @doc """
+  Persists a typed baseline-diet curriculum artifact into XTDB and projects its
+  structural grammar substrate into Memgraph.
+  """
+  def submit_baseline_curriculum(event) when is_map(event) do
+    with_topology(:submit_baseline_curriculum, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("ingested_at", System.system_time(:second))
+
+      with :ok <- validate_baseline_curriculum(document),
+           id when is_binary(id) <- baseline_curriculum_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_baseline_curriculum(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_baseline_curriculum}
+      end
+    end)
+  end
+
+  def submit_baseline_curriculum(_event), do: {:error, :invalid_baseline_curriculum}
 
   @doc """
   Persists a workspace objective projection into XTDB and projects the selected
@@ -376,6 +453,54 @@ defmodule Rhizome.Memory do
   end
 
   def submit_simulation_daemon_event(_event), do: {:error, :invalid_simulation_daemon_event}
+
+  @doc """
+  Persists a teacher-daemon exam result and projects the curriculum event into Rhizome.
+  """
+  def submit_teacher_daemon_event(event) when is_map(event) do
+    with_topology(:submit_teacher_daemon_event, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", System.system_time(:second))
+
+      with :ok <- validate_teacher_daemon_event(document),
+           id when is_binary(id) <- teacher_daemon_event_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_teacher_daemon_event(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_teacher_daemon_event}
+      end
+    end)
+  end
+
+  def submit_teacher_daemon_event(_event), do: {:error, :invalid_teacher_daemon_event}
+
+  @doc """
+  Persists an abstract-intent bundle and projects directives plus drift events into Rhizome.
+  """
+  def submit_abstract_intent_event(event) when is_map(event) do
+    with_topology(:submit_abstract_intent_event, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", System.system_time(:second))
+
+      with :ok <- validate_abstract_intent_event(document),
+           id when is_binary(id) <- abstract_intent_event_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document),
+           :ok <- project_abstract_intent_event(document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_abstract_intent_event}
+      end
+    end)
+  end
+
+  def submit_abstract_intent_event(_event), do: {:error, :invalid_abstract_intent_event}
 
   @doc """
   Persists a typed operator feedback event into XTDB and projects a bounded
@@ -510,6 +635,13 @@ defmodule Rhizome.Memory do
     "prediction_error:#{cell_id}:#{type}:#{timestamp}"
   end
 
+  defp execution_telemetry_id(%{"telemetry_id" => id}) when is_binary(id) and id != "", do: id
+
+  defp execution_telemetry_id(document) do
+    source_id = Map.get(document, "source_document_id", "unknown_source")
+    "execution_telemetry:#{:erlang.phash2(source_id)}"
+  end
+
   defp operator_feedback_event_id(%{"id" => id}) when is_binary(id) and id != "", do: id
 
   defp operator_feedback_event_id(document) do
@@ -520,10 +652,16 @@ defmodule Rhizome.Memory do
   end
 
   defp objective_projection_id(%{"id" => id}) when is_binary(id) and id != "", do: id
-
   defp objective_projection_id(document) do
     workspace_root = Map.get(document, "workspace_root", "unknown_workspace")
     "objective_projection:#{:erlang.phash2(workspace_root)}"
+  end
+
+  defp baseline_curriculum_id(%{"baseline_id" => id}) when is_binary(id) and id != "", do: id
+
+  defp baseline_curriculum_id(document) do
+    repository_id = Map.get(document, "repository_id", "unknown_repository")
+    "baseline_curriculum:#{:erlang.phash2(repository_id)}"
   end
 
   defp sovereignty_event_id(%{"id" => id}) when is_binary(id) and id != "", do: id
@@ -570,6 +708,55 @@ defmodule Rhizome.Memory do
   end
 
   defp validate_objective_projection(_document), do: {:error, :invalid_objective_projection}
+
+  defp validate_baseline_curriculum(%{
+         "baseline_id" => baseline_id,
+         "repository_id" => repository_id,
+         "root_path" => root_path,
+         "file_count" => file_count,
+         "language_count" => language_count,
+         "languages" => languages,
+         "total_nodes" => total_nodes,
+         "total_edges" => total_edges,
+         "sample_files" => sample_files,
+         "acceptance" => %{"status" => acceptance_status, "criteria" => criteria}
+       })
+       when is_binary(baseline_id) and baseline_id != "" and is_binary(repository_id) and repository_id != "" and
+              is_binary(root_path) and root_path != "" and is_integer(file_count) and file_count >= 0 and
+              is_integer(language_count) and language_count >= 0 and is_list(languages) and
+              is_integer(total_nodes) and total_nodes >= 0 and is_integer(total_edges) and total_edges >= 0 and
+              is_list(sample_files) and is_binary(acceptance_status) and is_map(criteria) do
+    :ok
+  end
+
+  defp validate_baseline_curriculum(_document), do: {:error, :invalid_baseline_curriculum}
+
+  defp validate_execution_telemetry(%{
+         "telemetry_id" => telemetry_id,
+         "schema" => "karyon.execution-telemetry.v1",
+         "source_document_id" => source_document_id,
+         "cell_id" => cell_id,
+         "action" => action,
+         "status" => status,
+         "executor" => executor,
+         "vm_id" => vm_id,
+         "exit_code" => exit_code,
+         "learning_phase" => learning_phase,
+         "learning_edge" => learning_edge,
+         "tags" => tags,
+         "provenance" => provenance,
+         "result_summary" => result_summary
+       })
+       when is_binary(telemetry_id) and telemetry_id != "" and is_binary(source_document_id) and source_document_id != "" and
+              is_binary(cell_id) and cell_id != "" and is_binary(action) and action != "" and is_binary(status) and
+              status != "" and is_binary(executor) and executor != "" and is_binary(vm_id) and vm_id != "" and
+              is_integer(exit_code) and is_binary(learning_phase) and learning_phase != "" and
+              is_binary(learning_edge) and learning_edge != "" and is_list(tags) and is_map(provenance) and
+              is_map(result_summary) do
+    :ok
+  end
+
+  defp validate_execution_telemetry(_document), do: {:error, :invalid_execution_telemetry}
 
   defp validate_sovereignty_event(%{
          "intent_id" => intent_id,
@@ -621,6 +808,20 @@ defmodule Rhizome.Memory do
     "simulation_daemon:#{source_outcome_id}:#{timestamp}"
   end
 
+  defp teacher_daemon_event_id(%{"teacher_event_id" => id}) when is_binary(id) and id != "", do: id
+
+  defp teacher_daemon_event_id(document) do
+    exam_id = Map.get(document, "exam_id", "unknown_exam")
+    "teacher_event:#{exam_id}"
+  end
+
+  defp abstract_intent_event_id(%{"intent_bundle_id" => id}) when is_binary(id) and id != "", do: id
+
+  defp abstract_intent_event_id(document) do
+    recorded_at = Map.get(document, "recorded_at", System.system_time(:second))
+    "abstract_intent:#{recorded_at}"
+  end
+
   defp validate_epistemic_foraging_event(%{
          "candidate_id" => candidate_id,
          "candidate_label" => candidate_label,
@@ -654,6 +855,48 @@ defmodule Rhizome.Memory do
   end
 
   defp validate_simulation_daemon_event(_document), do: {:error, :invalid_simulation_daemon_event}
+
+  defp validate_teacher_daemon_event(%{
+         "teacher_event_id" => teacher_event_id,
+         "exam_id" => exam_id,
+         "schema" => "karyon.teacher-daemon.v1",
+         "source_path" => source_path,
+         "source_kind" => source_kind,
+         "headline" => headline,
+         "prompt" => prompt,
+         "confidence_threshold" => confidence_threshold,
+         "curriculum_scope" => curriculum_scope,
+         "intent_id" => intent_id,
+         "outcome_status" => outcome_status,
+         "vm_id" => vm_id,
+         "performance_trace" => performance_trace
+       })
+       when is_binary(teacher_event_id) and teacher_event_id != "" and is_binary(exam_id) and exam_id != "" and
+              is_binary(source_path) and source_path != "" and is_binary(source_kind) and source_kind != "" and
+              is_binary(headline) and headline != "" and is_binary(prompt) and prompt != "" and
+              is_number(confidence_threshold) and is_binary(curriculum_scope) and curriculum_scope != "" and
+              is_binary(intent_id) and intent_id != "" and is_binary(outcome_status) and outcome_status != "" and
+              is_binary(vm_id) and vm_id != "" and is_map(performance_trace) do
+    :ok
+  end
+
+  defp validate_teacher_daemon_event(_document), do: {:error, :invalid_teacher_daemon_event}
+
+  defp validate_abstract_intent_event(%{
+         "intent_bundle_id" => intent_bundle_id,
+         "schema" => "karyon.abstract-intent.v1",
+         "source_documents" => source_documents,
+         "directives" => directives,
+         "git_history" => git_history,
+         "observed_signals" => observed_signals,
+         "drift_events" => drift_events
+       })
+       when is_binary(intent_bundle_id) and intent_bundle_id != "" and is_list(source_documents) and is_list(directives) and
+              is_list(git_history) and is_map(observed_signals) and is_list(drift_events) do
+    :ok
+  end
+
+  defp validate_abstract_intent_event(_document), do: {:error, :invalid_abstract_intent_event}
 
   defp cell_state_id(lineage_id), do: "cell_state:#{lineage_id}"
 
@@ -752,6 +995,52 @@ defmodule Rhizome.Memory do
     end
   end
 
+  defp project_execution_telemetry(document) do
+    telemetry_id = execution_telemetry_id(document)
+    source_document_id = Map.get(document, "source_document_id", "unknown_source")
+    cell_id = Map.get(document, "cell_id", "unknown_cell")
+
+    with {:ok, _cell} <- upsert_graph_node(%{label: "Cell", id: cell_id}),
+         {:ok, _telemetry} <-
+           upsert_graph_node(%{
+             label: "ExecutionTelemetry",
+             id: telemetry_id,
+             properties: %{
+               action: Map.get(document, "action", "unknown_action"),
+               status: Map.get(document, "status", "unknown"),
+               executor: Map.get(document, "executor", "unknown"),
+               vm_id: Map.get(document, "vm_id", "unknown"),
+               learning_phase: Map.get(document, "learning_phase", "action_feedback"),
+               tag_count: length(List.wrap(Map.get(document, "tags", []))),
+               recorded_at: Map.get(document, "recorded_at", System.system_time(:second))
+             }
+           }),
+         {:ok, _source} <-
+           upsert_graph_node(%{
+             label: "ExecutionOutcome",
+             id: source_document_id,
+             properties: %{status: Map.get(document, "status", "unknown")}
+           }),
+         {:ok, _edge} <-
+           relate_graph_nodes(%{
+             from: %{label: "ExecutionTelemetry", id: telemetry_id},
+             to: %{label: "ExecutionOutcome", id: source_document_id},
+             relationship_type: "DERIVED_FROM"
+           }),
+         {:ok, _cell_edge} <-
+           relate_graph_nodes(%{
+             from: %{label: "Cell", id: cell_id},
+             to: %{label: "ExecutionTelemetry", id: telemetry_id},
+             relationship_type: "EMITTED_TELEMETRY"
+           }) do
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of execution telemetry failed: #{inspect(reason)}")
+        :ok
+    end
+  end
+
   defp project_operator_feedback_event(document) do
     feedback_id = operator_feedback_event_id(document)
     template_id = Map.get(document, "template_id", "unknown_template")
@@ -824,6 +1113,47 @@ defmodule Rhizome.Memory do
     else
       {:error, reason} ->
         Logger.warning("[Rhizome.Memory] Memgraph projection of objective projection failed: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp project_baseline_curriculum(document) do
+    baseline_id = baseline_curriculum_id(document)
+    repository_id = Map.get(document, "repository_id", "unknown_repository")
+    acceptance = Map.get(document, "acceptance", %{})
+
+    with {:ok, _repository} <-
+           upsert_graph_node(%{
+             label: "Repository",
+             id: repository_id,
+             properties: %{
+               root_path: Map.get(document, "root_path", ""),
+               file_count: normalize_numeric(document["file_count"])
+             }
+           }),
+         {:ok, _baseline} <-
+           upsert_graph_node(%{
+             label: "BaselineCurriculum",
+             id: baseline_id,
+             properties: %{
+               language_count: normalize_numeric(document["language_count"]),
+               total_nodes: normalize_numeric(document["total_nodes"]),
+               total_edges: normalize_numeric(document["total_edges"]),
+               acceptance_status: Map.get(acceptance, "status", "unknown"),
+               recorded_at: Map.get(document, "ingested_at", System.system_time(:second))
+             }
+           }),
+         {:ok, _edge} <-
+           relate_graph_nodes(%{
+             from: %{label: "Repository", id: repository_id},
+             to: %{label: "BaselineCurriculum", id: baseline_id},
+             relationship_type: "ESTABLISHES_BASELINE"
+           }) do
+      project_baseline_languages(baseline_id, Map.get(document, "languages", []))
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of baseline curriculum failed: #{inspect(reason)}")
         :ok
     end
   end
@@ -1002,6 +1332,72 @@ defmodule Rhizome.Memory do
     end
   end
 
+  defp project_teacher_daemon_event(document) do
+    event_id = teacher_daemon_event_id(document)
+    exam_id = Map.get(document, "exam_id", "unknown_exam")
+
+    with {:ok, _exam} <-
+           upsert_graph_node(%{
+             label: "SyntheticOracleExam",
+             id: exam_id,
+             properties: %{
+               source_path: Map.get(document, "source_path", ""),
+               source_kind: Map.get(document, "source_kind", "unknown"),
+               curriculum_scope: Map.get(document, "curriculum_scope", "curriculum_source"),
+               confidence_threshold: normalize_float(document["confidence_threshold"])
+             }
+           }),
+         {:ok, _event} <-
+           upsert_graph_node(%{
+             label: "TeacherDaemonEvent",
+             id: event_id,
+             properties: %{
+               headline: Map.get(document, "headline", "unknown"),
+               outcome_status: Map.get(document, "outcome_status", "unknown"),
+               vm_id: Map.get(document, "vm_id", "unknown"),
+               recorded_at: Map.get(document, "recorded_at", System.system_time(:second))
+             }
+           }),
+         {:ok, _edge} <-
+           relate_graph_nodes(%{
+             from: %{label: "TeacherDaemonEvent", id: event_id},
+             to: %{label: "SyntheticOracleExam", id: exam_id},
+             relationship_type: "ADMINISTERS_EXAM"
+           }) do
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of teacher daemon event failed: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp project_abstract_intent_event(document) do
+    bundle_id = abstract_intent_event_id(document)
+    drift_events = List.wrap(Map.get(document, "drift_events", []))
+
+    with {:ok, _bundle} <-
+           upsert_graph_node(%{
+             label: "AbstractIntentBundle",
+             id: bundle_id,
+             properties: %{
+               document_count: length(List.wrap(Map.get(document, "source_documents", []))),
+               directive_count: length(List.wrap(Map.get(document, "directives", []))),
+               git_history_count: length(List.wrap(Map.get(document, "git_history", []))),
+               drift_count: length(drift_events),
+               recorded_at: Map.get(document, "recorded_at", System.system_time(:second))
+             }
+           }) do
+      project_intent_directives(bundle_id, List.wrap(Map.get(document, "directives", [])))
+      project_implementation_drift(bundle_id, drift_events)
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("[Rhizome.Memory] Memgraph projection of abstract intent failed: #{inspect(reason)}")
+        :ok
+    end
+  end
+
   defp project_objective_attractors(projection_id, projected_attractors) do
     Enum.each(projected_attractors, fn attractor ->
       attractor_id = Map.get(attractor, "id", "unknown_attractor")
@@ -1028,6 +1424,90 @@ defmodule Rhizome.Memory do
       else
         {:error, reason} ->
           Logger.warning("[Rhizome.Memory] Memgraph projection of objective attractor failed: #{inspect(reason)}")
+          :ok
+      end
+    end)
+  end
+
+  defp project_baseline_languages(baseline_id, languages) do
+    Enum.each(languages, fn language ->
+      language_id = "grammar_language:#{language}"
+
+      with {:ok, _language} <-
+             upsert_graph_node(%{
+               label: "GrammarLanguage",
+               id: language_id,
+               properties: %{name: language}
+             }),
+           {:ok, _edge} <-
+             relate_graph_nodes(%{
+               from: %{label: "BaselineCurriculum", id: baseline_id},
+               to: %{label: "GrammarLanguage", id: language_id},
+               relationship_type: "CURATES_LANGUAGE"
+             }) do
+        :ok
+      else
+        {:error, reason} ->
+          Logger.warning("[Rhizome.Memory] Memgraph projection of baseline language failed: #{inspect(reason)}")
+          :ok
+      end
+    end)
+  end
+
+  defp project_intent_directives(bundle_id, directives) do
+    Enum.each(directives, fn directive ->
+      directive_id = Map.get(directive, "directive_id", "unknown_directive")
+
+      with {:ok, _directive} <-
+             upsert_graph_node(%{
+               label: "IntentDirective",
+               id: directive_id,
+               properties: %{
+                 statement: Map.get(directive, "statement", ""),
+                 constraint_kind: Map.get(directive, "constraint_kind", "architecture"),
+                 expected_signal: Map.get(directive, "expected_signal", "unknown")
+               }
+             }),
+           {:ok, _edge} <-
+             relate_graph_nodes(%{
+               from: %{label: "AbstractIntentBundle", id: bundle_id},
+               to: %{label: "IntentDirective", id: directive_id},
+               relationship_type: "DECLARES_INTENT"
+             }) do
+        :ok
+      else
+        {:error, reason} ->
+          Logger.warning("[Rhizome.Memory] Memgraph projection of intent directive failed: #{inspect(reason)}")
+          :ok
+      end
+    end)
+  end
+
+  defp project_implementation_drift(bundle_id, drift_events) do
+    Enum.each(drift_events, fn drift ->
+      drift_id = Map.get(drift, "drift_id", "unknown_drift")
+
+      with {:ok, _drift} <-
+             upsert_graph_node(%{
+               label: "ImplementationDrift",
+               id: drift_id,
+               properties: %{
+                 directive_id: Map.get(drift, "directive_id", "unknown_directive"),
+                 expected_signal: Map.get(drift, "expected_signal", "unknown"),
+                 drift_kind: Map.get(drift, "drift_kind", "design_implementation_documentation"),
+                 severity: Map.get(drift, "severity", "medium")
+               }
+             }),
+           {:ok, _edge} <-
+             relate_graph_nodes(%{
+               from: %{label: "AbstractIntentBundle", id: bundle_id},
+               to: %{label: "ImplementationDrift", id: drift_id},
+               relationship_type: "DETECTS_DRIFT"
+             }) do
+        :ok
+      else
+        {:error, reason} ->
+          Logger.warning("[Rhizome.Memory] Memgraph projection of implementation drift failed: #{inspect(reason)}")
           :ok
       end
     end)
