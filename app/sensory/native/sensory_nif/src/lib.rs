@@ -58,17 +58,19 @@ mod atoms {
 }
 
 pub fn parse_to_graph_impl(lang_name: String, code: String) -> String {
-    let language = match lang_name.as_str() {
-        "javascript" => tree_sitter_javascript::language(),
-        "python" => tree_sitter_python::language(),
-        "c" => tree_sitter_c::language(),
-        _ => return "Unsupported language".to_string(),
+    let language = match supported_language(&lang_name) {
+        Some(language) => language,
+        None => return "Unsupported language".to_string(),
     };
 
     let mut parser = Parser::new();
-    parser.set_language(language).expect("Error loading language");
+    if parser.set_language(language).is_err() {
+        return "Parser configuration error".to_string();
+    }
 
-    let tree = parser.parse(&code, None).unwrap();
+    let Some(tree) = parser.parse(&code, None) else {
+        return "Parse error".to_string();
+    };
     let root_node = tree.root_node();
 
     let mut nodes = Vec::new();
@@ -84,7 +86,7 @@ pub fn parse_to_graph_impl(lang_name: String, code: String) -> String {
     serde_json::to_string(&graph_data).unwrap_or_else(|_| "Serialization error".to_string())
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn parse_to_graph(lang_name: String, code: String) -> String {
     parse_to_graph_impl(lang_name, code)
 }
@@ -103,7 +105,7 @@ fn flatten_node(node: Node, source: &str, nodes: &mut Vec<Value>, edges: &mut Ve
         "type": kind,
         "start_byte": node.start_byte(),
         "end_byte": node.end_byte(),
-        "text": &source[node.start_byte()..node.end_byte()],
+        "text": node_text(source, node),
         "is_dependency": is_dependency
     }));
 
@@ -129,24 +131,26 @@ fn flatten_node(node: Node, source: &str, nodes: &mut Vec<Value>, edges: &mut Ve
 }
 
 pub fn parse_code_impl(lang_name: String, code: String) -> String {
-    let language = match lang_name.as_str() {
-        "javascript" => tree_sitter_javascript::language(),
-        "python" => tree_sitter_python::language(),
-        "c" => tree_sitter_c::language(),
-        _ => return "Unsupported language".to_string(),
+    let language = match supported_language(&lang_name) {
+        Some(language) => language,
+        None => return "Unsupported language".to_string(),
     };
 
     let mut parser = Parser::new();
-    parser.set_language(language).expect("Error loading language");
+    if parser.set_language(language).is_err() {
+        return "Parser configuration error".to_string();
+    }
 
-    let tree = parser.parse(&code, None).unwrap();
+    let Some(tree) = parser.parse(&code, None) else {
+        return "Parse error".to_string();
+    };
     let root_node = tree.root_node();
 
     let graph_data = serialize_node(root_node, &code);
     serde_json::to_string(&graph_data).unwrap_or_else(|_| "Serialization error".to_string())
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn parse_code(lang_name: String, code: String) -> String {
     parse_code_impl(lang_name, code)
 }
@@ -168,7 +172,7 @@ fn serialize_node(node: Node, source: &str) -> Value {
         "type": node.kind(),
         "start_byte": node.start_byte(),
         "end_byte": node.end_byte(),
-        "text": &source[node.start_byte()..node.end_byte()],
+        "text": node_text(source, node),
         "children": children
     })
 }
@@ -196,17 +200,19 @@ pub fn ingest_to_memgraph(
 
         let client = client_lock.as_ref().unwrap().clone();
         
-        let language = match lang_name.as_str() {
-            "javascript" => tree_sitter_javascript::language(),
-            "python" => tree_sitter_python::language(),
-            "c" => tree_sitter_c::language(),
-            _ => return Err(rustler::Error::Term(Box::new("Unsupported language"))),
+        let language = match supported_language(&lang_name) {
+            Some(language) => language,
+            None => return Err(rustler::Error::Term(Box::new("Unsupported language"))),
         };
 
         let mut parser = Parser::new();
-        parser.set_language(language).expect("Error loading language");
+        if parser.set_language(language).is_err() {
+            return Err(rustler::Error::Term(Box::new("Parser configuration error")));
+        }
 
-        let tree = parser.parse(&code, None).unwrap();
+        let Some(tree) = parser.parse(&code, None) else {
+            return Err(rustler::Error::Term(Box::new("Parse error")));
+        };
         let root_node = tree.root_node();
         let root_id = root_node.id() as u64;
 
@@ -241,7 +247,7 @@ pub fn ingest_to_memgraph(
 async fn ingest_node(txn: &mut Txn, node: Node<'_>, source: &str, count: &mut u32) -> Result<(), Error> {
     let node_id = node.id() as u64;
     let kind = node.kind();
-    let text = &source[node.start_byte()..node.end_byte()];
+    let text = node_text(source, node);
     let escaped_text = text.replace("'", "\\'"); // Basic escaping for Cypher
 
     let create_query = format!(
@@ -275,6 +281,21 @@ async fn ingest_node(txn: &mut Txn, node: Node<'_>, source: &str, count: &mut u3
     }
 
     Ok(())
+}
+
+fn supported_language(lang_name: &str) -> Option<tree_sitter::Language> {
+    match lang_name {
+        "javascript" => Some(tree_sitter_javascript::language()),
+        "python" => Some(tree_sitter_python::language()),
+        "c" => Some(tree_sitter_c::language()),
+        _ => None,
+    }
+}
+
+fn node_text<'a>(source: &'a str, node: Node<'_>) -> &'a str {
+    source
+        .get(node.start_byte()..node.end_byte())
+        .unwrap_or("")
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
