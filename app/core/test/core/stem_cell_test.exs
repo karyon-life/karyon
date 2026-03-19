@@ -65,11 +65,36 @@ defmodule Core.StemCellTest do
       {:error, {:already_started, _}} -> :ok
     end
 
+    original_module = Application.get_env(:core, :memory_module)
+    original_rhizome_module = Application.get_env(:core, :rhizome_module)
+    Application.put_env(:core, :memory_module, MemoryStub)
+    Application.put_env(:core, :rhizome_module, RhizomeStub)
+
+    if Process.whereis(:stem_cell_test_observer), do: Process.unregister(:stem_cell_test_observer)
+
     File.write!(@dna_path, """
     cell_type: sensor
     synapses: []
     """)
-    on_exit(fn -> File.rm(@dna_path) end)
+
+    on_exit(fn ->
+      File.rm(@dna_path)
+
+      if Process.whereis(:stem_cell_test_observer), do: Process.unregister(:stem_cell_test_observer)
+
+      if original_module do
+        Application.put_env(:core, :memory_module, original_module)
+      else
+        Application.delete_env(:core, :memory_module)
+      end
+
+      if original_rhizome_module do
+        Application.put_env(:core, :rhizome_module, original_rhizome_module)
+      else
+        Application.delete_env(:core, :rhizome_module)
+      end
+    end)
+
     :ok
   end
 
