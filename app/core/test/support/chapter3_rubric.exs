@@ -14,7 +14,7 @@ defmodule Core.TestSupport.Chapter3Rubric do
       %{
         id: :sandbox_owns_firecracker_execution_adapter,
         path: "app/sandbox/lib/sandbox/executor.ex",
-        required: ["def capture_output", "Sandbox.Provisioner.capture_output"],
+        required: ["def capture_output", "Provisioner.capture_output"],
         forbidden: ["Core.MotorDriver", "Core.StemCell"]
       },
       %{

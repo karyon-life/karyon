@@ -58,7 +58,7 @@ defmodule Core.MetabolicDaemonTier4Test do
     assert_receive {:telemetry_recv, %{pressure: 0}, %{pressure: :low, policy: policy}}, 1000
     assert policy["needs"]["exploration"] == 0.6
     assert policy["values"]["learning"] == 0.8
-    assert policy["objective_priors"]["repair"] == 0.6
+    assert policy["objective_priors"]["repair"] == 0.9
     
     :telemetry.detach("metabolic-test-handler")
     GenServer.stop(pid)

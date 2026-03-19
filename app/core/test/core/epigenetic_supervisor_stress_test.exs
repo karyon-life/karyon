@@ -20,6 +20,16 @@ defmodule Core.EpigeneticSupervisorStressTest do
 
   @dna_path Path.expand("../../../../priv/dna/motor_cell.yml", __DIR__)
 
+  defmodule FakeMetabolicDaemon do
+    use GenServer
+
+    def start_link(_opts), do: GenServer.start_link(__MODULE__, %{pressure: :low}, name: Core.MetabolicDaemon)
+    def init(state), do: {:ok, state}
+    def handle_call(:get_pressure, _from, state), do: {:reply, state.pressure, state}
+    def handle_call(:get_policy, _from, state), do: {:reply, Core.MetabolismPolicy.build_policy(state.pressure), state}
+    def handle_cast({:set_pressure, pressure}, state), do: {:noreply, %{state | pressure: pressure}}
+  end
+
   setup do
     # Ensure core is started
     Application.ensure_all_started(:core)
@@ -33,6 +43,12 @@ defmodule Core.EpigeneticSupervisorStressTest do
       _ -> 
         require Logger
         Logger.error("[StressTest] EpigeneticSupervisor failed to start!")
+    end
+
+    if pid = Process.whereis(EpigeneticSupervisor) do
+      for {_, child_pid, _, _} <- DynamicSupervisor.which_children(pid) do
+        DynamicSupervisor.terminate_child(pid, child_pid)
+      end
     end
 
     # Start a fake MetabolicDaemon for these tests to ensure deterministic pressure
@@ -59,17 +75,9 @@ defmodule Core.EpigeneticSupervisorStressTest do
     # Wait a bit for transition
     Process.sleep(100)
     
-    defmodule FakeMetabolicDaemon do
-      use GenServer
-      def start_link(_), do: GenServer.start_link(__MODULE__, :ok, name: Core.MetabolicDaemon)
-      def init(_), do: {:ok, %{pressure: :low}}
-      def handle_call(:get_pressure, _from, state), do: {:reply, state.pressure, state}
-      def handle_cast({:set_pressure, p}, state), do: {:noreply, %{state | pressure: p}}
-    end
-
     {:ok, fake_daemon} = FakeMetabolicDaemon.start_link([])
     on_exit(fn -> 
-      if Process.alive?(fake_daemon), do: GenServer.stop(fake_daemon)
+      safe_stop(fake_daemon)
     end)
     
     {:ok, daemon: fake_daemon}
@@ -143,6 +151,18 @@ defmodule Core.EpigeneticSupervisorStressTest do
       else
         {:error, :timeout}
       end
+    end
+  end
+
+  defp safe_stop(pid) when is_pid(pid) do
+    if Process.alive?(pid) do
+      try do
+        GenServer.stop(pid)
+      catch
+        :exit, _ -> :ok
+      end
+    else
+      :ok
     end
   end
 end

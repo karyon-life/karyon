@@ -4,8 +4,11 @@ defmodule Core.StemCellTier1Test do
 
   setup do
     dna_path = "/tmp/architect_planner_#{System.unique_integer([:positive])}.yml"
+    dna_id = "architect-planner-#{System.unique_integer([:positive])}"
 
     File.write!(dna_path, """
+    schema_version: 1
+    id: "#{dna_id}"
     cell_type: "architect_planner"
     description: "Planning cell that sequences architectural modifications via Active Inference."
     allowed_actions:

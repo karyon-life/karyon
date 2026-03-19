@@ -105,6 +105,7 @@ defmodule Core.MetabolicStressTest do
       def start_link(_), do: GenServer.start_link(__MODULE__, :high, name: Core.MetabolicDaemon)
       def init(pressure), do: {:ok, pressure}
       def handle_call(:get_pressure, _from, state), do: {:reply, state, state}
+      def handle_call(:get_policy, _from, state), do: {:reply, Core.MetabolismPolicy.build_policy(state), state}
     end
 
     {:ok, fake_pid} = HighPressureDaemon.start_link([])

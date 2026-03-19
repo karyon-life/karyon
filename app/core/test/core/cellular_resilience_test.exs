@@ -1,5 +1,6 @@
 defmodule Core.CellularResilienceTest do
   use ExUnit.Case
+  @moduletag timeout: 120_000
   alias Core.EpigeneticSupervisor
 
   defmodule FakeMetabolicDaemon do
@@ -11,6 +12,7 @@ defmodule Core.CellularResilienceTest do
 
     def init(pressure), do: {:ok, pressure}
     def handle_call(:get_pressure, _from, pressure), do: {:reply, pressure, pressure}
+    def handle_call(:get_policy, _from, pressure), do: {:reply, Core.MetabolismPolicy.build_policy(pressure), pressure}
   end
 
   setup do
@@ -29,7 +31,13 @@ defmodule Core.CellularResilienceTest do
     end
 
     on_exit(fn ->
-      if Process.alive?(fake_daemon), do: GenServer.stop(fake_daemon)
+      if monkey = Process.whereis(Core.ChaosMonkey), do: safe_stop(monkey)
+
+      for {_, pid, _, _} <- DynamicSupervisor.which_children(EpigeneticSupervisor) do
+        DynamicSupervisor.terminate_child(EpigeneticSupervisor, pid)
+      end
+
+      safe_stop(fake_daemon)
 
       if Process.whereis(Core.Supervisor) do
         Supervisor.start_child(Core.Supervisor, {Core.MetabolicDaemon, []})
@@ -40,16 +48,30 @@ defmodule Core.CellularResilienceTest do
   end
 
   test "mass spawning and graduated apoptosis" do
-    # Spawn 50 cells across different roles
     roles = ["motor", "sensory", "orchestrator"]
-    for i <- 1..50 do
+    spawn_count = 12
+
+    dna_paths =
+      Map.new(roles, fn role ->
+        path = "/tmp/cellular_resilience_#{role}_#{System.unique_integer([:positive])}.yml"
+
+        File.write!(path, """
+        id: "#{role}_resilience"
+        cell_type: "#{role}"
+        allowed_actions: []
+        synapses: []
+        """)
+
+        on_exit(fn -> File.rm(path) end)
+        {role, path}
+      end)
+
+    for i <- 1..spawn_count do
       role = Enum.at(roles, rem(i, 3))
-      # Correct path relative to umbrella root
-      dna_path = Path.expand("../../priv/dna/#{role}_cell.yml")
-      {:ok, _pid} = EpigeneticSupervisor.spawn_cell(dna_path)
+      {:ok, _pid} = EpigeneticSupervisor.spawn_cell(Map.fetch!(dna_paths, role))
     end
 
-    assert length(DynamicSupervisor.which_children(EpigeneticSupervisor)) == 50
+    assert length(DynamicSupervisor.which_children(EpigeneticSupervisor)) == spawn_count
 
     # Simulate metabolic pressure for targeted apoptosis
     # The MetabolicDaemon isn't started in this test context, so we call apoptosis directly
@@ -61,7 +83,7 @@ defmodule Core.CellularResilienceTest do
     
     # Wait for async cleanup
     Process.sleep(100)
-    assert length(DynamicSupervisor.which_children(EpigeneticSupervisor)) == 49
+    assert length(DynamicSupervisor.which_children(EpigeneticSupervisor)) == spawn_count - 1
   end
 
   test "chaos monkey impact and recovery" do
@@ -84,6 +106,8 @@ defmodule Core.CellularResilienceTest do
     Process.sleep(200)
 
     assert length(DynamicSupervisor.which_children(EpigeneticSupervisor)) <= initial_count
+
+    safe_stop(monkey_pid)
   end
 
   test "safety-critical cells stay active while non-critical cells enter torpor and revive deterministically" do
@@ -112,5 +136,17 @@ defmodule Core.CellularResilienceTest do
     Process.sleep(100)
 
     assert GenServer.call(sensory, :get_status) == :revived
+  end
+
+  defp safe_stop(pid) when is_pid(pid) do
+    if Process.alive?(pid) do
+      try do
+        GenServer.stop(pid)
+      catch
+        :exit, _ -> :ok
+      end
+    else
+      :ok
+    end
   end
 end

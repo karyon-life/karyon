@@ -35,6 +35,7 @@ defmodule Core.EpigeneticSupervisionTest do
 
     original_module = Application.get_env(:core, :memory_module)
     Application.put_env(:core, :memory_module, MemoryStub)
+    if Process.whereis(:epigenetic_supervision_observer), do: Process.unregister(:epigenetic_supervision_observer)
     Process.register(self(), :epigenetic_supervision_observer)
     
     # Cleanup PG groups - ignore errors if process is not in group
@@ -71,7 +72,7 @@ defmodule Core.EpigeneticSupervisionTest do
         Application.delete_env(:core, :memory_module)
       end
 
-      if Process.alive?(fake_daemon), do: GenServer.stop(fake_daemon)
+      safe_stop(fake_daemon)
 
       if Process.whereis(Core.Supervisor) do
         Supervisor.start_child(Core.Supervisor, {Core.MetabolicDaemon, []})
@@ -142,7 +143,7 @@ defmodule Core.EpigeneticSupervisionTest do
     {:ok, pid} = GenServer.start_link(FakeMetabolicDaemon, :high, name: Core.MetabolicDaemon)
 
     on_exit(fn ->
-      if Process.alive?(pid), do: GenServer.stop(pid)
+      safe_stop(pid)
     end)
 
     assert {:error, :metabolic_starvation} = EpigeneticSupervisor.spawn_cell()
@@ -163,7 +164,7 @@ defmodule Core.EpigeneticSupervisionTest do
 
     on_exit(fn ->
       File.rm(dna_path)
-      if Process.alive?(pid), do: GenServer.stop(pid)
+      safe_stop(pid)
     end)
 
     assert {:error, :metabolic_starvation} = EpigeneticSupervisor.spawn_cell(dna_path)
@@ -224,5 +225,17 @@ defmodule Core.EpigeneticSupervisionTest do
     assert Core.DNA.role(dna) == :motor
     assert decision["role"] == "motor"
     assert "speculative" in decision["candidate_roles"]
+  end
+
+  defp safe_stop(pid) when is_pid(pid) do
+    if Process.alive?(pid) do
+      try do
+        GenServer.stop(pid)
+      catch
+        :exit, _ -> :ok
+      end
+    else
+      :ok
+    end
   end
 end

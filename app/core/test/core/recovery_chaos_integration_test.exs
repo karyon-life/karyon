@@ -16,6 +16,7 @@ defmodule Core.RecoveryChaosIntegrationTest do
 
     def init(pressure), do: {:ok, pressure}
     def handle_call(:get_pressure, _from, pressure), do: {:reply, pressure, pressure}
+    def handle_call(:get_policy, _from, pressure), do: {:reply, Core.MetabolismPolicy.build_policy(pressure), pressure}
   end
 
   setup_all do

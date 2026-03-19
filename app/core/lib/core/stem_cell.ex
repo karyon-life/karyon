@@ -93,12 +93,17 @@ defmodule Core.StemCell do
 
   @impl true
   def handle_call({:execute, action, params}, from, state) do
-    with {:ok, executor_spec} <- resolve_executor(state.dna_spec),
-         {:ok, intent} <- ExecutionIntent.from_action(state.dna_spec, action, params, executor_spec) do
-      handle_call({:execute_intent, intent}, from, state)
+    if action in Core.DNA.allowed_actions(state.dna) do
+      with {:ok, executor_spec} <- resolve_executor(state.dna_spec),
+           {:ok, intent} <- ExecutionIntent.from_action(state.dna_spec, action, params, executor_spec) do
+        handle_call({:execute_intent, intent}, from, state)
+      else
+        {:error, reason} ->
+          {:reply, {:error, reason}, state}
+      end
     else
-      {:error, reason} ->
-        {:reply, {:error, reason}, state}
+      Logger.error("[StemCell] ACTION DENIED: #{action} not in DNA allowed_actions.")
+      {:reply, {:error, :unauthorized}, state}
     end
   end
 
@@ -650,6 +655,7 @@ defmodule Core.StemCell do
       recovered_state
       |> Map.get("status", "active")
       |> normalize_status()
+      |> recoverable_boot_status()
 
     atp_metabolism =
       recovered_state
@@ -696,6 +702,11 @@ defmodule Core.StemCell do
   defp normalize_status("shed"), do: :shed
   defp normalize_status("terminated"), do: :terminated
   defp normalize_status(_), do: :active
+
+  defp recoverable_boot_status(:terminated), do: :active
+  defp recoverable_boot_status(:shed), do: :active
+  defp recoverable_boot_status(:torpor), do: :revived
+  defp recoverable_boot_status(status), do: status
 
   defp normalize_atp(value) when is_float(value), do: value
   defp normalize_atp(value) when is_integer(value), do: value * 1.0
