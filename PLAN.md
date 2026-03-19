@@ -2231,3 +2231,4 @@ Chapter 12 validates a full closed maturation loop from baseline to drift correc
 - `[done]` Part V Complete: Chapters 9 and 10 are implemented and validated.
 - `[done]` Part VI Complete: Chapters 11 and 12 are implemented and validated.
 - `[done]` Whole-Book Architectural Parity Complete: Every `Cxx-Syy` phase is `[done]`, all conflict-ledger items are either resolved or explicitly accepted, and the implementation matches the canonical book guidance with validated runtime behavior.
+- 2026-03-18: Revalidated the chapter workflow surface after fixing matrix-only teardown and timing regressions in Chapter 4 and Chapter 9. Confirmed local passes for `mix chapter1.conformance` through `mix chapter12.conformance`, including uninterrupted matrix runs across Chapters 1 through 8 and Chapters 9 through 12.

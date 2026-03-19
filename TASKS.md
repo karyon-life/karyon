@@ -239,3 +239,4 @@ Completion criterion: every `C11-*` and `C12-*` item is complete and validated.
 
 - [x] Complete Architectural Parity
 Completion criterion: every `Cxx-Syy` item is complete, all required validations pass, and whole-book parity is achieved with any remaining conflict-ledger items explicitly resolved or accepted.
+Validation note: 2026-03-18 local revalidation confirmed passing chapter conformance workflows across the full surface after fixing Chapter 4 and Chapter 9 matrix regressions.
