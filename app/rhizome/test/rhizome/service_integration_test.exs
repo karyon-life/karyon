@@ -110,7 +110,6 @@ defmodule Rhizome.ServiceIntegrationTest do
   test "consolidation manager retains cells in archive instead of deleting them against real services", %{token: token} do
     stop_process(Core.MetabolicDaemon)
     stop_process(ConsolidationManager)
-    {:ok, _daemon} = Rhizome.ServiceIntegrationTest.MockMetabolicDaemon.start_link(:low)
 
     assert {:ok, _} =
              Memory.upsert_graph_node(%{
@@ -119,20 +118,21 @@ defmodule Rhizome.ServiceIntegrationTest do
                properties: %{token: token, vfe: 0.95, archived: false}
              })
 
-    manager =
-      case ConsolidationManager.start_link() do
-        {:ok, pid} -> pid
-        {:error, {:already_started, pid}} -> pid
-      end
+    result = ConsolidationManager.run_once(schedule_next?: false)
 
-    send(manager, :check_consolidation_window)
+    assert {:ok, %{archived_count: count}} = result.bridge_to_xtdb
+    assert count >= 1
+    assert {:ok, %{pruned_count: count, retained_in_archive: true}} = result.memory_relief
+    assert count >= 1
 
     assert {:ok, [%{"archived" => true}]} =
              eventually(fn ->
                with {:ok, [%{"archived" => true} = row]} <-
-                      Native.memgraph_query(
-                        "MATCH (c:Cell {token: '#{token}'}) RETURN c.archived AS archived, c.sleep_cycle_status AS sleep_cycle_status, c.retained_in_archive AS retained_in_archive"
-                      ) do
+                      Memory.query_working_memory(%{
+                        label: "Cell",
+                        filters: %{token: token},
+                        return: [:archived, :sleep_cycle_status, :retained_in_archive]
+                      }) do
                  {:ok, [row]}
                else
                  _ -> {:error, :not_consolidated_yet}
