@@ -31,7 +31,6 @@ jobs:
         with:
           path: |
             app/deps
-            app/_build
           key: ${{ runner.os }}-mix-${{ hashFiles('app/mix.lock', 'app/**/mix.exs') }}
           restore-keys: |
             ${{ runner.os }}-mix-
@@ -39,6 +38,14 @@ jobs:
       - name: Install Dependencies
         working-directory: app
         run: mix deps.get
+
+      - name: Compile Dependencies
+        working-directory: app
+        run: MIX_ENV=test mix deps.compile
+
+      - name: Compile Test Environment
+        working-directory: app
+        run: MIX_ENV=test mix compile --force
 
       - name: Start Backend Services
         run: docker compose up -d memgraph xtdb nats
