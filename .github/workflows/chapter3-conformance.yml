@@ -40,6 +40,37 @@ jobs:
         working-directory: app
         run: mix deps.get
 
+      - name: Start Backend Services
+        run: docker compose up -d memgraph xtdb nats
+
+      - name: Wait For Backend Services
+        run: |
+          for target in 127.0.0.1:7687 127.0.0.1:5432 127.0.0.1:4222; do
+            host="${target%:*}"
+            port="${target##*:}"
+            for attempt in $(seq 1 60); do
+              if bash -lc "</dev/tcp/$host/$port" >/dev/null 2>&1; then
+                echo "$target is ready"
+                break
+              fi
+              if [ "$attempt" -eq 60 ]; then
+                echo "Timed out waiting for $target"
+                docker compose ps
+                docker compose logs --tail=200
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+
       - name: Run Chapter 3 Conformance Suite
         working-directory: app
         run: mix chapter3.conformance
+
+      - name: Dump Backend Logs On Failure
+        if: failure()
+        run: docker compose logs --tail=200
+
+      - name: Stop Backend Services
+        if: always()
+        run: docker compose down -v
