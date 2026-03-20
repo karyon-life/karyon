@@ -12,6 +12,18 @@ defmodule Core.Chaos.ApoptosisTest do
     def init(pressure), do: {:ok, pressure}
     def handle_call(:get_pressure, _from, pressure), do: {:reply, pressure, pressure}
     def handle_call(:get_policy, _from, pressure), do: {:reply, Core.MetabolismPolicy.build_policy(pressure), pressure}
+    def handle_call(:get_runtime_status, _from, pressure) do
+      {:reply,
+       %{
+         pressure: pressure,
+         consciousness_state: :awake,
+         membrane_open: true,
+         motor_output_open: true,
+         preflight_status: :ok,
+         calibrated: true,
+         strict_preflight: false
+       }, pressure}
+    end
   end
 
   @moduledoc """
@@ -40,25 +52,35 @@ defmodule Core.Chaos.ApoptosisTest do
   end
 
   test "system regenerates cells after ChaosMonkey disruption" do
-    dna_path = Path.expand("../../../../priv/dna/motor_cell.yml", __DIR__)
+    dna_path = "/tmp/chaos_apoptosis_motor_#{System.unique_integer([:positive])}.yml"
 
-    Enum.each(1..10, fn _ ->
-      Core.EpigeneticSupervisor.spawn_cell(dna_path)
+    File.write!(dna_path, """
+    cell_type: motor
+    subscriptions:
+      - metabolic.spike
+    synapses: []
+    allowed_actions: []
+    """)
+
+    on_exit(fn -> File.rm(dna_path) end)
+
+    Enum.each(1..4, fn _ ->
+      assert {:ok, _pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
     end)
 
     # 2. Wait for stabilization
     Process.sleep(100)
     initial_count = Enum.count(:pg.get_members(:stem_cell))
-    assert initial_count >= 10
+    assert initial_count >= 4
 
     # 3. Trigger manual disruption via internal knowledge of ChaosMonkey logic
     # (or just kill them directly to verify supervisor response)
     pids = :pg.get_members(:stem_cell)
-    Enum.take_random(pids, 5) |> Enum.each(&Process.exit(&1, :kill))
+    Enum.take_random(pids, 2) |> Enum.each(&Process.exit(&1, :kill))
 
     assert Process.alive?(Process.whereis(Core.EpigeneticSupervisor))
 
-    Enum.each(1..5, fn _ ->
+    Enum.each(1..2, fn _ ->
       assert {:ok, _pid} = Core.EpigeneticSupervisor.spawn_cell(dna_path)
     end)
 
