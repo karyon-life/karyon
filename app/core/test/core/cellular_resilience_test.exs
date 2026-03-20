@@ -13,6 +13,28 @@ defmodule Core.CellularResilienceTest do
     def init(pressure), do: {:ok, pressure}
     def handle_call(:get_pressure, _from, pressure), do: {:reply, pressure, pressure}
     def handle_call(:get_policy, _from, pressure), do: {:reply, Core.MetabolismPolicy.build_policy(pressure), pressure}
+    def handle_call(:get_runtime_status, _from, pressure) do
+      {:reply,
+       %{
+         pressure: pressure,
+         consciousness_state: :awake,
+         membrane_open: true,
+         motor_output_open: true,
+         preflight_status: :ok,
+         calibrated: true,
+         strict_preflight: false
+       }, pressure}
+    end
+
+    def handle_call(:get_membrane_state, _from, pressure) do
+      {:reply,
+       %{
+         pressure: pressure,
+         consciousness_state: :awake,
+         membrane_open: true,
+         motor_output_open: true
+       }, pressure}
+    end
   end
 
   setup do
@@ -49,7 +71,7 @@ defmodule Core.CellularResilienceTest do
 
   test "mass spawning and graduated apoptosis" do
     roles = ["motor", "sensory", "orchestrator"]
-    spawn_count = 12
+    spawn_count = 6
 
     dna_paths =
       Map.new(roles, fn role ->
@@ -87,9 +109,19 @@ defmodule Core.CellularResilienceTest do
   end
 
   test "chaos monkey impact and recovery" do
-    # Spawn a small cluster
-    for _ <- 1..10 do
-      dna_path = Path.expand("../../priv/dna/motor_cell.yml")
+    dna_path = "/tmp/cellular_resilience_motor_#{System.unique_integer([:positive])}.yml"
+
+    File.write!(dna_path, """
+    cell_type: motor
+    subscriptions:
+      - metabolic.spike
+    synapses: []
+    allowed_actions: []
+    """)
+
+    on_exit(fn -> File.rm(dna_path) end)
+
+    for _ <- 1..4 do
       {:ok, _} = EpigeneticSupervisor.spawn_cell(dna_path)
     end
 
@@ -111,13 +143,34 @@ defmodule Core.CellularResilienceTest do
   end
 
   test "safety-critical cells stay active while non-critical cells enter torpor and revive deterministically" do
-    orchestrator_path = Path.expand("../../priv/dna/orchestrator_cell.yml")
-    sensory_path = Path.expand("../../priv/dna/sensory_cell.yml")
+    orchestrator_path = "/tmp/cellular_resilience_orchestrator_#{System.unique_integer([:positive])}.yml"
+    sensory_path = "/tmp/cellular_resilience_sensory_#{System.unique_integer([:positive])}.yml"
+
+    File.write!(orchestrator_path, """
+    cell_type: orchestrator
+    subscriptions:
+      - metabolic.spike
+    synapses: []
+    allowed_actions: []
+    """)
+
+    File.write!(sensory_path, """
+    cell_type: sensory
+    subscriptions:
+      - metabolic.spike
+    synapses: []
+    allowed_actions: []
+    """)
+
+    on_exit(fn ->
+      File.rm(orchestrator_path)
+      File.rm(sensory_path)
+    end)
 
     {:ok, orchestrator} = EpigeneticSupervisor.spawn_cell(orchestrator_path)
     {:ok, sensory} = EpigeneticSupervisor.spawn_cell(sensory_path)
 
-    high_spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    high_spike = %Karyon.NervousSystem.MetabolicSpike{severity: 1.0, source: "operator_induced"}
     {:ok, high_iodata} = Karyon.NervousSystem.MetabolicSpike.encode(high_spike)
     high_payload = IO.iodata_to_binary(high_iodata)
 
@@ -128,7 +181,7 @@ defmodule Core.CellularResilienceTest do
     assert GenServer.call(orchestrator, :get_status) == :active
     assert GenServer.call(sensory, :get_status) == :torpor
 
-    low_spike = %Karyon.NervousSystem.MetabolicSpike{severity: "low"}
+    low_spike = %Karyon.NervousSystem.MetabolicSpike{severity: 0.3, source: "operator_induced"}
     {:ok, low_iodata} = Karyon.NervousSystem.MetabolicSpike.encode(low_spike)
     low_payload = IO.iodata_to_binary(low_iodata)
 

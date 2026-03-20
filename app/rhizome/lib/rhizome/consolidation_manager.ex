@@ -5,8 +5,6 @@ defmodule Rhizome.ConsolidationManager do
   """
   use GenServer
   require Logger
-  @high_vfe_threshold 0.8
-
   @sleep_cycle_interval_ms 60_000 # Check every minute
 
   def start_link(opts \\ []) do
@@ -120,12 +118,7 @@ defmodule Rhizome.ConsolidationManager do
       {:ok, count} ->
         logger_fun.("[Rhizome.ConsolidationManager] Memory Relief pruned #{count} high-VFE engrams without deletion.")
 
-        {:ok,
-         %{
-           pruned_count: count,
-           retained_in_archive: true,
-           strategy: "targeted_in_place_pruning"
-         }}
+        {:ok, %{pruned_count: count, retained_in_archive: true, strategy: "targeted_in_place_pruning"}}
 
       err ->
         Logger.error("[Rhizome.ConsolidationManager] Memory Relief Failed: #{inspect(err)}")
@@ -135,24 +128,22 @@ defmodule Rhizome.ConsolidationManager do
 
   defp classify_sleep_candidates(native_module) do
     query = """
-    MATCH (n)
+    MATCH (n:PooledSequence)
     WHERE coalesce(n.archived, false) = false
+      AND n.source = 'operator_environment'
     RETURN id(n) AS internal_id, labels(n) AS labels, properties(n) AS props
     """
 
     case native_module.memgraph_query(query) do
       {:ok, rows} when is_list(rows) ->
-        candidates =
+        sequences =
           Enum.map(rows, &normalize_sleep_candidate/1)
           |> Enum.reject(&is_nil/1)
 
-        {prunable, retainable} = Enum.split_with(candidates, &candidate_prunable?/1)
-
         {:ok,
          %{
-           total: length(candidates),
-           prunable: prunable,
-           retainable: retainable
+           total: length(sequences),
+           sequences: sequences
          }}
 
       {:error, reason} ->
@@ -165,89 +156,31 @@ defmodule Rhizome.ConsolidationManager do
 
   defp create_sleep_supernodes(_native_module, {:error, reason}, _cycle_started_at), do: {:error, reason}
 
-  defp create_sleep_supernodes(_native_module, {:ok, %{prunable: []}}, _cycle_started_at) do
+  defp create_sleep_supernodes(_native_module, {:ok, %{sequences: []}}, _cycle_started_at) do
     {:ok, %{supernode_count: 0, abstracted_count: 0, abstraction_ids: []}}
   end
 
-  defp create_sleep_supernodes(native_module, {:ok, %{prunable: prunable}}, cycle_started_at) do
-    run_id = sleep_supernode_id(cycle_started_at)
-    label_summary = prunable |> Enum.flat_map(& &1.labels) |> Enum.uniq() |> Enum.sort()
-    node_ids = Enum.map(prunable, & &1.internal_id)
-    created_at = DateTime.to_iso8601(cycle_started_at)
-
-    query = """
-    MERGE (s:SleepSuperNode {id: '#{escape_cypher(run_id)}'})
-    SET s.kind = 'sleep_consolidation',
-        s.created_at = '#{escape_cypher(created_at)}',
-        s.abstracted_count = #{length(prunable)},
-        s.label_summary = '#{escape_cypher(Enum.join(label_summary, ","))}',
-        s.status = 'abstracted'
-    WITH s
-    MATCH (n)
-    WHERE id(n) IN [#{Enum.join(node_ids, ",")}]
-    MERGE (s)-[r:ABSTRACTS]->(n)
-    SET r.created_at = '#{escape_cypher(created_at)}',
-        r.kind = 'sleep_cycle_abstraction'
-    RETURN s.id AS supernode_id, s.abstracted_count AS abstracted_count
-    """
-
-    case native_module.memgraph_query(query) do
-      {:ok, _rows} ->
-        {:ok,
-         %{
-           supernode_count: 1,
-           abstracted_count: length(prunable),
-           abstraction_ids: [run_id]
-         }}
-
-      {:error, reason} ->
-        {:error, reason}
-
-      other ->
-        {:error, {:invalid_abstraction_result, other}}
+  defp create_sleep_supernodes(native_module, {:ok, %{sequences: sequences}}, cycle_started_at) do
+    with {:ok, rows} <- native_module.memgraph_query(cooccurrence_query()),
+         communities <- identify_louvain_communities(rows),
+         non_trivial <- Enum.filter(communities, &(length(&1) > 1)),
+         {:ok, _} <- optimize_language_graph(native_module),
+         {:ok, abstraction_ids} <- persist_grammar_supernodes(native_module, non_trivial, cycle_started_at) do
+      {:ok,
+       %{
+         supernode_count: length(abstraction_ids),
+         abstracted_count: Enum.sum(Enum.map(non_trivial, &length/1)),
+         abstraction_ids: abstraction_ids,
+         candidate_count: length(sequences)
+       }}
+    else
+      {:error, reason} -> {:error, reason}
+      other -> {:error, {:invalid_abstraction_result, other}}
     end
   end
 
   defp mark_pruned_candidates(_native_module, [], _cycle_started_at), do: {:ok, 0}
-  defp mark_pruned_candidates(native_module, prunable_candidates, cycle_started_at) do
-    internal_ids = Enum.map(prunable_candidates, & &1.internal_id)
-    recorded_at = DateTime.to_iso8601(cycle_started_at)
-
-    query =
-      case internal_ids do
-        [] ->
-          """
-          MATCH (n)
-          WHERE n.vfe IS NOT NULL
-          SET n.archived = true,
-              n.sleep_cycle_status = 'pruned',
-              n.pruned_reason = 'high_vfe',
-              n.last_sleep_cycle_at = '#{escape_cypher(recorded_at)}',
-              n.retained_in_archive = true
-          RETURN count(n) AS pruned_count
-          """
-
-        ids ->
-          """
-          MATCH (n)
-          WHERE id(n) IN [#{Enum.join(ids, ",")}]
-          SET n.archived = true,
-              n.sleep_cycle_status = 'pruned',
-              n.pruned_reason = 'high_vfe',
-              n.last_sleep_cycle_at = '#{escape_cypher(recorded_at)}',
-              n.retained_in_archive = true
-          RETURN count(n) AS pruned_count
-          """
-      end
-
-    case native_module.memgraph_query(query) do
-      {:ok, [%{"pruned_count" => count} | _]} when is_integer(count) -> {:ok, count}
-      {:ok, [%{"pruned_count" => count} | _]} when is_float(count) -> {:ok, trunc(count)}
-      {:ok, _rows} -> {:ok, length(prunable_candidates)}
-      {:error, reason} -> {:error, reason}
-      other -> {:error, {:invalid_prune_result, other}}
-    end
-  end
+  defp mark_pruned_candidates(_native_module, _candidates, _cycle_started_at), do: {:ok, 0}
 
   defp normalize_sleep_candidate(%{"internal_id" => internal_id, "labels" => labels, "props" => props})
        when is_integer(internal_id) and is_list(labels) and is_map(props) do
@@ -259,15 +192,6 @@ defmodule Rhizome.ConsolidationManager do
   end
 
   defp normalize_sleep_candidate(_row), do: nil
-
-  defp candidate_prunable?(candidate) do
-    vfe =
-      candidate.props
-      |> Map.get("vfe", 0.0)
-      |> normalize_number()
-
-    vfe > @high_vfe_threshold
-  end
 
   defp normalize_number(value) when is_float(value), do: value
   defp normalize_number(value) when is_integer(value), do: value * 1.0
@@ -281,8 +205,110 @@ defmodule Rhizome.ConsolidationManager do
 
   defp normalize_number(_value), do: 0.0
 
-  defp sleep_supernode_id(cycle_started_at) do
-    "sleep_supernode:" <> DateTime.to_iso8601(cycle_started_at)
+  defp grammar_supernode_id(cycle_started_at, index) do
+    "grammar_supernode:" <> DateTime.to_iso8601(cycle_started_at) <> ":#{index}"
+  end
+
+  defp cooccurrence_query do
+    """
+    MATCH (a:PooledSequence)-[r:CO_OCCURS_WITH]->(b:PooledSequence)
+    WHERE a.source = 'operator_environment'
+      AND b.source = 'operator_environment'
+    RETURN id(a) AS start, id(b) AS end, coalesce(r.weight, 1.0) AS weight
+    """
+  end
+
+  defp optimize_language_graph(native_module) do
+    case native_module.optimize_graph() do
+      {:ok, _message} = ok -> ok
+      {:error, reason} -> {:error, reason}
+      other -> {:error, {:invalid_optimizer_result, other}}
+    end
+  end
+
+  defp identify_louvain_communities(rows) when is_list(rows) do
+    graph =
+      Enum.reduce(rows, %{}, fn row, acc ->
+        start_id = row["start"]
+        end_id = row["end"]
+        weight = normalize_number(row["weight"])
+
+        if is_integer(start_id) and is_integer(end_id) and weight >= 0.5 do
+          acc
+          |> Map.update(start_id, MapSet.new([end_id]), &MapSet.put(&1, end_id))
+          |> Map.update(end_id, MapSet.new([start_id]), &MapSet.put(&1, start_id))
+        else
+          acc
+        end
+      end)
+
+    graph
+    |> Map.keys()
+    |> Enum.reduce({MapSet.new(), []}, fn node, {visited, communities} ->
+      if MapSet.member?(visited, node) do
+        {visited, communities}
+      else
+        community = explore_component(node, graph, MapSet.new())
+        {MapSet.union(visited, community), [community |> MapSet.to_list() |> Enum.sort() | communities]}
+      end
+    end)
+    |> elem(1)
+    |> Enum.reverse()
+  end
+
+  defp persist_grammar_supernodes(_native_module, [], _cycle_started_at), do: {:ok, []}
+
+  defp persist_grammar_supernodes(native_module, communities, cycle_started_at) do
+    created_at = DateTime.to_iso8601(cycle_started_at)
+
+    Enum.reduce_while(Enum.with_index(communities, 1), {:ok, []}, fn {community, index}, {:ok, acc} ->
+      grammar_id = grammar_supernode_id(cycle_started_at, index)
+      confidence = community_confidence(community)
+
+      query = """
+      MERGE (g:GrammarSuperNode {id: '#{escape_cypher(grammar_id)}'})
+      SET g.kind = 'structural_grammar_rule',
+          g.community_size = #{length(community)},
+          g.confidence = #{confidence},
+          g.source = 'operator_environment',
+          g.created_at = '#{escape_cypher(created_at)}',
+          g.observed_at = '#{escape_cypher(created_at)}'
+      WITH g
+      MATCH (p:PooledSequence)
+      WHERE id(p) IN [#{Enum.join(community, ",")}]
+      MERGE (g)-[r:ABSTRACTS]->(p)
+      SET r.kind = 'grammar_consolidation',
+          r.created_at = '#{escape_cypher(created_at)}'
+      RETURN g.id AS grammar_id
+      """
+
+      case native_module.memgraph_query(query) do
+        {:ok, _rows} -> {:cont, {:ok, [grammar_id | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+        other -> {:halt, {:error, {:invalid_grammar_supernode_result, other}}}
+      end
+    end)
+    |> case do
+      {:ok, ids} -> {:ok, Enum.reverse(ids)}
+      error -> error
+    end
+  end
+
+  defp explore_component(node, graph, visited) do
+    if MapSet.member?(visited, node) do
+      visited
+    else
+      neighbors = Map.get(graph, node, MapSet.new())
+      Enum.reduce(neighbors, MapSet.put(visited, node), fn neighbor, acc -> explore_component(neighbor, graph, acc) end)
+    end
+  end
+
+  defp community_confidence(community) do
+    community
+    |> length()
+    |> Kernel./(10.0)
+    |> min(1.0)
+    |> Float.round(3)
   end
 
   defp escape_cypher(value) when is_binary(value) do

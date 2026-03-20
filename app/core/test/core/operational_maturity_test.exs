@@ -3,10 +3,19 @@ defmodule Core.OperationalMaturityTest do
 
   alias Core.OperationalMaturity
 
-  test "report/1 makes build, deploy, observe, and distribute targets explicit" do
-    objectives_root = Path.join(System.tmp_dir!(), "karyon_operational_maturity/objectives")
-    File.mkdir_p!(objectives_root)
-    on_exit(fn -> File.rm_rf(objectives_root) end)
+  test "report/1 makes build, deploy, observe, and grounding targets explicit" do
+    dna_root = Path.join(System.tmp_dir!(), "karyon_operational_maturity/dna")
+    File.mkdir_p!(dna_root)
+
+    Enum.each([
+      "sensory_pooler_cell.yml",
+      "motor_babble_cell.yml",
+      "tabula_rasa_stem_cell.yml"
+    ], fn file ->
+      File.write!(Path.join(dna_root, file), "cell_type: placeholder\n")
+    end)
+
+    on_exit(fn -> File.rm_rf(Path.join(System.tmp_dir!(), "karyon_operational_maturity")) end)
 
     report =
       OperationalMaturity.report(
@@ -26,21 +35,22 @@ defmodule Core.OperationalMaturityTest do
           }
         },
         dashboard_server: true,
-        objectives_root: objectives_root,
+        dna_root: dna_root,
         release: %{name: "karyon", version: "1.0.0", environment: "test"}
       )
 
-    assert report.schema == "karyon.operational-maturity.v1"
+    assert report.schema == "karyon.operational-maturity.v2"
     assert report.overall == :ok
     assert report.targets.build.status == :ok
     assert report.targets.deploy.status == :ok
     assert report.targets.observe.status == :ok
     assert report.targets.distribute.status == :ok
     assert report.targets.build.validation =~ "mix compile"
-    assert report.targets.distribute.evidence.objectives_root_exists
+    assert report.targets.distribute.evidence.dna_root_exists
+    assert report.targets.distribute.evidence.baseline_dna_missing == []
   end
 
-  test "report/1 surfaces blockers when boot and distribution evidence are missing" do
+  test "report/1 surfaces blockers when boot and grounding evidence are missing" do
     report =
       OperationalMaturity.report(
         service_report: %{
@@ -59,7 +69,7 @@ defmodule Core.OperationalMaturityTest do
           }
         },
         dashboard_server: false,
-        objectives_root: Path.join(System.tmp_dir!(), "karyon_operational_maturity/missing"),
+        dna_root: Path.join(System.tmp_dir!(), "karyon_operational_maturity/missing"),
         release: %{name: "dev", version: "dev", environment: "test"}
       )
 
@@ -69,6 +79,6 @@ defmodule Core.OperationalMaturityTest do
     assert report.targets.deploy.status == :degraded
     assert "service down=xtdb" in report.targets.deploy.blockers
     assert report.targets.distribute.status == :degraded
-    assert Enum.any?(report.targets.distribute.blockers, &String.contains?(&1, "create"))
+    assert Enum.any?(report.targets.distribute.blockers, &String.contains?(&1, "canonical DNA surface"))
   end
 end

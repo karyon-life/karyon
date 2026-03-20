@@ -4,8 +4,8 @@ defmodule Core.Engram do
   Handles serialization of the Rhizome graph into portable topological engrams.
   """
 
+  alias Core.EnvironmentMembrane
   alias Rhizome.Native
-  alias Sandbox.MonorepoPipeline
   require Logger
 
   @engram_path "priv/engrams/"
@@ -210,7 +210,7 @@ defmodule Core.Engram do
       digest != compute_digest(nodes, edges) ->
         {:error, :engram_digest_mismatch}
 
-      compatibility["engine_schema"] != MonorepoPipeline.schema() ->
+      compatibility["engine_schema"] != EnvironmentMembrane.schema() ->
         {:error, :engram_incompatible}
 
       true ->
@@ -323,20 +323,20 @@ defmodule Core.Engram do
       "captured_from" => "rhizome",
       "name" => name,
       "use_case" => Keyword.get(opts, :use_case, "general_distribution"),
-      "engine_manifest" => MonorepoPipeline.engine_manifest()
+      "engine_manifest" => EnvironmentMembrane.environment_manifest()
     }
   end
 
   defp compatibility do
     %{
-      "engine_schema" => MonorepoPipeline.schema(),
+      "engine_schema" => EnvironmentMembrane.schema(),
       "distribution_mode" => "portable_subset",
       "hydration" => "idempotent_merge"
     }
   end
 
   defp validate_compatibility(%{"compatibility" => %{"engine_schema" => engine_schema}}) do
-    if engine_schema == MonorepoPipeline.schema() do
+    if engine_schema == EnvironmentMembrane.schema() do
       :ok
     else
       {:error, :engram_incompatible}

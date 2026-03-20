@@ -7,6 +7,8 @@ config :dashboard, DashboardWeb.Endpoint,
   secret_key_base: "l3Fkw3JHIIxz0r9Z9vX4WMZZbT2YUl6C3exkTdoyGVXcfjeqcx9P689AVdWSFM5E",
   server: false
 
+config :dashboard, :start_dns_cluster, false
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

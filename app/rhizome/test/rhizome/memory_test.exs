@@ -41,7 +41,7 @@ defmodule Rhizome.MemoryTest do
     assert_contract_layer(
       :working_graph,
       "memgraph",
-      [:query_working_memory, :query_memgraph, :query_low_confidence_candidates, :upsert_graph_node, :relate_graph_nodes, :persist_pooled_pattern, :normalize_abstract_state]
+      [:query_working_memory, :query_memgraph, :query_low_confidence_candidates, :query_grammar_supernodes, :upsert_graph_node, :relate_graph_nodes, :prune_stdp_pathway, :persist_pooled_sequence, :persist_pooled_pattern, :normalize_abstract_state]
     )
 
     assert_contract_layer(
@@ -56,6 +56,7 @@ defmodule Rhizome.MemoryTest do
         :submit_execution_outcome,
         :submit_execution_telemetry,
         :submit_prediction_error,
+        :submit_trauma_event,
         :submit_baseline_curriculum,
         :submit_objective_projection,
         :submit_cross_workspace_coordination,
@@ -82,8 +83,11 @@ defmodule Rhizome.MemoryTest do
     assert_operation(:query_working_memory, :working_graph, "memgraph")
     assert_operation(:query_memgraph, :working_graph, "memgraph")
     assert_operation(:query_low_confidence_candidates, :working_graph, "memgraph")
+    assert_operation(:query_grammar_supernodes, :working_graph, "memgraph")
     assert_operation(:upsert_graph_node, :working_graph, "memgraph")
     assert_operation(:relate_graph_nodes, :working_graph, "memgraph")
+    assert_operation(:prune_stdp_pathway, :working_graph, "memgraph")
+    assert_operation(:persist_pooled_sequence, :working_graph, "memgraph")
     assert_operation(:persist_pooled_pattern, :working_graph, "memgraph")
     assert_operation(:normalize_abstract_state, :working_graph, "memgraph")
     assert_operation(:write_archive_document, :temporal_archive, "xtdb")
@@ -94,6 +98,7 @@ defmodule Rhizome.MemoryTest do
     assert_operation(:submit_execution_outcome, :temporal_archive, "xtdb")
     assert_operation(:submit_execution_telemetry, :temporal_archive, "xtdb")
     assert_operation(:submit_prediction_error, :temporal_archive, "xtdb")
+    assert_operation(:submit_trauma_event, :temporal_archive, "xtdb")
     assert_operation(:submit_baseline_curriculum, :temporal_archive, "xtdb")
     assert_operation(:submit_objective_projection, :temporal_archive, "xtdb")
     assert_operation(:submit_cross_workspace_coordination, :temporal_archive, "xtdb")
@@ -132,9 +137,24 @@ defmodule Rhizome.MemoryTest do
              })
   end
 
+  test "persist_pooled_sequence validates pooled byte-window shape" do
+    assert {:error, :invalid_pooled_sequence} =
+             Rhizome.Memory.persist_pooled_sequence(%{encoding: "utf8", occurrences: 2})
+  end
+
   test "persist_pooled_pattern validates pooled abstraction shape" do
     assert {:error, :invalid_pooled_pattern} =
              Rhizome.Memory.persist_pooled_pattern(%{language: "javascript", occurrences: 2})
+  end
+
+  test "prune_stdp_pathway validates bounded STDP shape" do
+    assert {:error, :invalid_stdp_pathway} =
+             Rhizome.Memory.prune_stdp_pathway(%{"sensory_id" => "seq:red", "motor_id" => "motor:1"})
+  end
+
+  test "submit_trauma_event validates immutable trauma shape" do
+    assert {:error, :invalid_trauma_event} =
+             Rhizome.Memory.submit_trauma_event(%{"schema" => "karyon.trauma-event.v1", "sensory_id" => "seq:red"})
   end
 
   test "submit_operator_feedback_event validates bounded feedback shape" do

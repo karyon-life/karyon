@@ -10,7 +10,7 @@ defmodule Rhizome.OptimizerComplexTest do
     :ok
   end
 
-  test "leiden algorithm identifies communities and generates super-nodes" do
+  test "louvain grammar optimization identifies pooled-sequence communities and generates grammar super-nodes" do
     # 1. Populate Memgraph with a complex graph (cyclic and disjoint)
     # Community A: 3 nodes in a cycle
     # Community B: 3 nodes in a cycle
@@ -20,24 +20,23 @@ defmodule Rhizome.OptimizerComplexTest do
     Native.memgraph_query("MATCH (n) DETACH DELETE n")
     
     # Community A
-    Native.memgraph_query("CREATE (n1:Cell {id: 1}), (n2:Cell {id: 2}), (n3:Cell {id: 3})")
-    Native.memgraph_query("MATCH (a {id: 1}), (b {id: 2}) CREATE (a)-[:SYNAPSE {weight: 1.0}]->(b)")
-    Native.memgraph_query("MATCH (a {id: 2}), (b {id: 3}) CREATE (a)-[:SYNAPSE {weight: 1.0}]->(b)")
-    Native.memgraph_query("MATCH (a {id: 3}), (b {id: 1}) CREATE (a)-[:SYNAPSE {weight: 1.0}]->(b)")
+    Native.memgraph_query("CREATE (n1:PooledSequence {id: 'ps-1', source: 'operator_environment'}), (n2:PooledSequence {id: 'ps-2', source: 'operator_environment'}), (n3:PooledSequence {id: 'ps-3', source: 'operator_environment'})")
+    Native.memgraph_query("MATCH (a:PooledSequence {id: 'ps-1'}), (b:PooledSequence {id: 'ps-2'}) CREATE (a)-[:CO_OCCURS_WITH {weight: 1.0}]->(b)")
+    Native.memgraph_query("MATCH (a:PooledSequence {id: 'ps-2'}), (b:PooledSequence {id: 'ps-3'}) CREATE (a)-[:CO_OCCURS_WITH {weight: 1.0}]->(b)")
+    Native.memgraph_query("MATCH (a:PooledSequence {id: 'ps-3'}), (b:PooledSequence {id: 'ps-1'}) CREATE (a)-[:CO_OCCURS_WITH {weight: 1.0}]->(b)")
     
     # Community B
-    Native.memgraph_query("CREATE (n4:Cell {id: 4}), (n5:Cell {id: 5}), (n6:Cell {id: 6})")
-    Native.memgraph_query("MATCH (a {id: 4}), (b {id: 5}) CREATE (a)-[:SYNAPSE {weight: 1.0}]->(b)")
-    Native.memgraph_query("MATCH (a {id: 5}), (b {id: 6}) CREATE (a)-[:SYNAPSE {weight: 1.0}]->(b)")
-    Native.memgraph_query("MATCH (a {id: 6}), (b {id: 4}) CREATE (a)-[:SYNAPSE {weight: 1.0}]->(b)")
+    Native.memgraph_query("CREATE (n4:PooledSequence {id: 'ps-4', source: 'operator_environment'}), (n5:PooledSequence {id: 'ps-5', source: 'operator_environment'}), (n6:PooledSequence {id: 'ps-6', source: 'operator_environment'})")
+    Native.memgraph_query("MATCH (a:PooledSequence {id: 'ps-4'}), (b:PooledSequence {id: 'ps-5'}) CREATE (a)-[:CO_OCCURS_WITH {weight: 1.0}]->(b)")
+    Native.memgraph_query("MATCH (a:PooledSequence {id: 'ps-5'}), (b:PooledSequence {id: 'ps-6'}) CREATE (a)-[:CO_OCCURS_WITH {weight: 1.0}]->(b)")
+    Native.memgraph_query("MATCH (a:PooledSequence {id: 'ps-6'}), (b:PooledSequence {id: 'ps-4'}) CREATE (a)-[:CO_OCCURS_WITH {weight: 1.0}]->(b)")
 
     # 2. Trigger Optimization
     assert {:ok, msg} = Native.optimize_graph()
-    assert msg =~ "identified"
+    assert msg =~ "Louvain optimization complete"
     
-    # 3. Verify Super-Nodes
-    {:ok, results} = Native.memgraph_query("MATCH (s:SuperNode) RETURN count(s) as count")
-    # Should have at least 2 supernodes
+    # 3. Verify GrammarSuperNodes
+    {:ok, results} = Native.memgraph_query("MATCH (s:GrammarSuperNode) RETURN count(s) as count")
     case results do
       rows when is_list(rows) ->
         assert hd(rows)["count"] >= 2
@@ -46,8 +45,8 @@ defmodule Rhizome.OptimizerComplexTest do
         :ok
     end
     
-    # 4. Verify Membership
-    {:ok, members} = Native.memgraph_query("MATCH (m)-[:MEMBER_OF]->(s:SuperNode) RETURN count(m) as count")
+    # 4. Verify abstraction links
+    {:ok, members} = Native.memgraph_query("MATCH (s:GrammarSuperNode)-[:ABSTRACTS]->(m:PooledSequence) RETURN count(m) as count")
     case members do
       rows when is_list(rows) ->
         assert hd(rows)["count"] == 6
@@ -59,7 +58,7 @@ defmodule Rhizome.OptimizerComplexTest do
   test "optimizer handles empty graph gracefully" do
     Native.memgraph_query("MATCH (n) DETACH DELETE n")
     assert {:ok, msg} = Native.optimize_graph()
-    assert msg =~ "No graph data found"
+    assert msg =~ "No operator pooled-sequence graph data found"
   end
 
   test "repeated pooled patterns reinforce co-occurrence pathways" do

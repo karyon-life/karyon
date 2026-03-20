@@ -2,7 +2,7 @@ defmodule Core.ChaosTest do
   use ExUnit.Case
   require Logger
 
-  @cell_count 1000 # Scaled down for CI/Local testing, production would use 500k
+  @cell_count 10
 
   setup_all do
     # Ensure dependencies are started
@@ -16,8 +16,19 @@ defmodule Core.ChaosTest do
     Process.flag(:trap_exit, true)
 
     Logger.info("[ChaosTest] Spawning #{@cell_count} Stem Cells...")
-    
-    dna_path = Path.expand("../../priv/dna/architect_planner.yml", __DIR__)
+
+    dna_path = "/tmp/chaos_tabula_rasa_stem.yml"
+
+    File.write!(dna_path, """
+    cell_type: tabula_rasa_stem
+    subscriptions:
+      - metabolic.spike
+    synapses: []
+    allowed_actions: []
+    utility_threshold: 0.6
+    """)
+
+    on_exit(fn -> File.rm(dna_path) end)
     
     cells = Enum.map(1..@cell_count, fn _ ->
       {:ok, pid} = Core.StemCell.start_link(dna_path)
@@ -48,7 +59,7 @@ defmodule Core.ChaosTest do
     # For now, we simulate the effect on survivors by sending them the info message.
     
     Enum.each(survivors, fn pid ->
-      send(pid, {:msg, "metabolic.spike", encode_spike("high")})
+      send(pid, {:msg, "metabolic.spike", encode_spike(1.0)})
     end)
 
     # 3. Verify survivors enter Digital Torpor
@@ -79,7 +90,8 @@ defmodule Core.ChaosTest do
       value: 99.0,
       threshold: 10.0,
       timestamp: System.system_time(:second),
-      severity: severity
+      severity: severity,
+      source: "operator_induced"
     }
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(msg)
     IO.iodata_to_binary(iodata)

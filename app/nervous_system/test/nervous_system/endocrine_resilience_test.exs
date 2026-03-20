@@ -23,7 +23,7 @@ defmodule NervousSystem.EndocrineResilienceTest do
     # Subscribe to a topic
     :ok = Endocrine.subscribe(gnat, @topic)
     # Publish a spike
-    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high", metric_type: "metabolic_daemon"}
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: 1.0, metric_type: "metabolic_daemon", source: "metabolic_daemon"}
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     payload = IO.iodata_to_binary(iodata)
     Endocrine.publish_gradient(gnat, @topic, payload)
@@ -43,7 +43,8 @@ defmodule NervousSystem.EndocrineResilienceTest do
       metric_type: "l3_misses",
       value: 15000.0,
       threshold: 5000.0,
-      severity: "high"
+      severity: 1.0,
+      source: "metabolic_daemon"
     }
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     payload = IO.iodata_to_binary(iodata)

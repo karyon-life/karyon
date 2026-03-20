@@ -11,6 +11,7 @@ defmodule Rhizome.Native do
   - `weaken_edge/1` -> `{:ok, %{message: String.t()}}`
   - `reinforce_pathway/1` -> `{:ok, %{message: String.t(), from_id: String.t(), to_id: String.t()}}`
   - `prune_pathway/1` -> `{:ok, %{message: String.t(), from_id: String.t(), to_id: String.t()}}`
+  - `prune_stdp_pathway/1` -> `{:ok, %{message: String.t(), sensory_id: String.t(), motor_id: String.t(), plasticity_mode: atom()}}`
 
   Errors are always returned as `{:error, reason}` without simulated success payloads.
   """
@@ -76,6 +77,30 @@ defmodule Rhizome.Native do
   end
 
   def prune_pathway(_spec), do: {:error, :invalid_pathway}
+
+  def prune_stdp_pathway(spec) when is_map(spec) do
+    with {:ok, normalized} <- normalize_stdp_spec(spec),
+         query <- stdp_query(normalized),
+         {:ok, rows} <- memgraph_query(query) do
+      {:ok, stdp_result(normalized, rows)}
+    end
+  end
+
+  def prune_stdp_pathway(_spec), do: {:error, :invalid_stdp_pathway}
+
+  @doc false
+  def build_stdp_ltd_query(spec) when is_map(spec) do
+    spec
+    |> normalize_stdp_spec!()
+    |> ltd_query()
+  end
+
+  @doc false
+  def build_stdp_apoptosis_query(spec) when is_map(spec) do
+    spec
+    |> normalize_stdp_spec!()
+    |> apoptosis_query()
+  end
 
   defp decode_json(payload, error_atom) when is_binary(payload) do
     case Jason.decode(payload) do
@@ -190,6 +215,19 @@ defmodule Rhizome.Native do
     }
   end
 
+  defp stdp_result(spec, rows) do
+    matched = matched_edges(rows)
+
+    %{
+      message: Atom.to_string(stdp_mode(spec, matched)),
+      sensory_id: spec.sensory_id,
+      motor_id: spec.motor_id,
+      trace_id: spec.trace_id,
+      plasticity_mode: stdp_mode(spec, matched),
+      matched_edges: matched
+    }
+  end
+
   defp stringify_map_keys(map) when is_map(map) do
     Map.new(map, fn {key, value} ->
       normalized_key =
@@ -239,6 +277,93 @@ defmodule Rhizome.Native do
   end
 
   defp normalize_weight_delta(_), do: 0.1
+
+  defp normalize_stdp_spec(spec) do
+    sensory_id = normalize_string(Map.get(spec, :sensory_id) || Map.get(spec, "sensory_id"))
+    motor_id = normalize_string(Map.get(spec, :motor_id) || Map.get(spec, "motor_id"))
+    trace_id = normalize_string(Map.get(spec, :trace_id) || Map.get(spec, "trace_id") || "stdp")
+    severity = normalize_severity(Map.get(spec, :severity) || Map.get(spec, "severity"))
+    event_at = normalize_event_at(Map.get(spec, :event_at) || Map.get(spec, "event_at") || System.system_time(:second))
+
+    cond do
+      sensory_id in [nil, ""] -> {:error, :invalid_stdp_pathway}
+      motor_id in [nil, ""] -> {:error, :invalid_stdp_pathway}
+      is_nil(severity) -> {:error, :invalid_stdp_pathway}
+      true ->
+        {:ok,
+         %{
+           sensory_id: sensory_id,
+           motor_id: motor_id,
+           severity: severity,
+           trace_id: trace_id,
+           event_at: event_at,
+           weight_delta: max(severity, 0.05)
+         }}
+    end
+  end
+
+  defp normalize_stdp_spec!(spec) do
+    case normalize_stdp_spec(spec) do
+      {:ok, normalized} -> normalized
+      {:error, reason} -> raise ArgumentError, "invalid STDP pathway: #{inspect(reason)}"
+    end
+  end
+
+  defp stdp_query(spec) do
+    if spec.severity < 0.5 do
+      ltd_query(spec)
+    else
+      apoptosis_query(spec)
+    end
+  end
+
+  defp ltd_query(spec) do
+    """
+    MATCH (s:PooledSequence {id: '#{escape_cypher(spec.sensory_id)}'})-[r:PREDICTS_SUCCESS]->(m:MotorAction {id: '#{escape_cypher(spec.motor_id)}'})
+    SET r.weight = CASE
+      WHEN coalesce(r.weight, 1.0) - #{spec.weight_delta} < 0.0 THEN 0.0
+      ELSE coalesce(r.weight, 1.0) - #{spec.weight_delta}
+    END,
+        r.status = 'depressed',
+        r.trace_id = '#{escape_cypher(spec.trace_id)}',
+        r.last_pruned_at = #{spec.event_at}
+    RETURN r.weight AS weight, 1 AS matched_edges
+    """
+  end
+
+  defp apoptosis_query(spec) do
+    """
+    MATCH (s:PooledSequence {id: '#{escape_cypher(spec.sensory_id)}'})-[r:PREDICTS_SUCCESS]->(m:MotorAction {id: '#{escape_cypher(spec.motor_id)}'})
+    WITH collect(r) AS rels
+    FOREACH (edge IN rels | DELETE edge)
+    RETURN size(rels) AS pruned_edges
+    """
+  end
+
+  defp matched_edges([%{"matched_edges" => count} | _rows]) when is_integer(count), do: count
+  defp matched_edges([%{"pruned_edges" => count} | _rows]) when is_integer(count), do: count
+  defp matched_edges(_rows), do: 0
+
+  defp stdp_mode(spec, matched) do
+    cond do
+      matched == 0 -> :noop
+      spec.severity < 0.5 -> :depressed
+      true -> :deleted
+    end
+  end
+
+  defp normalize_severity(value) when is_float(value) and value >= 0.0 and value <= 1.0, do: value
+  defp normalize_severity(value) when is_integer(value) and value >= 0, do: normalize_severity(value * 1.0)
+  defp normalize_severity(value) when is_binary(value) do
+    case Float.parse(value) do
+      {parsed, _} when parsed >= 0.0 and parsed <= 1.0 -> parsed
+      _ -> nil
+    end
+  end
+  defp normalize_severity(_), do: nil
+
+  defp normalize_event_at(value) when is_integer(value), do: value
+  defp normalize_event_at(_), do: System.system_time(:second)
 
   defp escape_cypher(value) when is_binary(value) do
     value

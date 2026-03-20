@@ -55,6 +55,25 @@ defmodule Rhizome.Memory do
   def query_low_confidence_candidates(_spec), do: {:error, :invalid_low_confidence_query}
 
   @doc """
+  Returns grammar super-nodes and their pooled-sequence members for dream-state simulation.
+  """
+  def query_grammar_supernodes(spec \\ %{})
+
+  def query_grammar_supernodes(spec) when is_map(spec) do
+    with_topology(:query_grammar_supernodes, fn ->
+      limit = normalize_limit(Map.get(spec, :limit) || Map.get(spec, "limit") || 8)
+
+      if is_nil(limit) do
+        {:error, :invalid_grammar_supernode_query}
+      else
+        run_memgraph_query(build_grammar_supernode_query(limit))
+      end
+    end)
+  end
+
+  def query_grammar_supernodes(_spec), do: {:error, :invalid_grammar_supernode_query}
+
+  @doc """
   Upserts a typed graph node into working memory.
   """
   def upsert_graph_node(spec) when is_map(spec) do
@@ -143,6 +162,55 @@ defmodule Rhizome.Memory do
   end
 
   def persist_pooled_pattern(_spec), do: {:error, :invalid_pooled_pattern}
+
+  @doc """
+  Persists a pooled byte-window abstraction as a typed PooledSequence node.
+  """
+  def persist_pooled_sequence(spec) when is_map(spec) do
+    with_topology(:persist_pooled_sequence, fn ->
+      with {:ok, normalized} <- normalize_pooled_sequence(spec),
+           {:ok, _sequence} <-
+             upsert_graph_node(%{
+               label: "PooledSequence",
+               id: normalized.id,
+               properties: %{
+                 signature: normalized.signature,
+                 raw_bytes: normalized.raw_bytes,
+                 encoding: normalized.encoding,
+                 occurrences: normalized.occurrences,
+                 activation_threshold: normalized.activation_threshold,
+                 window_size: normalized.window_size,
+                 observed_at: normalized.observed_at,
+                 source: normalized.source,
+                 organ: normalized.organ
+               }
+             }),
+           {:ok, _source} <-
+             upsert_graph_node(%{
+               label: "SequenceWindow",
+               id: normalized.window_id,
+               properties: %{
+                 encoding: normalized.encoding,
+                 window_size: normalized.window_size
+               }
+             }),
+           {:ok, _edge} <-
+             relate_graph_nodes(%{
+               from: %{label: "SequenceWindow", id: normalized.window_id},
+               to: %{label: "PooledSequence", id: normalized.id},
+               relationship_type: "EMERGES_AS",
+               properties: %{
+                 occurrences: normalized.occurrences,
+                 activation_threshold: normalized.activation_threshold,
+                 observed_at: normalized.observed_at
+               }
+             }) do
+        {:ok, %{sequence_id: normalized.id, occurrences: normalized.occurrences}}
+      end
+    end)
+  end
+
+  def persist_pooled_sequence(_spec), do: {:error, :invalid_pooled_sequence}
 
   @doc """
   Submits a bitemporal transaction to XTDB (Tier-1).
@@ -304,6 +372,55 @@ defmodule Rhizome.Memory do
   end
 
   def submit_prediction_error(_prediction_error), do: {:error, :invalid_prediction_error}
+
+  @doc """
+  Applies STDP structural plasticity in Memgraph and dual-writes a trauma event to XTDB.
+  """
+  def prune_stdp_pathway(event) when is_map(event) do
+    with_topology(:prune_stdp_pathway, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("event_at", System.system_time(:second))
+        |> Map.put_new("recorded_at", iso_timestamp())
+        |> Map.put_new("observed_at", iso_timestamp())
+
+      with :ok <- validate_stdp_pathway(document),
+           {:ok, result} <- Rhizome.Native.prune_stdp_pathway(document),
+           {:ok, _trauma} <- maybe_submit_trauma_event(document, result) do
+        {:ok, result}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_stdp_pathway}
+      end
+    end)
+  end
+
+  def prune_stdp_pathway(_event), do: {:error, :invalid_stdp_pathway}
+
+  @doc """
+  Persists an immutable trauma event into XTDB.
+  """
+  def submit_trauma_event(event) when is_map(event) do
+    with_topology(:submit_trauma_event, fn ->
+      document =
+        event
+        |> stringify_keys()
+        |> Map.put_new("recorded_at", iso_timestamp())
+        |> Map.put_new("observed_at", iso_timestamp())
+
+      with :ok <- validate_trauma_event(document),
+           id when is_binary(id) <- trauma_event_id(document),
+           {:ok, xtdb_result} <- submit_xtdb(id, document) do
+        {:ok, %{id: id, xtdb: xtdb_result}}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, :invalid_trauma_event}
+      end
+    end)
+  end
+
+  def submit_trauma_event(_event), do: {:error, :invalid_trauma_event}
 
   @doc """
   Persists a typed baseline-diet curriculum artifact into XTDB and projects its
@@ -635,6 +752,14 @@ defmodule Rhizome.Memory do
     "prediction_error:#{cell_id}:#{type}:#{timestamp}"
   end
 
+  defp trauma_event_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+
+  defp trauma_event_id(document) do
+    trace_id = Map.get(document, "trace_id", "stdp")
+    timestamp = Map.get(document, "event_at", System.system_time(:second))
+    "trauma_event:#{trace_id}:#{timestamp}"
+  end
+
   defp execution_telemetry_id(%{"telemetry_id" => id}) when is_binary(id) and id != "", do: id
 
   defp execution_telemetry_id(document) do
@@ -690,6 +815,45 @@ defmodule Rhizome.Memory do
   end
 
   defp validate_operator_feedback_event(_document), do: {:error, :invalid_operator_feedback_event}
+
+  defp validate_stdp_pathway(%{
+         "sensory_id" => sensory_id,
+         "motor_id" => motor_id,
+         "severity" => severity,
+         "trace_id" => trace_id
+       })
+       when is_binary(sensory_id) and sensory_id != "" and is_binary(motor_id) and motor_id != "" and
+              is_binary(trace_id) and trace_id != "" do
+    case normalize_float(severity) do
+      value when is_float(value) and value >= 0.0 and value <= 1.0 -> :ok
+      _ -> {:error, :invalid_stdp_pathway}
+    end
+  end
+
+  defp validate_stdp_pathway(_document), do: {:error, :invalid_stdp_pathway}
+
+  defp validate_trauma_event(%{
+         "schema" => "karyon.trauma-event.v1",
+         "sensory_id" => sensory_id,
+         "motor_id" => motor_id,
+         "severity" => severity,
+         "plasticity_mode" => plasticity_mode,
+         "edge_action" => edge_action,
+         "trace_id" => trace_id,
+         "recorded_at" => recorded_at,
+         "observed_at" => observed_at
+       })
+       when is_binary(sensory_id) and sensory_id != "" and is_binary(motor_id) and motor_id != "" and
+              is_binary(plasticity_mode) and plasticity_mode != "" and is_binary(edge_action) and edge_action != "" and
+              is_binary(trace_id) and trace_id != "" and is_binary(recorded_at) and recorded_at != "" and
+              is_binary(observed_at) and observed_at != "" do
+    case normalize_float(severity) do
+      value when is_float(value) and value >= 0.0 and value <= 1.0 -> :ok
+      _ -> {:error, :invalid_trauma_event}
+    end
+  end
+
+  defp validate_trauma_event(_document), do: {:error, :invalid_trauma_event}
 
   defp validate_objective_projection(%{
          "workspace_root" => workspace_root,
@@ -842,16 +1006,21 @@ defmodule Rhizome.Memory do
   defp validate_epistemic_foraging_event(_document), do: {:error, :invalid_epistemic_foraging_event}
 
   defp validate_simulation_daemon_event(%{
-         "source_outcome_id" => source_outcome_id,
          "permutation_id" => permutation_id,
          "intent_id" => intent_id,
          "outcome_status" => outcome_status,
-         "vm_id" => vm_id
+         "dream_mode" => dream_mode,
+         "predicted_free_energy" => predicted_free_energy,
+         "external_motor_output_used" => external_motor_output_used
        })
-       when is_binary(source_outcome_id) and source_outcome_id != "" and is_binary(permutation_id) and
-              permutation_id != "" and is_binary(intent_id) and intent_id != "" and is_binary(outcome_status) and
-              outcome_status != "" and is_binary(vm_id) and vm_id != "" do
-    :ok
+       when is_binary(permutation_id) and permutation_id != "" and is_binary(intent_id) and intent_id != "" and
+              is_binary(outcome_status) and outcome_status != "" and is_binary(dream_mode) and dream_mode != "" and
+              is_boolean(external_motor_output_used) do
+    if is_number(predicted_free_energy) do
+      :ok
+    else
+      {:error, :invalid_simulation_daemon_event}
+    end
   end
 
   defp validate_simulation_daemon_event(_document), do: {:error, :invalid_simulation_daemon_event}
@@ -994,6 +1163,27 @@ defmodule Rhizome.Memory do
         :ok
     end
   end
+
+  defp maybe_submit_trauma_event(_document, %{plasticity_mode: :noop}), do: {:ok, %{id: :noop}}
+
+  defp maybe_submit_trauma_event(document, result) do
+    submit_trauma_event(%{
+      "schema" => "karyon.trauma-event.v1",
+      "sensory_id" => Map.get(document, "sensory_id"),
+      "motor_id" => Map.get(document, "motor_id"),
+      "severity" => normalize_float(Map.get(document, "severity")),
+      "plasticity_mode" => Atom.to_string(Map.get(result, :plasticity_mode, :unknown)),
+      "edge_action" => trauma_edge_action(Map.get(result, :plasticity_mode, :unknown)),
+      "trace_id" => Map.get(document, "trace_id", "stdp"),
+      "event_at" => Map.get(document, "event_at", System.system_time(:second)),
+      "recorded_at" => Map.get(document, "recorded_at", iso_timestamp()),
+      "observed_at" => Map.get(document, "observed_at", iso_timestamp())
+    })
+  end
+
+  defp trauma_edge_action(:depressed), do: "weight_degraded"
+  defp trauma_edge_action(:deleted), do: "edge_deleted"
+  defp trauma_edge_action(_), do: "noop"
 
   defp project_execution_telemetry(document) do
     telemetry_id = execution_telemetry_id(document)
@@ -1294,36 +1484,44 @@ defmodule Rhizome.Memory do
 
   defp project_simulation_daemon_event(document) do
     event_id = simulation_daemon_event_id(document)
-    source_outcome_id = Map.get(document, "source_outcome_id", "unknown_outcome")
+    grammar_supernode_ids = List.wrap(Map.get(document, "grammar_supernode_ids", []))
 
-    with {:ok, _source_outcome} <-
-           upsert_graph_node(%{
-             label: "ExecutionOutcome",
-             id: source_outcome_id,
-             properties: %{status: "success"}
-           }),
-         {:ok, _event} <-
+    with {:ok, _event} <-
            upsert_graph_node(%{
              label: "SimulationDaemonEvent",
              id: event_id,
              properties: %{
                permutation_id: Map.get(document, "permutation_id", "unknown_permutation"),
-               permutation_mode: Map.get(document, "permutation_mode", "dream"),
+               dream_mode: Map.get(document, "dream_mode", "grammar_monte_carlo"),
                outcome_status: Map.get(document, "outcome_status", "unknown"),
-               vm_id: Map.get(document, "vm_id", "unknown_vm"),
+               predicted_free_energy: normalize_float(Map.get(document, "predicted_free_energy", 0.0)),
+               external_motor_output_used: Map.get(document, "external_motor_output_used", false),
                recorded_at: Map.get(document, "recorded_at", System.system_time(:second))
              }
-           }),
-         {:ok, _edge} <-
-           relate_graph_nodes(%{
-             from: %{label: "SimulationDaemonEvent", id: event_id},
-             to: %{label: "ExecutionOutcome", id: source_outcome_id},
-             relationship_type: "DREAMED_FROM",
-             properties: %{
-               permutation_mode: Map.get(document, "permutation_mode", "dream"),
-               outcome_status: Map.get(document, "outcome_status", "unknown")
-             }
            }) do
+      Enum.each(grammar_supernode_ids, fn grammar_id ->
+        with {:ok, _grammar} <-
+               upsert_graph_node(%{
+                 label: "GrammarSuperNode",
+                 id: grammar_id,
+                 properties: %{kind: "structural_grammar_rule", source: "operator_environment"}
+               }),
+             {:ok, _edge} <-
+               relate_graph_nodes(%{
+                 from: %{label: "SimulationDaemonEvent", id: event_id},
+                 to: %{label: "GrammarSuperNode", id: grammar_id},
+                 relationship_type: "DREAMED_FROM",
+                 properties: %{
+                   dream_mode: Map.get(document, "dream_mode", "grammar_monte_carlo"),
+                   outcome_status: Map.get(document, "outcome_status", "unknown")
+                 }
+               }) do
+          :ok
+        else
+          _ -> :ok
+        end
+      end)
+
       :ok
     else
       {:error, reason} ->
@@ -1649,6 +1847,76 @@ defmodule Rhizome.Memory do
     end
   end
 
+  defp normalize_pooled_sequence(spec) do
+    sequence = Map.get(spec, :sequence) || Map.get(spec, "sequence")
+    raw_bytes = normalize_raw_bytes(sequence || Map.get(spec, :raw_bytes) || Map.get(spec, "raw_bytes"))
+    encoding = normalize_graph_id(Map.get(spec, :encoding) || Map.get(spec, "encoding") || "binary")
+    occurrences = normalize_occurrences(Map.get(spec, :occurrences) || Map.get(spec, "occurrences"))
+    activation_threshold = normalize_occurrences(Map.get(spec, :activation_threshold) || Map.get(spec, "activation_threshold"))
+    window_size = normalize_occurrences(Map.get(spec, :window_size) || Map.get(spec, "window_size"))
+    observed_at = normalize_numeric(Map.get(spec, :observed_at) || Map.get(spec, "observed_at") || System.system_time(:second))
+    source = normalize_graph_id(Map.get(spec, :source) || Map.get(spec, "source") || "unknown")
+    organ = normalize_graph_id(Map.get(spec, :organ) || Map.get(spec, "organ") || "unknown")
+
+    case {raw_bytes, encoding, occurrences, activation_threshold, window_size, observed_at, source, organ} do
+      {nil, _, _, _, _, _, _, _} ->
+        {:error, :invalid_pooled_sequence}
+
+      {_, nil, _, _, _, _, _, _} ->
+        {:error, :invalid_pooled_sequence}
+
+      {_, _, nil, _, _, _, _, _} ->
+        {:error, :invalid_pooled_sequence}
+
+      {_, _, _, nil, _, _, _, _} ->
+        {:error, :invalid_pooled_sequence}
+
+      {_, _, _, _, nil, _, _, _} ->
+        {:error, :invalid_pooled_sequence}
+
+      {_, _, _, _, _, nil, _, _} ->
+        {:error, :invalid_pooled_sequence}
+
+      {_, _, _, _, _, _, nil, _} ->
+        {:error, :invalid_pooled_sequence}
+
+      {_, _, _, _, _, _, _, nil} ->
+        {:error, :invalid_pooled_sequence}
+
+      {raw_bytes, encoding, occurrences, activation_threshold, window_size, observed_at, source, organ} ->
+        signature = String.downcase(raw_bytes)
+
+        {:ok,
+         %{
+           id: normalize_graph_id(Map.get(spec, :id) || Map.get(spec, "id") || "pooled_sequence:#{signature}"),
+           signature: signature,
+           raw_bytes: raw_bytes,
+           encoding: encoding,
+           occurrences: occurrences,
+           activation_threshold: activation_threshold,
+           window_size: window_size,
+           observed_at: observed_at,
+           source: source,
+           organ: organ,
+           window_id: "sequence_window:#{encoding}:#{window_size}"
+         }}
+    end
+  end
+
+  defp build_grammar_supernode_query(limit) do
+    """
+    MATCH (g:GrammarSuperNode)-[:ABSTRACTS]->(p:PooledSequence)
+    WHERE g.source = 'operator_environment'
+    RETURN
+      g.id AS id,
+      g.kind AS kind,
+      coalesce(g.confidence, 0.0) AS confidence,
+      collect(p.id) AS pooled_sequence_ids
+    ORDER BY coalesce(g.confidence, 0.0) DESC, g.id ASC
+    LIMIT #{limit}
+    """
+  end
+
   defp build_graph_query(%{label: label, filters: filters, return_fields: return_fields, limit: limit}) do
     where_clause =
       case property_match_clause("n", filters) do
@@ -1706,6 +1974,24 @@ defmodule Rhizome.Memory do
     RETURN type(r) AS relationship_type
     """
   end
+
+  defp normalize_raw_bytes(value) when is_binary(value) do
+    Base.encode16(value, case: :lower)
+  end
+
+  defp normalize_raw_bytes(value) when is_list(value) do
+    try do
+      value
+      |> :erlang.list_to_binary()
+      |> Base.encode16(case: :lower)
+    rescue
+      _ -> nil
+    end
+  end
+
+  defp normalize_raw_bytes(value) when is_bitstring(value), do: Base.encode16(value, case: :lower)
+  defp normalize_raw_bytes(nil), do: nil
+  defp normalize_raw_bytes(_value), do: nil
 
   defp property_match_clause(_binding, properties) when map_size(properties) == 0, do: ""
 

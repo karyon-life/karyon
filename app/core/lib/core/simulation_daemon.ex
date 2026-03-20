@@ -1,7 +1,7 @@
 defmodule Core.SimulationDaemon do
   @moduledoc """
   Dream-state daemon that replays recent successful execution telemetry as
-  bounded architectural permutations inside isolated sandboxes.
+  bounded operator-environment permutations.
   """
 
   use GenServer
@@ -15,8 +15,6 @@ defmodule Core.SimulationDaemon do
   alias Core.Plan.Step
 
   @sleep_cycle_interval_ms 60_000
-  @default_executor %{"module" => "Sandbox.Executor", "function" => "execute_plan"}
-
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
   end
@@ -29,14 +27,27 @@ defmodule Core.SimulationDaemon do
   def init(opts) do
     Logger.info("[SimulationDaemon] Dream-state daemon initialized.")
     schedule_next_check(Keyword.get(opts, :interval_ms, @sleep_cycle_interval_ms))
-    {:ok, %{opts: opts}}
+    {:ok, %{opts: opts, dreaming_active: false}}
   end
 
   @impl true
   def handle_info(:run_dream_cycle, state) do
-    perform_dream_cycle(state.opts)
+    next_state = %{state | dreaming_active: true}
+    _ = perform_dream_cycle(state.opts)
     schedule_next_check(Keyword.get(state.opts, :interval_ms, @sleep_cycle_interval_ms))
-    {:noreply, state}
+    {:noreply, %{next_state | dreaming_active: false}}
+  end
+
+  @impl true
+  def handle_call(:dreaming?, _from, state) do
+    {:reply, state.dreaming_active, state}
+  end
+
+  def dreaming? do
+    case GenServer.whereis(__MODULE__) do
+      nil -> false
+      pid -> GenServer.call(pid, :dreaming?, 200)
+    end
   end
 
   defp schedule_next_check(interval_ms) do
@@ -47,13 +58,12 @@ defmodule Core.SimulationDaemon do
     policy = Keyword.get(opts, :policy, MetabolismPolicy.current_policy())
 
     with :ok <- ensure_dream_window(policy),
-         {:ok, outcomes} <- fetch_recent_outcomes(opts),
-         {:ok, source_outcome} <- select_source_outcome(outcomes),
+         {:ok, grammar_supernodes} <- fetch_grammar_supernodes(opts),
+         {:ok, source_outcome} <- select_source_outcome(grammar_supernodes),
          {:ok, plan} <- build_permutation_plan(source_outcome, policy),
          {:ok, intent} <- build_dream_intent(plan, opts),
-         {:ok, result} <- executor_module(opts).execute_plan(ExecutionIntent.to_map(intent)),
-         {:ok, persisted} <-
-           memory_module(opts).submit_simulation_daemon_event(build_simulation_event(source_outcome, plan, intent, result)) do
+         {:ok, result} <- run_monte_carlo(source_outcome, plan, intent, opts),
+         {:ok, persisted} <- memory_module(opts).submit_simulation_daemon_event(build_simulation_event(source_outcome, plan, intent, result)) do
       {:ok,
        %{
          source_outcome: source_outcome,
@@ -75,8 +85,8 @@ defmodule Core.SimulationDaemon do
     end
   end
 
-  defp fetch_recent_outcomes(opts) do
-    memory_module(opts).query_recent_execution_outcomes(%{limit: Keyword.get(opts, :limit, 5)})
+  defp fetch_grammar_supernodes(opts) do
+    memory_module(opts).query_grammar_supernodes(%{limit: Keyword.get(opts, :limit, 5)})
   end
 
   defp select_source_outcome([row | _rows]) when is_map(row), do: {:ok, normalize_outcome(row)}
@@ -84,12 +94,12 @@ defmodule Core.SimulationDaemon do
   defp select_source_outcome(_rows), do: {:error, :invalid_simulation_source_outcomes}
 
   defp build_permutation_plan(source_outcome, policy) do
-    source_outcome_id = Map.get(source_outcome, "xt/id", Map.get(source_outcome, "id", "execution_outcome:unknown"))
+    source_outcome_id = Map.get(source_outcome, "id", "grammar_supernode:unknown")
     attractor_id = "dream:#{source_outcome_id}"
-    action = Map.get(source_outcome, "action", "execute_plan")
-    source_attractor = Map.get(source_outcome, "plan_attractor_id", "unknown_attractor")
+    action = "simulate_grammar"
+    source_attractor = Map.get(source_outcome, "id", "unknown_grammar")
     permutation_mode = permutation_mode(source_outcome)
-    source_step_ids = List.wrap(Map.get(source_outcome, "plan_step_ids", []))
+    source_step_ids = List.wrap(Map.get(source_outcome, "pooled_sequence_ids", []))
 
     plan =
       %Plan{
@@ -108,7 +118,8 @@ defmodule Core.SimulationDaemon do
             attributes: %{
               "source_action" => action,
               "source_step_ids" => source_step_ids,
-              "permutation_mode" => permutation_mode
+              "permutation_mode" => permutation_mode,
+              "grammar_supernode_ids" => [source_outcome_id]
             },
             needs: %{"exploration" => 0.9},
             values: %{"learning" => 0.8},
@@ -127,7 +138,8 @@ defmodule Core.SimulationDaemon do
               "source_attractor_id" => source_attractor,
               "source_step_ids" => source_step_ids,
               "permutation_mode" => permutation_mode,
-              "source_result" => Map.get(source_outcome, "result", %{})
+              "grammar_supernode_ids" => [source_outcome_id],
+              "source_result" => source_outcome
             },
             predicted_state: %AbstractState{
               entity: source_outcome_id,
@@ -167,44 +179,49 @@ defmodule Core.SimulationDaemon do
     end
   end
 
-  defp build_dream_intent(%Plan{} = plan, opts) do
+  defp build_dream_intent(%Plan{} = plan, _opts) do
     ExecutionIntent.from_plan(
       plan,
       %{"cell_type" => "simulation_daemon", "id" => "simulation_daemon"},
-      Keyword.get(opts, :executor_spec, @default_executor)
+      %{"module" => "Core.SimulationDaemon", "function" => "run_monte_carlo"}
     )
   end
 
   defp build_simulation_event(source_outcome, plan, intent, result) do
-    source_outcome_id = Map.get(source_outcome, "xt/id", Map.get(source_outcome, "id", "execution_outcome:unknown"))
+    source_outcome_id = Map.get(source_outcome, "id", "grammar_supernode:unknown")
     permutation = plan.transition_delta[:simulation] || %{}
 
     %{
       "source_outcome_id" => source_outcome_id,
-      "source_attractor_id" => Map.get(source_outcome, "plan_attractor_id", "unknown_attractor"),
+      "source_attractor_id" => Map.get(source_outcome, "id", "unknown_grammar"),
       "permutation_id" => plan.attractor.id,
       "permutation_mode" => Map.get(permutation, "permutation_mode", "dream"),
       "intent_id" => intent.id,
-      "vm_id" => Map.get(result, :vm_id) || Map.get(result, "vm_id", "unknown_vm"),
+      "dream_mode" => "grammar_monte_carlo",
+      "predicted_free_energy" => Map.get(result, :predicted_free_energy) || Map.get(result, "predicted_free_energy", 1.0),
+      "external_motor_output_used" => false,
+      "grammar_supernode_ids" => Map.get(result, :grammar_supernode_ids) || Map.get(result, "grammar_supernode_ids", [source_outcome_id]),
+      "sequence_lineage" => Map.get(result, :sequence_lineage) || Map.get(result, "sequence_lineage", []),
       "outcome_status" => outcome_status(result),
       "result" => normalize_nested(Map.get(result, :telemetry) || Map.get(result, "telemetry") || %{})
     }
   end
 
   defp permutation_mode(source_outcome) do
-    case List.wrap(Map.get(source_outcome, "plan_step_ids", [])) do
+    case List.wrap(Map.get(source_outcome, "pooled_sequence_ids", [])) do
       [_single] -> "mutate_single_path"
       [_ | _] -> "reorder_step_sequence"
       [] -> "replay_outcome"
     end
   end
 
-  defp normalize_outcome(%{"xt/id" => _} = outcome), do: outcome
-  defp normalize_outcome(%{"node" => node}) when is_map(node), do: node
+  defp normalize_outcome(%{"id" => _} = outcome), do: outcome
   defp normalize_outcome(outcome), do: outcome
 
+  defp outcome_status(%{status: status}) when is_binary(status), do: status
   defp outcome_status(%{status: status}) when is_atom(status), do: Atom.to_string(status)
   defp outcome_status(%{"status" => status}) when is_binary(status), do: status
+  defp outcome_status(%{outcome_status: status}) when is_binary(status), do: status
   defp outcome_status(_result), do: "unknown"
 
   defp normalize_nested(value) when is_map(value) do
@@ -214,6 +231,34 @@ defmodule Core.SimulationDaemon do
   defp normalize_nested(value) when is_list(value), do: Enum.map(value, &normalize_nested/1)
   defp normalize_nested(value), do: value
 
+  defp run_monte_carlo(source_outcome, plan, _intent, opts) do
+    sample_count = Keyword.get(opts, :sample_count, 3)
+    grammar_ids = [Map.get(source_outcome, "id", "grammar_supernode:unknown")]
+    sequences = List.wrap(Map.get(source_outcome, "pooled_sequence_ids", []))
+    sampled = Enum.take(sequences, sample_count)
+    confidence = normalize_confidence(Map.get(source_outcome, "confidence", 0.0))
+    predicted_free_energy = Float.round(max(0.0, 1.0 - confidence) + length(sampled) / 10.0, 3)
+
+    {:ok,
+     %{
+       status: "simulated",
+       predicted_free_energy: predicted_free_energy,
+       grammar_supernode_ids: grammar_ids,
+       sequence_lineage: sampled,
+       telemetry: %{
+         summary: %{
+           traversal_count: sample_count,
+           candidate_sequence_count: length(sequences),
+           predicted_free_energy: predicted_free_energy
+         },
+         plan_attractor_id: plan.attractor.id
+       }
+     }}
+  end
+
+  defp normalize_confidence(value) when is_float(value), do: value
+  defp normalize_confidence(value) when is_integer(value), do: value * 1.0
+  defp normalize_confidence(_value), do: 0.0
+
   defp memory_module(opts), do: Keyword.get(opts, :memory_module, Rhizome.Memory)
-  defp executor_module(opts), do: Keyword.get(opts, :executor_module, Sandbox.Executor)
 end

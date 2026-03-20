@@ -42,7 +42,7 @@ defmodule Core.OperatorOutput do
        summary: "Attractor #{plan.attractor.id} scheduled with #{length(plan.steps)} validated steps.",
        directives: [
          "Review the target attractor and step order before approving irreversible work.",
-         "Confirm that the membrane contract matches the selected executor."
+         "Confirm that the operator membrane contract matches the selected executor."
        ],
        facts: [
          "attractor=#{plan.attractor.id}",
@@ -64,7 +64,7 @@ defmodule Core.OperatorOutput do
        headline: "Execution intent validated",
        summary: "Intent #{intent.id} authorizes #{intent.action} for #{intent.cell_type}.",
        directives: [
-         "Verify the executor module and function before crossing the sandbox membrane.",
+         "Verify the executor module and function before crossing the operator membrane.",
          "Inspect the attached plan lineage before approving physical mutation."
        ],
        facts: [
@@ -117,8 +117,8 @@ defmodule Core.OperatorOutput do
 
   defp directives_for_status(:ok, _services) do
     [
-      "Continue monitored execution through validated operator pathways.",
-      "Keep the sandbox membrane closed to unplanned mutation."
+      "Continue monitored conditioning through validated operator pathways.",
+      "Keep the operator membrane closed to unplanned mutation."
     ]
   end
 

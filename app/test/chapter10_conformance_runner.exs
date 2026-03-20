@@ -11,10 +11,8 @@ commands = [
      "1",
      "test/core/metabolism_policy_test.exs",
      "test/core/sovereignty_test.exs",
-     "test/core/objective_manifest_test.exs",
      "test/core/sovereign_guard_test.exs",
-      "test/core/operator_output_test.exs",
-      "test/core/cross_workspace_architect_test.exs"
+     "test/core/operator_output_test.exs"
    ], Path.expand("../core", __DIR__), %{}},
   {"mix",
    [

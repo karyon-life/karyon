@@ -139,7 +139,7 @@ defmodule Core.EngramTest do
     assert description["format"] == "karyon.engram.v1"
     assert description["subset"]["labels"] == ["PredictionError"]
     assert description["subset"]["relationship_types"] == ["PREDICTS"]
-    assert description["compatibility"]["engine_schema"] == "karyon.monorepo-pipeline.v1"
+    assert description["compatibility"]["engine_schema"] == "karyon.operator-environment.v1"
     assert description["provenance"]["use_case"] == "portable_prediction_error_bundle"
   end
 
@@ -185,10 +185,10 @@ defmodule Core.EngramTest do
         "captured_from" => "rhizome",
         "name" => @test_engram,
         "use_case" => "partial_hydration",
-        "engine_manifest" => Sandbox.MonorepoPipeline.engine_manifest()
+        "engine_manifest" => Core.EnvironmentMembrane.environment_manifest()
       },
       "compatibility" => %{
-        "engine_schema" => Sandbox.MonorepoPipeline.schema(),
+        "engine_schema" => Core.EnvironmentMembrane.schema(),
         "distribution_mode" => "portable_subset",
         "hydration" => "idempotent_merge"
       }

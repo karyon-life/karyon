@@ -2,14 +2,15 @@ defmodule Sensory.SkinTest do
   use ExUnit.Case, async: true
 
   defmodule MemoryStub do
-    def persist_pooled_pattern(spec) do
+    def persist_pooled_sequence(spec) do
       observer = Application.get_env(:sensory, :skin_pooler_observer)
 
       if is_pid(observer) do
-        send(observer, {:skin_pattern_persisted, spec})
+        send(observer, {:skin_sequence_persisted, spec})
       end
 
-      {:ok, %{pattern_id: "skin:#{spec.language}:#{Enum.join(spec.source_types, "->")}"}}
+      raw_bytes = Base.encode16(spec.sequence, case: :lower)
+      {:ok, %{sequence_id: "skin:#{raw_bytes}", occurrences: spec.occurrences}}
     end
   end
 
@@ -23,40 +24,42 @@ defmodule Sensory.SkinTest do
     :ok
   end
 
-  test "discovers repeated opaque text protocol structure" do
-    payload = "HDR alpha beta HDR alpha beta TAIL"
+  test "discovers repeated opaque text byte windows" do
+    payload = "hellohello"
 
     assert {:ok, result} =
              Sensory.discover_payload(payload,
+               window: 5,
                threshold: 2,
                memory_module: MemoryStub
              )
 
     assert result.surface == :protocol_frame
-    assert result.encoding == "opaque_text"
-    assert Enum.any?(result.pooled_patterns, fn pattern -> pattern.signature == "hdr->alpha" end)
-    assert_receive {:skin_pattern_persisted, %{pool_type: "opaque_structure", language: "opaque_text"}}
+    assert result.encoding == "utf8"
+    assert Enum.any?(result.pooled_sequences, fn sequence -> sequence.signature == Base.encode16("hello", case: :lower) end)
+    assert_receive {:skin_sequence_persisted, %{encoding: "utf8", activation_threshold: 2}}
   end
 
-  test "discovers repeated opaque binary structure" do
-    payload = <<16, 32, 16, 32, 255>>
+  test "discovers repeated opaque binary byte windows" do
+    payload = <<16, 32, 16, 32, 16, 32>>
 
     assert {:ok, result} =
              Sensory.discover_payload(payload,
                surface: :binary_payload,
+               window: 2,
                threshold: 2,
                memory_module: MemoryStub
              )
 
     assert result.surface == :binary_payload
-    assert result.encoding == "opaque_binary"
-    assert Enum.any?(result.pooled_patterns, fn pattern -> pattern.signature == "10->20" end)
+    assert result.encoding == "binary"
+    assert Enum.any?(result.pooled_sequences, fn sequence -> sequence.signature == "1020" end)
   end
 
   test "rejects payloads without sufficient repeated structure" do
     assert {:ok, result} =
-             Sensory.discover_payload("single token", threshold: 2, memory_module: MemoryStub)
+             Sensory.discover_payload("single", window: 5, threshold: 2, memory_module: MemoryStub)
 
-    assert result.pooled_patterns == []
+    assert result.pooled_sequences == []
   end
 end

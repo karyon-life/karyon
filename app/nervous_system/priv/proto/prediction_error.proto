@@ -8,4 +8,6 @@ message PredictionError {
   int64 timestamp = 3;
   map<string, string> metadata = 4;
   string cell_id = 5;
+  string source = 6;
+  float severity = 7;
 }

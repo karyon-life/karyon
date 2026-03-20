@@ -1,14 +1,12 @@
 cell_type: "motor"
 allowed_actions:
-  - "mutate"
-  - "compile"
-  - "test"
+  - "babble"
+  - "echo_feedback"
 synapses:
   - type: "push"
     bind: "tcp://127.0.0.1:0"
 subscriptions:
   - "metabolic.spike"
-  - "goal.attractor"
-ast_parser: "python"
+  - "operator.feedback"
 utility_threshold: 0.6
 memory_retention: "long_term"

@@ -131,7 +131,7 @@ defmodule NervousSystem.PainReceptor do
         enriched_metadata =
           normalized_metadata
           |> Map.put_new("event_source", source)
-          |> Map.put_new("severity", "high")
+          |> Map.put_new("severity", "1.0")
           |> Map.put_new("schema_version", @prediction_error_schema_version)
           |> Map.put_new("learning_phase", learning_phase())
           |> Map.put_new("learning_edge", "prediction_error->plasticity")
@@ -149,7 +149,9 @@ defmodule NervousSystem.PainReceptor do
           message: "Structural error intercepted in #{msg_mod || "unknown_module"}",
           timestamp: proto_timestamp,
           metadata: sanitize_metadata(enriched_metadata),
-          cell_id: "pain-receptor"
+          cell_id: "pain-receptor",
+          source: normalize_source(source),
+          severity: 1.0
         }
 
         send_encoded_pain(msg, state)
@@ -159,7 +161,7 @@ defmodule NervousSystem.PainReceptor do
   end
 
   defp send_pain(state, error) do
-    emit_pain(%{error: inspect(error), severity: "high"}, "internal", state)
+    emit_pain(%{error: inspect(error), severity: 1.0}, "internal", state)
   end
 
   defp send_encoded_pain(msg, state) do
@@ -202,4 +204,8 @@ defmodule NervousSystem.PainReceptor do
   defp serialize_term(term) when is_atom(term), do: Atom.to_string(term)
   defp serialize_term(term) when is_binary(term), do: term
   defp serialize_term(term), do: inspect(term)
+
+  defp normalize_source(source) when is_atom(source), do: Atom.to_string(source)
+  defp normalize_source(source) when is_binary(source), do: source
+  defp normalize_source(_source), do: "internal"
 end

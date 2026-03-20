@@ -9,21 +9,26 @@ defmodule Rhizome.SleepConsolidationTest do
 
     def memgraph_query(query) do
       cond do
-        String.contains?(query, "RETURN id(n) AS internal_id") ->
+        String.contains?(query, "MATCH (n:PooledSequence)") ->
           {:ok,
            [
              %{
-               "internal_id" => 11,
-               "labels" => ["Cell"],
-               "props" => %{"id" => "sleep-cell", "vfe" => 0.93, "archived" => false}
+                "internal_id" => 11,
+               "labels" => ["PooledSequence"],
+               "props" => %{"id" => "sleep-sequence-11", "source" => "operator_environment", "archived" => false}
+             },
+             %{
+               "internal_id" => 12,
+               "labels" => ["PooledSequence"],
+               "props" => %{"id" => "sleep-sequence-12", "source" => "operator_environment", "archived" => false}
              }
            ]}
 
-        String.contains?(query, "MERGE (s:SleepSuperNode") ->
-          {:ok, [%{"supernode_id" => "sleep_supernode:2026-03-18T00:00:00Z", "abstracted_count" => 1}]}
+        String.contains?(query, "MATCH (a:PooledSequence)-[r:CO_OCCURS_WITH]->(b:PooledSequence)") ->
+          {:ok, [%{"start" => 11, "end" => 12, "weight" => 1.0}]}
 
-        String.contains?(query, "SET n.archived = true") ->
-          {:ok, [%{"pruned_count" => 1}]}
+        String.contains?(query, "MERGE (g:GrammarSuperNode") ->
+          {:ok, [%{"grammar_id" => "grammar_supernode:2026-03-18T00:00:00Z:1"}]}
 
         true ->
           {:ok, []}
@@ -35,7 +40,7 @@ defmodule Rhizome.SleepConsolidationTest do
     def bridge_working_memory_to_archive, do: {:ok, %{message: "bridged", archived_count: 3}}
   end
 
-  test "Louvain optimization generates SuperNodes from clusters" do
+  test "Louvain optimization generates grammar super-nodes from operator pooled sequences" do
     # 1. Manually inject a cluster of nodes into Memgraph via Native calls
     # (In a real test we'd need Memgraph running)
     
@@ -43,7 +48,8 @@ defmodule Rhizome.SleepConsolidationTest do
     case Rhizome.Native.optimize_graph() do
       {:ok, result} ->
         Logger.info("[SleepConsolidationTest] Optimization result: #{result}")
-        assert String.contains?(result, "Optimization complete") or String.contains?(result, "No graph data found")
+        assert String.contains?(result, "Louvain optimization complete") or
+                 String.contains?(result, "No operator pooled-sequence graph data found")
       {:error, reason} ->
         # Accept structured service failures in environments without Memgraph
         assert reason != nil
@@ -68,9 +74,9 @@ defmodule Rhizome.SleepConsolidationTest do
         clock_fun: fn -> ~U[2026-03-18 00:00:00Z] end
       )
 
-    assert {:ok, %{supernode_count: 1, abstracted_count: 1}} = result.abstractions
+    assert {:ok, %{supernode_count: 1, abstracted_count: 2}} = result.abstractions
     assert {:ok, %{archived_count: 3}} = result.bridge_to_xtdb
-    assert {:ok, %{pruned_count: 1, retained_in_archive: true}} = result.memory_relief
+    assert {:ok, %{pruned_count: 0, retained_in_archive: true}} = result.memory_relief
   end
 
   defp wait_for_process(name, tries) when tries > 0 do

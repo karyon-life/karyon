@@ -6,18 +6,16 @@ defmodule Sensory.NifContractTest do
   test "sensory nif routes parsing and io work through explicit schedulers" do
     source = File.read!(@native_source)
 
-    assert source =~ ~s|#[rustler::nif(schedule = "DirtyCpu")]\npub fn parse_code|
-    assert source =~ ~s|#[rustler::nif(schedule = "DirtyCpu")]\npub fn parse_to_graph|
-    assert source =~ ~s|#[rustler::nif(schedule = "DirtyIo")]\npub fn ingest_to_memgraph|
     assert source =~ ~s|#[rustler::nif(schedule = "DirtyIo")]\npub fn zmq_publish_tensor|
     assert source =~ ~s|#[rustler::nif(schedule = "DirtyIo")]\npub fn zmq_subscribe_sensory|
+    refute source =~ "tree_sitter"
   end
 
-  test "sensory production nif code avoids parser unwraps and expects" do
+  test "sensory production nif code avoids unwraps and expects" do
     source = production_source(@native_source)
 
     refute source =~ ".expect("
-    refute source =~ "parser.parse(&code, None).unwrap()"
+    refute source =~ ".unwrap()"
   end
 
   defp production_source(path) do

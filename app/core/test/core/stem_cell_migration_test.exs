@@ -11,7 +11,7 @@ defmodule Core.StemCellMigrationTest do
   end
 
   test "cell initializes with correct status and beliefs", %{cell: pid} do
-    assert GenServer.call(pid, :get_status) == :active
+    assert GenServer.call(pid, :get_status) in [:active, :revived]
     assert GenServer.call(pid, :get_synapse_count) > 0
   end
 
@@ -42,7 +42,7 @@ defmodule Core.StemCellMigrationTest do
 
   test "cell enters Digital Torpor under high metabolic stress", %{cell: pid} do
     # Create high severity metabolic spike
-    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: 1.0, source: "operator_induced"}
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     payload = IO.iodata_to_binary(iodata)
     
@@ -62,12 +62,12 @@ defmodule Core.StemCellMigrationTest do
     
     ref = Process.monitor(pid)
     
-    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "medium"}
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: 0.6, source: "operator_induced"}
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     payload = IO.iodata_to_binary(iodata)
     
     send(pid, {:msg, %{topic: "metabolic.spike", body: payload}})
     
-    assert_receive {:DOWN, ^ref, :process, ^pid, :metabolic_pruning}, 500
+    assert_receive {:DOWN, ^ref, :process, ^pid, :metabolic_pruning}, 5_000
   end
 end

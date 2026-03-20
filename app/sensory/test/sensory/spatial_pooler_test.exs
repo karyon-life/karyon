@@ -2,14 +2,15 @@ defmodule Sensory.SpatialPoolerTest do
   use ExUnit.Case, async: true
 
   defmodule MemoryStub do
-    def persist_pooled_pattern(spec) do
+    def persist_pooled_sequence(spec) do
       observer = Application.get_env(:sensory, :pooler_observer)
 
       if is_pid(observer) do
-        send(observer, {:pooled_pattern_persisted, spec})
+        send(observer, {:pooled_sequence_persisted, spec})
       end
 
-      {:ok, %{pattern_id: "pool:#{spec.language}:#{Enum.join(spec.source_types, "->")}", occurrences: spec.occurrences}}
+      raw_bytes = Base.encode16(spec.sequence, case: :lower)
+      {:ok, %{sequence_id: "pool:#{raw_bytes}", occurrences: spec.occurrences}}
     end
   end
 
@@ -23,49 +24,32 @@ defmodule Sensory.SpatialPoolerTest do
     :ok
   end
 
-  test "pool_code derives repeated co-occurrence abstractions from deterministic sensory graphs" do
-    code = """
-    let alpha = 1;
-    let beta = 2;
-    let gamma = 3;
-    """
+  test "pool_bytes derives repeated pooled sequences from a raw byte stream" do
+    payload = "abcdeabcde"
 
     assert {:ok, pooled} =
-             Sensory.SpatialPooler.pool_code("javascript", code,
+             Sensory.SpatialPooler.pool_bytes(payload,
+               window_size: 5,
                threshold: 2,
                memory_module: MemoryStub
              )
 
-    assert length(pooled.pooled_patterns) >= 1
-    assert Enum.any?(pooled.pooled_patterns, fn pattern -> pattern.occurrences >= 2 end)
+    assert pooled.window_size == 5
+    assert length(pooled.pooled_sequences) >= 1
+    assert Enum.any?(pooled.pooled_sequences, fn sequence -> sequence.signature == Base.encode16("abcde", case: :lower) end)
   end
 
-  test "pool_graph persists pooled abstractions through the Rhizome boundary" do
-    graph = %{
-      "nodes" => [
-        %{"id" => 1, "type" => "program"},
-        %{"id" => 2, "type" => "lexical_declaration"},
-        %{"id" => 3, "type" => "identifier"},
-        %{"id" => 4, "type" => "lexical_declaration"},
-        %{"id" => 5, "type" => "identifier"}
-      ],
-      "edges" => [
-        %{"source" => 1, "target" => 2, "type" => "CHILD"},
-        %{"source" => 2, "target" => 3, "type" => "CHILD"},
-        %{"source" => 1, "target" => 4, "type" => "CHILD"},
-        %{"source" => 4, "target" => 5, "type" => "CHILD"}
-      ]
-    }
-
+  test "pool_bytes persists activated sequences through the Rhizome boundary" do
     assert {:ok, pooled} =
-             Sensory.SpatialPooler.pool_graph("javascript", graph,
+             Sensory.SpatialPooler.pool_bytes("hellohello",
+               window_size: 5,
                threshold: 2,
                memory_module: MemoryStub
              )
 
-    assert_receive {:pooled_pattern_persisted, spec}
-    assert spec.language == "javascript"
-    assert spec.pool_type == "co_occurrence"
-    assert Enum.any?(pooled.pooled_patterns, fn pattern -> pattern.occurrences == 2 end)
+    assert_receive {:pooled_sequence_persisted, spec}
+    assert spec.encoding == "utf8"
+    assert spec.window_size == 5
+    assert Enum.any?(pooled.pooled_sequences, fn sequence -> sequence.occurrences == 2 end)
   end
 end

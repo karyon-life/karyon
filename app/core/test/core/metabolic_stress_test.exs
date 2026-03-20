@@ -82,7 +82,7 @@ defmodule Core.MetabolicStressTest do
     {:ok, cell} = StemCell.start_link(dna_path)
     
     # Simulate NATS message
-    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: 1.0, source: "metabolic_daemon"}
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     payload = IO.iodata_to_binary(iodata)
     

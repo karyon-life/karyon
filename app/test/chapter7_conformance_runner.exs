@@ -4,13 +4,11 @@ commands = [
      "test",
      "test/sensory/perimeter_test.exs",
      "test/sensory/stream_test.exs",
-     "test/sensory/eyes_test.exs",
-     "test/sensory/ast_accuracy_test.exs",
-     "test/sensory/perception_fidelity_test.exs",
      "test/sensory/ears_test.exs",
      "test/sensory/skin_test.exs",
      "test/sensory/spatial_pooler_test.exs",
-     "test/sensory/quantizer_test.exs"
+     "test/sensory/tabula_rasa_ingestor_test.exs",
+     "test/sensory/nif_contract_test.exs"
    ], Path.expand("../sensory", __DIR__)}
 ]
 

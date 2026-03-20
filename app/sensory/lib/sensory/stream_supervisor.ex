@@ -5,8 +5,10 @@ defmodule Sensory.StreamSupervisor do
   use GenServer
   alias Sensory.Native
   alias Sensory.Perimeter
+  alias Sensory.TabulaRasa.Ingestor
 
   @default_subscriptions [
+    %{organ: :tabula_rasa, surface: :continuous_byte_stream, transport: :zeromq, topic: "raw_bytes"},
     %{organ: :ears, surface: :tensor_stream, transport: :zeromq, topic: "neural_tensor"},
     %{organ: :ears, surface: :telemetry_event, transport: :zeromq, topic: "telemetry"},
     %{organ: :ears, surface: :log_line, transport: :zeromq, topic: "logs"},
@@ -50,6 +52,11 @@ defmodule Sensory.StreamSupervisor do
 
   defp handle_payload(%{surface: :tensor_stream}, payload) do
     _tensor = Sensory.Quantizer.dequantize(payload)
+    :ok
+  end
+
+  defp handle_payload(%{surface: :continuous_byte_stream}, payload) when is_binary(payload) do
+    _ = Ingestor.ingest_bytes(payload)
     :ok
   end
 

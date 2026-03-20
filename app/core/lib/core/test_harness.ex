@@ -87,11 +87,18 @@ defmodule Core.TestHarness do
     Logger.info("[Harness] Injecting Perception: #{lang}")
 
     with :ok <- Core.ServiceHealth.ensure_ready([:memgraph, :xtdb]) do
-      # 1. Parse code into AST graph
-      ast_json = Sensory.Native.parse_code(lang, code)
+      # 1. Ingest raw bytes into the sensory pooler
+      {:ok, perception} = Sensory.ingest_bytes(code)
       
-      # 2. Submit to Rhizome Memory
-      Rhizome.Native.xtdb_submit("perception_#{System.unique_integer([:positive])}", ast_json)
+      # 2. Submit a bounded archive summary
+      Rhizome.Native.xtdb_submit(
+        "perception_#{System.unique_integer([:positive])}",
+        Jason.encode!(%{
+          "language" => lang,
+          "ingested_bytes" => perception.ingested_bytes,
+          "pooled_sequences" => Enum.map(perception.pooled_sequences, &Map.take(&1, [:signature, :occurrences]))
+        })
+      )
 
       # 3. Simulate environment feedback (e.g. pain signal from a failing expectation)
       # This verifies the nociception loop is live.
@@ -175,7 +182,7 @@ defmodule Core.TestHarness do
     Logger.info("[Harness] Manually triggering Brain Consolidation (Sleep Cycle)...")
     # This would call the Sleep Cycle logic in Rhizome/Core
     # For now, we simulate the effect or call the placeholder
-    Rhizome.Native.memgraph_query("MATCH (a:ASTNode), (b:ASTNode) WHERE a.id < b.id MERGE (a)-[:CLUSTURED]->(b)")
+    Rhizome.Native.memgraph_query("MATCH (a:PooledSequence), (b:PooledSequence) WHERE a.id < b.id MERGE (a)-[:CLUSTURED]->(b)")
     :ok
   end
 

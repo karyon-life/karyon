@@ -1,56 +1,43 @@
 defmodule Sensory.SpatialPooler do
   @moduledoc """
-  Derives repeated structural co-occurrence patterns from deterministic sensory graphs.
+  Derives repeated byte-window sequences from raw sensory streams.
   """
 
+  @default_window 5
   @default_threshold 2
 
-  def pool_code(language, code, opts \\ []) when is_binary(language) and is_binary(code) do
-    with {:ok, graph} <- decode_graph(Sensory.Native.parse_to_graph(language, code)),
-         {:ok, pooled} <- pool_graph(language, graph, opts) do
-      {:ok, pooled}
-    end
-  end
-
-  def pool_graph(language, %{"nodes" => nodes, "edges" => edges}, opts) when is_binary(language) do
+  def pool_bytes(payload, opts \\ []) when is_binary(payload) do
+    window_size = Keyword.get(opts, :window_size, @default_window)
     threshold = Keyword.get(opts, :threshold, @default_threshold)
     memory_module = Keyword.get(opts, :memory_module, memory_module())
-
-    node_types =
-      Map.new(nodes, fn node ->
-        {to_string(node["id"]), node["type"] || "unknown"}
-      end)
-
-    patterns =
-      edges
-      |> Enum.filter(&(&1["type"] == "CHILD"))
-      |> Enum.map(fn edge ->
-        {
-          Map.get(node_types, to_string(edge["source"]), "unknown"),
-          Map.get(node_types, to_string(edge["target"]), "unknown")
-        }
-      end)
-      |> Enum.frequencies()
-      |> Enum.filter(fn {_pair, count} -> count >= threshold end)
-      |> Enum.sort_by(fn {_pair, count} -> -count end)
+    observed_at = Keyword.get(opts, :observed_at, System.system_time(:second))
+    encoding = Keyword.get(opts, :encoding, infer_encoding(payload))
 
     persisted =
-      Enum.map(patterns, fn {{parent_type, child_type}, count} ->
+      payload
+      |> extract_windows(window_size)
+      |> Enum.frequencies()
+      |> Enum.filter(fn {_sequence, count} -> count >= threshold end)
+      |> Enum.sort_by(fn {sequence, count} -> {-count, Base.encode16(sequence, case: :lower)} end)
+      |> Enum.map(fn {sequence, count} ->
         spec = %{
-          language: language,
-          pool_type: "co_occurrence",
-          source_types: [parent_type, child_type],
-          occurrences: count
+          sequence: sequence,
+          encoding: encoding,
+          occurrences: count,
+          activation_threshold: threshold,
+          window_size: window_size,
+          observed_at: observed_at
         }
 
-        case memory_module.persist_pooled_pattern(spec) do
+        case memory_module.persist_pooled_sequence(spec) do
           {:ok, result} ->
             {:ok,
              %{
-               pattern_id: result.pattern_id,
-               signature: "#{parent_type}->#{child_type}",
+               sequence_id: result.sequence_id,
+               signature: Base.encode16(sequence, case: :lower),
                occurrences: count,
-               source_types: [parent_type, child_type]
+               activation_threshold: threshold,
+               window_size: window_size
              }}
 
           {:error, reason} ->
@@ -62,9 +49,11 @@ defmodule Sensory.SpatialPooler do
       nil ->
         {:ok,
          %{
-           language: language,
+           encoding: encoding,
+           ingested_bytes: byte_size(payload),
+           window_size: window_size,
            threshold: threshold,
-           pooled_patterns: Enum.map(persisted, fn {:ok, pattern} -> pattern end)
+           pooled_sequences: Enum.map(persisted, fn {:ok, pattern} -> pattern end)
          }}
 
       {:error, reason} ->
@@ -72,19 +61,25 @@ defmodule Sensory.SpatialPooler do
     end
   end
 
-  def pool_graph(_language, _graph, _opts), do: {:error, :invalid_graph}
+  def extract_windows(payload, window_size \\ @default_window)
 
-  defp decode_graph("Unsupported language"), do: {:error, :unsupported_language}
+  def extract_windows(payload, window_size) when is_binary(payload) and is_integer(window_size) and window_size > 0 do
+    byte_count = byte_size(payload)
 
-  defp decode_graph(payload) when is_binary(payload) do
-    case Jason.decode(payload) do
-      {:ok, %{"nodes" => _nodes, "edges" => _edges} = graph} -> {:ok, graph}
-      {:ok, _other} -> {:error, :invalid_graph}
-      {:error, _reason} -> {:error, :invalid_graph}
+    if byte_count < window_size do
+      []
+    else
+      for offset <- 0..(byte_count - window_size) do
+        binary_part(payload, offset, window_size)
+      end
     end
   end
 
   defp memory_module do
     Application.get_env(:sensory, :memory_module, Rhizome.Memory)
+  end
+
+  defp infer_encoding(payload) when is_binary(payload) do
+    if String.valid?(payload), do: "utf8", else: "binary"
   end
 end

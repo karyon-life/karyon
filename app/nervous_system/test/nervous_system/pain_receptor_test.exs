@@ -110,8 +110,11 @@ defmodule NervousSystem.PainReceptorTest do
     
     assert {:ok, decoded} = Karyon.NervousSystem.PredictionError.decode(payload)
     assert decoded.type == "nociception"
+    assert decoded.source == "telemetry"
+    assert_in_delta decoded.severity, 1.0, 0.0001
     assert Map.get(decoded.metadata, "reason") == "crash"
     assert Map.get(decoded.metadata, "event_source") == "telemetry"
+    assert Map.get(decoded.metadata, "severity") == "1.0"
     assert Map.get(decoded.metadata, "schema_version") == "2026-03-18"
     assert Map.get(decoded.metadata, "learning_phase") == "prediction_error"
     assert Map.get(decoded.metadata, "learning_edge") == "prediction_error->plasticity"

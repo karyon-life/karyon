@@ -8,7 +8,7 @@ defmodule Mix.Tasks.Karyon.Baseline do
 
   - cell spawn throughput
   - synapse messaging throughput and latency
-  - sensory parse throughput
+  - sensory ingestion throughput
   - consolidation orchestration cost
 
   Outputs a JSON artifact under `artifacts/benchmarks/`.
@@ -64,7 +64,7 @@ defmodule Mix.Tasks.Karyon.Baseline do
   end
 
   defp start_apps do
-    Enum.each([:nervous_system, :rhizome, :sandbox, :sensory, :core, :dashboard], fn app ->
+    Enum.each([:nervous_system, :rhizome, :sensory, :core, :dashboard, :operator_environment], fn app ->
       {:ok, _} = Application.ensure_all_started(app)
     end)
   end
@@ -76,7 +76,7 @@ defmodule Mix.Tasks.Karyon.Baseline do
   end
 
   defp measure_cell_spawn(spawn_count) do
-    dna_path = Path.expand("core/priv/dna/architect_planner.yml", File.cwd!())
+    dna_path = Path.expand("../priv/dna/tabula_rasa_stem_cell.yml", File.cwd!())
     {duration_us, {:ok, count}} = timed(fn -> Core.StressTester.swarm_spawn(spawn_count, dna_path) end)
     pressure = GenServer.call(Core.MetabolicDaemon, :get_pressure)
     run_queue = :erlang.statistics(:run_queue)
@@ -120,17 +120,14 @@ defmodule Mix.Tasks.Karyon.Baseline do
   end
 
   defp measure_sensory_parse(parse_iterations) do
-    code = """
-    def hello():
-        print("world")
-    """
+    payload = "hellohello"
 
-    Sensory.Native.parse_to_graph("python", code)
+    Sensory.ingest_bytes(payload)
 
     {duration_us, last_result} =
       timed(fn ->
         Enum.reduce(1..parse_iterations, nil, fn _, _ ->
-          Sensory.Native.parse_to_graph("python", code)
+          Sensory.ingest_bytes(payload)
         end)
       end)
 
@@ -139,8 +136,8 @@ defmodule Mix.Tasks.Karyon.Baseline do
       duration_ms: round(duration_us / 1_000),
       ops_per_second: rate_per_second(parse_iterations, duration_us),
       avg_parse_latency_ms: Float.round(duration_us / parse_iterations / 1_000, 3),
-      sample_size_bytes: byte_size(code),
-      sample_verified: String.contains?(last_result, "hello")
+      sample_size_bytes: byte_size(payload),
+      sample_verified: match?({:ok, %{pooled_sequences: sequences}} when is_list(sequences), last_result)
     }
   end
 

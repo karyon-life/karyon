@@ -36,4 +36,39 @@ defmodule Rhizome.NifTest do
   test "prune_pathway validates pathway shape" do
     assert {:error, :invalid_pathway} = Native.prune_pathway(%{})
   end
+
+  test "prune_stdp_pathway validates STDP pathway shape" do
+    assert {:error, :invalid_stdp_pathway} = Native.prune_stdp_pathway(%{})
+  end
+
+  test "build_stdp_ltd_query emits weight degradation cypher" do
+    query =
+      Native.build_stdp_ltd_query(%{
+        sensory_id: "seq:red",
+        motor_id: "motor:move_blue",
+        severity: 0.4,
+        trace_id: "trace:ltd",
+        event_at: 1_763_958_863
+      })
+
+    assert query =~ "MATCH (s:PooledSequence"
+    assert query =~ "SET r.weight = CASE"
+    assert query =~ "r.status = 'depressed'"
+    assert query =~ "RETURN r.weight AS weight"
+  end
+
+  test "build_stdp_apoptosis_query emits edge deletion cypher" do
+    query =
+      Native.build_stdp_apoptosis_query(%{
+        sensory_id: "seq:red",
+        motor_id: "motor:move_blue",
+        severity: 0.9,
+        trace_id: "trace:delete",
+        event_at: 1_763_958_863
+      })
+
+    assert query =~ "MATCH (s:PooledSequence"
+    assert query =~ "DELETE edge"
+    assert query =~ "RETURN size(rels) AS pruned_edges"
+  end
 end

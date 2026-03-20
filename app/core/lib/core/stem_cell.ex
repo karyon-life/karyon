@@ -77,7 +77,8 @@ defmodule Core.StemCell do
       status: :active,
       lineage_id: lineage_id,
       dna_path: full_path,
-      atp_metabolism: 1.0 # Current metabolic health (1.0 = optimal)
+      atp_metabolism: 1.0, # Current metabolic health (1.0 = optimal)
+      stdp_active_actions: %{}
     }
       |> merge_recovered_state(recovered_state)
 
@@ -142,21 +143,22 @@ defmodule Core.StemCell do
 
               {:ok, _profile} ->
                 Logger.info("[StemCell] Executing validated intent: #{intent.id} / #{intent.action}")
+                execution_state = register_stdp_trace(state, intent)
 
                 case dispatch_motor_action(state.dna_spec, intent) do
                   {:ok, result} ->
-                    persist_execution_outcome(state, intent, {:ok, result})
-                    reinforce_rhizome_pathways(state.expectations)
-                    {:reply, {:ok, result}, checkpoint_state(state)}
+                    persist_execution_outcome(execution_state, intent, {:ok, result})
+                    reinforce_rhizome_pathways(execution_state.expectations)
+                    {:reply, {:ok, result}, checkpoint_state(execution_state)}
 
                   {:error, reason} ->
-                    persist_execution_outcome(state, intent, {:error, reason})
-                    persist_prediction_error(execution_failure_payload(state, intent, reason))
-                    {:reply, {:error, reason}, checkpoint_state(state)}
+                    persist_execution_outcome(execution_state, intent, {:error, reason})
+                    persist_prediction_error(execution_failure_payload(execution_state, intent, reason))
+                    {:reply, {:error, reason}, checkpoint_state(execution_state)}
 
                   other ->
-                    persist_execution_outcome(state, intent, {:ok, other})
-                    {:reply, {:ok, other}, checkpoint_state(state)}
+                    persist_execution_outcome(execution_state, intent, {:ok, other})
+                    {:reply, {:ok, other}, checkpoint_state(execution_state)}
                 end
             end
         end
@@ -236,21 +238,8 @@ defmodule Core.StemCell do
     payload = IO.iodata_to_binary(iodata)
     # Handle NATS Metabolic Spikes (Endocrine system)
     case Karyon.NervousSystem.MetabolicSpike.decode(payload) do
-      {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "high"}} ->
-        Logger.error("[StemCell] CRITICAL Metabolic Stress. Shedding synapses and entering Digital Torpor.")
-        case apply_lifecycle_transition(state, :high_pressure, %{"source" => "metabolic.spike"}) do
-          {:stop, reason, next_state} -> {:stop, reason, checkpoint_state(next_state)}
-          next_state -> {:noreply, checkpoint_state(next_state)}
-        end
-
-      {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "medium"}} ->
-        case apply_lifecycle_transition(state, :medium_pressure, %{"source" => "metabolic.spike"}) do
-          {:stop, reason, next_state} -> {:stop, reason, checkpoint_state(next_state)}
-          next_state -> {:noreply, checkpoint_state(next_state)}
-        end
-
-      {:ok, %Karyon.NervousSystem.MetabolicSpike{severity: "low"}} ->
-        {:noreply, checkpoint_state(apply_lifecycle_transition(state, :low_pressure, %{"source" => "metabolic.spike"}))}
+      {:ok, %Karyon.NervousSystem.MetabolicSpike{} = spike} ->
+        handle_metabolic_spike(spike, state)
 
       {:error, reason} ->
         Logger.debug("[StemCell] Failed to decode metabolic spike: #{inspect(reason)}. Payload length: #{byte_size(payload)}")
@@ -295,6 +284,59 @@ defmodule Core.StemCell do
         {:noreply, checkpoint_state(next_state)}
       _ ->
         {:noreply, state}
+    end
+  end
+
+  def handle_info({:stdp_prediction_error, sensory_id, severity}, state) when is_binary(sensory_id) do
+    case Map.get(state.stdp_active_actions, sensory_id) do
+      nil ->
+        {:noreply, state}
+
+      %{motor_action_id: motor_action_id} ->
+        stdp_event = %{
+          "sensory_id" => sensory_id,
+          "motor_id" => motor_action_id,
+          "severity" => normalize_error_signal(severity),
+          "trace_id" => "stdp:#{sensory_id}:#{motor_action_id}",
+          "event_at" => System.system_time(:second),
+          "recorded_at" => iso_timestamp(),
+          "observed_at" => iso_timestamp()
+        }
+
+        case memory_module().prune_stdp_pathway(stdp_event) do
+          {:ok, _} -> :ok
+          {:error, reason} -> Logger.warning("[StemCell] Failed to prune STDP pathway #{inspect(stdp_event)}: #{inspect(reason)}")
+        end
+
+        persist_prediction_error(
+          %{
+            "id" => "prediction_error:#{state.lineage_id}:stdp:#{System.system_time(:second)}",
+            "cell_id" => state.lineage_id,
+            "source_cell_id" => sensory_id,
+            "type" => "stdp_prediction_error",
+            "message" => "Operator-induced nociception correlated against active motor trace",
+            "recorded_at" => iso_timestamp(),
+            "observed_at" => iso_timestamp(),
+            "timestamp_unit" => "iso8601",
+            "status" => "pruned",
+            "learning_phase" => "prediction_error",
+            "learning_edge" => "prediction_error->plasticity",
+            "vfe" => normalize_error_signal(severity),
+            "metadata" => %{
+              "schema_version" => "2026-03-19",
+              "event_source" => "stdp",
+              "severity" => normalize_error_signal(severity),
+              "motor_action_id" => motor_action_id,
+              "sensory_id" => sensory_id,
+              "correction_type" => "prune_stdp_pathway",
+              "correction_status" => "applied"
+            },
+            "expectation_lineage" => []
+          }
+        )
+
+        next_state = %{state | stdp_active_actions: Map.delete(state.stdp_active_actions, sensory_id)}
+        {:noreply, checkpoint_state(next_state)}
     end
   end
 
@@ -636,7 +678,8 @@ defmodule Core.StemCell do
       "beliefs" => stringify_nested(state.beliefs),
       "expectations" => stringify_nested(state.expectations),
       "status" => to_string(state.status),
-      "atp_metabolism" => state.atp_metabolism
+      "atp_metabolism" => state.atp_metabolism,
+      "stdp_active_actions" => stringify_nested(state.stdp_active_actions)
     }
   end
 
@@ -662,7 +705,12 @@ defmodule Core.StemCell do
       |> Map.get("atp_metabolism", 1.0)
       |> normalize_atp()
 
-    %{state | expectations: expectations, beliefs: beliefs, status: status, atp_metabolism: atp_metabolism}
+    stdp_active_actions =
+      recovered_state
+      |> Map.get("stdp_active_actions", %{})
+      |> normalize_stdp_actions()
+
+    %{state | expectations: expectations, beliefs: beliefs, status: status, atp_metabolism: atp_metabolism, stdp_active_actions: stdp_active_actions}
   end
 
   defp below_execution_budget?(state) do
@@ -947,6 +995,8 @@ defmodule Core.StemCell do
   defp severity_error_signal("high"), do: 1.0
   defp severity_error_signal("medium"), do: 0.6
   defp severity_error_signal("low"), do: 0.3
+  defp severity_error_signal(value) when is_float(value) and value >= 0.0 and value <= 1.0, do: value
+  defp severity_error_signal(value) when is_integer(value) and value >= 0, do: min(value * 1.0, 1.0)
   defp severity_error_signal(_), do: 1.0
 
   defp normalize_error_signal(value) when is_float(value), do: value
@@ -976,6 +1026,73 @@ defmodule Core.StemCell do
       }
     end)
   end
+
+  defp handle_metabolic_spike(%Karyon.NervousSystem.MetabolicSpike{} = spike, state) do
+    metadata = %{
+      "source" => spike.source || "metabolic.spike",
+      "metric_type" => spike.metric_type
+    }
+
+    case metabolic_transition(normalize_error_signal(spike.severity)) do
+      :high_pressure ->
+        Logger.error("[StemCell] CRITICAL Metabolic Stress. Shedding synapses and entering Digital Torpor.")
+
+        case apply_lifecycle_transition(state, :high_pressure, metadata) do
+          {:stop, reason, next_state} -> {:stop, reason, checkpoint_state(next_state)}
+          next_state -> {:noreply, checkpoint_state(next_state)}
+        end
+
+      :medium_pressure ->
+        case apply_lifecycle_transition(state, :medium_pressure, metadata) do
+          {:stop, reason, next_state} -> {:stop, reason, checkpoint_state(next_state)}
+          next_state -> {:noreply, checkpoint_state(next_state)}
+        end
+
+      :low_pressure ->
+        {:noreply, checkpoint_state(apply_lifecycle_transition(state, :low_pressure, metadata))}
+    end
+  end
+
+  defp metabolic_transition(severity) when severity >= 0.85, do: :high_pressure
+  defp metabolic_transition(severity) when severity >= 0.5, do: :medium_pressure
+  defp metabolic_transition(_severity), do: :low_pressure
+
+  defp register_stdp_trace(state, %ExecutionIntent{} = intent) do
+    sensory_id = state.lineage_id
+    entry = %{motor_action_id: intent.id, sensory_id: sensory_id, stem_cell_pid: self()}
+
+    if Process.whereis(Sensory.STDPCoordinator) do
+      Sensory.STDPCoordinator.register_trace(entry)
+    end
+
+    put_in(state.stdp_active_actions[sensory_id], %{motor_action_id: intent.id, recorded_at: System.monotonic_time(:millisecond)})
+  end
+
+  defp normalize_stdp_actions(actions) when is_map(actions) do
+    Map.new(actions, fn {sensory_id, value} ->
+      normalized =
+        case value do
+          %{"motor_action_id" => motor_action_id, "recorded_at" => recorded_at} ->
+            %{motor_action_id: to_string(motor_action_id), recorded_at: normalize_monotonic(recorded_at)}
+
+          %{motor_action_id: motor_action_id, recorded_at: recorded_at} ->
+            %{motor_action_id: to_string(motor_action_id), recorded_at: normalize_monotonic(recorded_at)}
+
+          motor_action_id when is_binary(motor_action_id) ->
+            %{motor_action_id: motor_action_id, recorded_at: System.monotonic_time(:millisecond)}
+
+          _ ->
+            %{motor_action_id: to_string(sensory_id), recorded_at: System.monotonic_time(:millisecond)}
+        end
+
+      {to_string(sensory_id), normalized}
+    end)
+  end
+
+  defp normalize_stdp_actions(_), do: %{}
+
+  defp normalize_monotonic(value) when is_integer(value), do: value
+  defp normalize_monotonic(_), do: System.monotonic_time(:millisecond)
 
   defp proto_timestamp_to_iso(timestamp) when is_integer(timestamp) do
     timestamp

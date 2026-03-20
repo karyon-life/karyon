@@ -1,0 +1,15 @@
+cell_type: "motor"
+description: "Bounded exploratory babbling cell for low-stakes language emission."
+allowed_actions:
+  - "babble"
+  - "echo_feedback"
+  - "emit_tokens"
+synapses:
+  - type: "push"
+    bind: "tcp://127.0.0.1:0"
+subscriptions:
+  - "metabolic.spike"
+  - "operator.feedback"
+utility_threshold: 0.4
+memory_retention: "ephemeral"
+precision_baseline: 0.6

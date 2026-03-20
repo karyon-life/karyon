@@ -9,13 +9,5 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 rustler = "0.37"
-tree-sitter = "0.20.10"
-tree-sitter-javascript = "0.20.1"
-tree-sitter-python = "0.20.0"
-tree-sitter-c = "0.20.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-neo4rs = "0.7.0"
-tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 lazy_static = "1.4.0"
 zmq = "0.10"

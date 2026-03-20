@@ -1,5 +1,5 @@
 use crate::resource::{GraphPointer, create_pointer_impl, get_pointer_id_impl};
-use crate::optimizer::identify_communities;
+use crate::optimizer::identify_louvain_communities;
 use std::mem;
 
 #[test]
@@ -30,7 +30,7 @@ fn test_community_detection_logic() {
         (0, 1, 1.0),
         (2, 3, 1.0),
     ];
-    let communities = identify_communities(edges, 4);
+    let communities = identify_louvain_communities(edges, 4).unwrap();
     assert_eq!(communities.len(), 2);
     
     // Dense clique
@@ -39,7 +39,7 @@ fn test_community_detection_logic() {
         (1, 2, 1.0),
         (2, 0, 1.0),
     ];
-    let communities = identify_communities(edges, 3);
+    let communities = identify_louvain_communities(edges, 3).unwrap();
     assert_eq!(communities.len(), 1);
     assert_eq!(communities[0].len(), 3);
 }
@@ -86,7 +86,7 @@ fn test_concurrent_pointer_access() {
 #[test]
 fn test_identify_communities_complex() {
     // Two clear cliques connected by a single edge
-    let mut edges = vec![
+    let edges = vec![
         // Clique 1: 0, 1, 2
         (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
         // Clique 2: 3, 4, 5
@@ -95,7 +95,7 @@ fn test_identify_communities_complex() {
         (2, 3, 0.1),
     ];
     
-    let communities = identify_communities(edges, 6);
+    let communities = identify_louvain_communities(edges, 6).unwrap();
     assert_eq!(communities.len(), 2);
     
     // Check members are partitioned correctly (order doesn't matter)

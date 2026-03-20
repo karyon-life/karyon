@@ -6,14 +6,13 @@ commands = [
      "1",
      "test/core/maturation_lifecycle_test.exs",
      "test/core/execution_telemetry_test.exs",
-     "test/core/teacher_daemon_test.exs",
-     "test/core/abstract_intent_test.exs"
+     "test/core/teacher_daemon_test.exs"
    ], Path.expand("../core", __DIR__), %{}},
   {"mix",
    [
      "test",
-     "test/sensory/baseline_diet_test.exs",
-     "test/sensory/eyes_test.exs"
+     "test/sensory/perimeter_test.exs",
+     "test/sensory/tabula_rasa_ingestor_test.exs"
    ], Path.expand("../sensory", __DIR__), %{}},
   {"mix",
    [

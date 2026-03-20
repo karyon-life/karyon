@@ -12,7 +12,7 @@ defmodule Dashboard.OrganismObservabilityTest do
     end
 
     def query_working_memory(%{label: "PredictionError"}), do: {:ok, [%{"id" => "pe-1"}, %{"id" => "pe-2"}]}
-    def query_working_memory(%{label: "SleepSuperNode"}), do: {:ok, [%{"id" => "sleep-1"}]}
+    def query_working_memory(%{label: "GrammarSuperNode"}), do: {:ok, [%{"id" => "grammar-1"}]}
     def query_working_memory(%{label: "CrossWorkspaceCoordination"}), do: {:ok, [%{"id" => "coord-1"}]}
     def query_working_memory(%{label: "ObjectiveProjection"}), do: {:ok, [%{"id" => "obj-1"}]}
 

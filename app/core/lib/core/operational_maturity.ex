@@ -2,32 +2,31 @@ defmodule Core.OperationalMaturity do
   @moduledoc """
   Typed operational maturity contract for Chapter 11 bootstrapping targets.
 
-  This makes the organism's build, deploy, observe, and distribute targets
+  This makes the organism's build, deploy, observe, and grounding targets
   explicit so later Chapter 11 and 12 work can validate against one shared
   maturity surface instead of scattering implicit assumptions.
   """
 
-  alias Core.ObjectiveManifest
   alias Core.OperatorOutput
   alias Core.ServiceHealth
 
-  @schema "karyon.operational-maturity.v1"
+  @schema "karyon.operational-maturity.v2"
   @build_validation "cd /home/adrian/Projects/nexical/karyon/app && mix compile"
   @deploy_validation "cd /home/adrian/Projects/nexical/karyon/app && mix chapter10.conformance"
   @observe_validation "curl -i --max-time 5 http://127.0.0.1:3000/health/status"
-  @distribute_validation "cd /home/adrian/Projects/nexical/karyon/app && mix test test/core/objective_manifest_test.exs test/core/cross_workspace_architect_test.exs"
+  @ground_validation "cd /home/adrian/Projects/nexical/karyon/app && mix test test/core/operational_maturity_test.exs test/core/maturation_lifecycle_test.exs"
 
   def report(opts \\ []) do
     release = Keyword.get(opts, :release, release_metadata())
     dashboard_server = Keyword.get(opts, :dashboard_server, false)
     service_report = Keyword.get_lazy(opts, :service_report, fn -> ServiceHealth.check_all() end)
-    objectives_root = Keyword.get(opts, :objectives_root, ObjectiveManifest.root_dir())
+    dna_root = Keyword.get(opts, :dna_root, dna_root())
 
     targets = %{
       build: build_target(service_report, release),
       deploy: deploy_target(service_report, release),
       observe: observe_target(service_report, dashboard_server),
-      distribute: distribute_target(objectives_root)
+      distribute: grounding_target(dna_root)
     }
 
     %{
@@ -36,6 +35,10 @@ defmodule Core.OperationalMaturity do
       release: release,
       targets: targets
     }
+  end
+
+  defp dna_root do
+    Application.get_env(:core, :dna_root, Path.expand("../../../../priv/dna", __DIR__))
   end
 
   defp build_target(service_report, release) do
@@ -121,28 +124,41 @@ defmodule Core.OperationalMaturity do
     }
   end
 
-  defp distribute_target(objectives_root) do
-    objectives_dir = Path.expand(objectives_root)
-    architect_loaded? = Code.ensure_loaded?(Core.CrossWorkspaceArchitect)
-    manifest_loaded? = Code.ensure_loaded?(Core.ObjectiveManifest)
+  defp grounding_target(dna_root) do
+    expanded_root = Path.expand(dna_root)
+    required = [
+      "sensory_pooler_cell.yml",
+      "motor_babble_cell.yml",
+      "tabula_rasa_stem_cell.yml"
+    ]
+
+    forbidden = [
+      "python_executor.yml",
+      "rust_architect.yml",
+      "architect_planner.yml",
+      "eye_python.yml"
+    ]
+
+    missing_required = Enum.reject(required, &(File.exists?(Path.join(expanded_root, &1))))
+    lingering_engineering_dna = Enum.filter(forbidden, &(File.exists?(Path.join(expanded_root, &1))))
 
     blockers =
       []
-      |> maybe_add(not manifest_loaded?, "load the objective manifest boundary before distributing plan blueprints")
-      |> maybe_add(not architect_loaded?, "load the cross-workspace architect before distributing localized execution limbs")
-      |> maybe_add(not File.dir?(objectives_dir), "create #{objectives_dir} so persistent objectives can drive workspace distribution")
+      |> maybe_add(not File.dir?(expanded_root), "create #{expanded_root} so the grounding baseline has a canonical DNA surface")
+      |> maybe_add(missing_required != [], "add the baseline linguistic DNA set before claiming grounding readiness")
+      |> maybe_add(lingering_engineering_dna != [], "purge engineering DNA from the canonical grounding surface before claiming sterilization")
 
     %{
       status: status_from_blockers(blockers),
-      objective: "Project sovereign objectives into localized workspace limbs and distribution blueprints.",
-      validation: @distribute_validation,
+      objective: "Expose a sterilized linguistic grounding baseline instead of a software distribution blueprint.",
+      validation: @ground_validation,
       next_phase: "C11-S04",
       blockers: blockers,
       evidence: %{
-        objectives_root: objectives_dir,
-        objectives_root_exists: File.dir?(objectives_dir),
-        objective_manifest_loaded: manifest_loaded?,
-        cross_workspace_architect_loaded: architect_loaded?
+        dna_root: expanded_root,
+        dna_root_exists: File.dir?(expanded_root),
+        baseline_dna_missing: missing_required,
+        forbidden_engineering_dna: lingering_engineering_dna
       }
     }
   end

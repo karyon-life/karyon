@@ -43,7 +43,7 @@ defmodule NervousSystem.EndocrineGradientTest do
     Process.sleep(200)
 
     # Publish a spike
-    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high", metric_type: "metabolic_daemon"}
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: 1.0, metric_type: "metabolic_daemon", source: "metabolic_daemon"}
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     payload = IO.iodata_to_binary(iodata)
     Endocrine.publish_gradient(gnat_pid, topic, payload)
@@ -54,7 +54,7 @@ defmodule NervousSystem.EndocrineGradientTest do
     for {status, id, res} <- results do
       assert status == :ok, "Subscriber #{id} timed out"
       assert {:ok, payload} = res
-      assert payload.severity == "high"
+      assert_in_delta payload.severity, 1.0, 0.0001
     end
   end
 end

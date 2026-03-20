@@ -7,11 +7,11 @@ defmodule Core.DNAControlPlaneTest do
     dna_path = "/tmp/dna_control_plane_test.yml"
 
     File.write!(dna_path, """
-    id: planner-alpha
-    cell_type: architect_planner
+    id: stem-alpha
+    cell_type: tabula_rasa_stem
     allowed_actions:
-      - form_expectation
-      - sequence_tasks
+      - integrate_sensory_patterns
+      - consolidate_grammar
     utility_threshold: 0.25
     precision_baseline: 0.8
     atp_requirement: 0.4
@@ -24,11 +24,11 @@ defmodule Core.DNAControlPlaneTest do
 
     dna = DNA.load!(dna_path)
 
-    assert dna.id == "planner-alpha"
-    assert dna.cell_type == "architect_planner"
-    assert dna.allowed_actions == ["form_expectation", "sequence_tasks"]
-    assert dna.control_plane.lineage_id == "planner-alpha"
-    assert dna.control_plane.differentiation_role == :architect_planner
+    assert dna.id == "stem-alpha"
+    assert dna.cell_type == "tabula_rasa_stem"
+    assert dna.allowed_actions == ["integrate_sensory_patterns", "consolidate_grammar"]
+    assert dna.control_plane.lineage_id == "stem-alpha"
+    assert dna.control_plane.differentiation_role == :tabula_rasa_stem
     assert dna.control_plane.metabolism.atp_requirement == 0.4
     assert dna.control_plane.metabolism.utility_threshold == 0.25
     refute dna.control_plane.apoptosis.speculative
@@ -58,8 +58,8 @@ defmodule Core.DNAControlPlaneTest do
     schema_version: 1
     cell_type: motor
     allowed_actions:
-      - compile
-      - test
+      - emit_babble
+      - publish_motor_output
     utility_threshold: 0.6
     precision_baseline: 0.7
     atp_requirement: 0.2
@@ -67,7 +67,7 @@ defmodule Core.DNAControlPlaneTest do
       - type: push
         bind: tcp://127.0.0.1:0
     executor:
-      module: Sandbox.Executor
+      module: Core.OperatorSandboxExecutor
       function: capture_output
     """)
 
@@ -76,7 +76,7 @@ defmodule Core.DNAControlPlaneTest do
     id: motor-child
     cell_type: motor_executor
     allowed_actions:
-      - patch_codebase
+      - emit_babble
     atp_requirement: 0.5
     """)
 
@@ -91,12 +91,12 @@ defmodule Core.DNAControlPlaneTest do
     assert dna.id == "motor-child"
     assert dna.extends == "dna_parent.yml"
     assert dna.cell_type == "motor_executor"
-    assert dna.allowed_actions == ["patch_codebase"]
+    assert dna.allowed_actions == ["emit_babble"]
     assert dna.utility_threshold == 0.6
     assert dna.precision_baseline == 0.7
     assert dna.atp_requirement == 0.5
     assert dna.executor == %{
-             "module" => "Sandbox.Executor",
+             "module" => "Core.OperatorSandboxExecutor",
              "function" => "capture_output",
              "default_args" => %{}
            }
@@ -108,8 +108,8 @@ defmodule Core.DNAControlPlaneTest do
     File.write!(dna_path, """
     cell_type: motor
     allowed_actions:
-      - execute_script
-    motor_executor: firecracker_python
+      - emit_babble
+    motor_executor: operator_environment_motor_babble
     """)
 
     on_exit(fn -> File.rm(dna_path) end)
@@ -117,7 +117,7 @@ defmodule Core.DNAControlPlaneTest do
     dna = DNA.load!(dna_path)
 
     assert dna.executor == %{
-             "module" => "Sandbox.Executor",
+             "module" => "Core.OperatorSandboxExecutor",
              "function" => "capture_output",
              "default_args" => %{}
            }

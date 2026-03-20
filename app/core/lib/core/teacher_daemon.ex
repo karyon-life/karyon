@@ -6,7 +6,7 @@ defmodule Core.TeacherDaemon do
   alias Core.ExecutionTelemetry
 
   @schema "karyon.teacher-daemon.v1"
-  @default_executor Sandbox.Executor
+  @default_executor Core.OperatorSandboxExecutor
 
   def generate_exams(source_paths, opts \\ [])
 
@@ -113,7 +113,7 @@ defmodule Core.TeacherDaemon do
       "action" => "execute_plan",
       "plan_attractor_id" => "teacher-daemon-attractor",
       "plan_step_ids" => ["teacher-step:#{exam["exam_id"]}"],
-      "executor" => %{"module" => "Sandbox.Executor", "function" => "execute_plan"},
+      "executor" => %{"module" => "Core.OperatorSandboxExecutor", "function" => "execute_plan"},
       "transition_delta" => %{
         "workspace_root" => Path.expand(workspace_root),
         "metabolism_admission" => %{"status" => "admitted", "lane" => "curriculum", "pressure" => "medium"}
@@ -166,7 +166,7 @@ defmodule Core.TeacherDaemon do
       "cell_id" => "teacher_daemon",
       "action" => "execute_plan",
       "status" => normalize_outcome_status(result),
-      "executor" => "Sandbox.Executor.execute_plan",
+      "executor" => "Core.OperatorSandboxExecutor.execute_plan",
       "vm_id" => Map.get(result, :vm_id) || Map.get(result, "vm_id") || "teacher-daemon-vm",
       "exit_code" => Map.get(result, :exit_code) || Map.get(result, "exit_code") || 0,
       "learning_phase" => "action_feedback",

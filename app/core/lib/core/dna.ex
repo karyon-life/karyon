@@ -39,8 +39,8 @@ defmodule Core.DNA do
 
   @schema_version 1
   @legacy_executor_map %{
-    "firecracker_python" => %{
-      "module" => "Sandbox.Executor",
+    "operator_environment_motor_babble" => %{
+      "module" => "Core.OperatorSandboxExecutor",
       "function" => "capture_output",
       "default_args" => %{}
     }

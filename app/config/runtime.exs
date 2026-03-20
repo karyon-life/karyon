@@ -32,13 +32,6 @@ end
 
 config :protox, :protoc, System.get_env("PROTOC_PATH", "/tmp/protoc/bin/protoc")
 
-config :sandbox,
-  firecracker_binary: System.get_env("KARYON_FIRECRACKER_BINARY", "/usr/local/bin/firecracker"),
-  kernel_image_path: System.get_env("KARYON_FIRECRACKER_KERNEL"),
-  rootfs_path: System.get_env("KARYON_FIRECRACKER_ROOTFS"),
-  net_helper_path: System.get_env("KARYON_NET_HELPER"),
-  bridge_device: System.get_env("KARYON_BRIDGE_DEVICE", "karyon0")
-
 config :karyon, :services,
   memgraph: [
     url: System.get_env("KARYON_MEMGRAPH_URL", "bolt://127.0.0.1:7687"),

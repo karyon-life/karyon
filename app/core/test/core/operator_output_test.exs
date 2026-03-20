@@ -82,9 +82,9 @@ defmodule Core.OperatorOutputTest do
         id: "intent:test",
         action: "execute_plan",
         cell_type: "planner",
-        params: %{"vm_id" => "vm-1"},
+        params: %{"membrane" => "operator_environment"},
         default_args: %{},
-        executor: %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+        executor: %{"module" => "Core.OperatorSandboxExecutor", "function" => "capture_output"},
         created_at: 1_700_000_001
       })
 
@@ -92,7 +92,7 @@ defmodule Core.OperatorOutputTest do
     assert brief.template_id == "operator.execution_intent.summary"
     assert brief.headline == "Execution intent validated"
     assert brief.summary == "Intent intent:test authorizes execute_plan for planner."
-    assert "executor=Sandbox.Executor.capture_output" in brief.facts
+    assert "executor=Core.OperatorSandboxExecutor.capture_output" in brief.facts
     assert OperatorOutput.safe?(brief)
   end
 

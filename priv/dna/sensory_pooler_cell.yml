@@ -1,0 +1,15 @@
+cell_type: "sensory"
+description: "Raw text and byte ingestion cell that pools recurring sensory sequences without parser shortcuts."
+allowed_actions:
+  - "ingest_bytes"
+  - "pool_sequences"
+  - "stabilize_patterns"
+synapses:
+  - type: "pub"
+    bind: "tcp://127.0.0.1:5557"
+subscriptions:
+  - "metabolic.spike"
+  - "operator.utterance"
+utility_threshold: 0.7
+memory_retention: "short_term"
+sampling_rate_ms: 75

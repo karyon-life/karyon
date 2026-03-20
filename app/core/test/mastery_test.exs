@@ -20,9 +20,8 @@ defmodule Core.MasteryTest do
   end
 
   test "VFE convergence and systemic stability across high-churn iterations" do
-    # 1. Boot a specialized Python Executor cell
-    # Correct path relative to app/core/test/
-    dna_path = Path.expand("../../../priv/dna/python_executor.yml", __DIR__)
+    # 1. Boot a baseline babbling cell
+    dna_path = Path.expand("../../../priv/dna/motor_babble_cell.yml", __DIR__)
     {:ok, pid} = Core.StemCell.start_link(dna_path)
     
     # 2. Simulate rapid-fire architectural expectations and feedback

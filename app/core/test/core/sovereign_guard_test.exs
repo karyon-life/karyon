@@ -12,7 +12,7 @@ defmodule Core.SovereignGuardTest do
         cell_type: "planner",
         params: %{"steps" => [%{"action" => "patch_codebase"}]},
         default_args: %{},
-        executor: %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+        executor: %{"module" => "Core.OperatorSandboxExecutor", "function" => "capture_output"},
         created_at: 1_710_000_020
       })
 
@@ -43,7 +43,7 @@ defmodule Core.SovereignGuardTest do
         cell_type: "planner",
         params: %{"steps" => [%{"action" => "patch_codebase"}]},
         default_args: %{},
-        executor: %{"module" => "Sandbox.Executor", "function" => "capture_output"},
+        executor: %{"module" => "Core.OperatorSandboxExecutor", "function" => "capture_output"},
         created_at: 1_710_000_021
       })
 

@@ -38,7 +38,6 @@ defmodule Core.MixProject do
       {:nervous_system, in_umbrella: true},
       {:rhizome, in_umbrella: true},
       {:sensory, in_umbrella: true},
-      {:sandbox, in_umbrella: true},
       {:rustler, "~> 0.37.0", runtime: false}
     ]
   end

@@ -2,7 +2,7 @@ defmodule RhizomeTest do
   use ExUnit.Case
   @moduletag :external
 
-  test "parses simple JSON and stores AST in Memgraph" do
+  test "submits raw JSON documents into the temporal archive transport" do
     json_script = """
     {
       "type": "cell",
@@ -23,10 +23,10 @@ defmodule RhizomeTest do
   test "persists execution outcomes into XTDB memory" do
     outcome = %{
       "cell_id" => "planner_cell",
-      "action" => "patch_codebase",
-      "executor" => "firecracker_python",
+      "action" => "emit_babble",
+      "executor" => "Core.OperatorSandboxExecutor.execute_plan",
       "status" => "success",
-      "vm_id" => "vm-xtdb-outcome",
+      "vm_id" => "operator_environment",
       "exit_code" => 0,
       "result" => %{"stdout" => "ok", "stderr" => ""}
     }
@@ -41,7 +41,7 @@ defmodule RhizomeTest do
                }
              })
 
-    assert [%{"cell_id" => "planner_cell", "action" => "patch_codebase", "status" => "success",
-              "vm_id" => "vm-xtdb-outcome", "exit_code" => 0}] = rows
+    assert [%{"cell_id" => "planner_cell", "action" => "emit_babble", "status" => "success",
+              "vm_id" => "operator_environment", "exit_code" => 0}] = rows
   end
 end

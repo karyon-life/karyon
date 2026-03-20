@@ -91,7 +91,7 @@ defmodule Dashboard.OrganismObservability do
     %{
       status: :ok,
       prediction_error_count: working_count(memory_module, "PredictionError"),
-      consolidation_supernode_count: working_count(memory_module, "SleepSuperNode"),
+      consolidation_supernode_count: working_count(memory_module, "GrammarSuperNode"),
       workspace_coordination_count: working_count(memory_module, "CrossWorkspaceCoordination"),
       objective_projection_count: working_count(memory_module, "ObjectiveProjection")
     }

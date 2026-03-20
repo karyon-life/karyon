@@ -9,7 +9,7 @@ defmodule App.TestSupport.SubsystemContracts do
         id: :nucleus_boundary,
         subsystem: :nucleus,
         path: "core/lib/core",
-        description: "the nucleus owns sterile planning, lifecycle, and metabolic control",
+        description: "the nucleus owns sterile planning, lifecycle, metabolism, and dream-state control",
         required: ["application.ex", "epigenetic_supervisor.ex", "motor_driver.ex", "plan.ex", "stem_cell.ex", "yaml_parser.ex"],
         forbidden: ["firecracker.ex", "pain_receptor.ex", "memory.ex", "dashboard_web"]
       },
@@ -32,17 +32,17 @@ defmodule App.TestSupport.SubsystemContracts do
       %{
         id: :membrane_boundary,
         subsystem: :membrane,
-        path: "sandbox/lib/sandbox",
-        description: "the membrane owns Firecracker embodiment and host isolation",
-        required: ["firecracker.ex", "provisioner.ex", "vmm_supervisor.ex"],
-        forbidden: ["Rhizome.Memory.submit_prediction_error", "Core.MotorDriver.sequence_plan", "Dashboard.OperatorHealth"]
+        path: "operator_environment/lib/operator_environment",
+        description: "the waking-world membrane owns operator conditioning and membrane telemetry surfaces",
+        required: ["telemetry_bridge.ex", "application.ex"],
+        forbidden: ["Sandbox.Firecracker", "Provisioner.capture_output", "Rhizome.Memory.submit_prediction_error"]
       },
       %{
         id: :nervous_system_boundary,
         subsystem: :nervous_system,
         path: "nervous_system/lib/nervous_system",
-        description: "the nervous system owns synaptic transport, endocrine signals, and pain routing",
-        required: ["synapse.ex", "pain_receptor.ex", "endocrine.ex", "application.ex"],
+        description: "the nervous system owns synaptic transport, endocrine signals, pain routing, and membrane bus delivery",
+        required: ["synapse.ex", "pain_receptor.ex", "endocrine.ex", "application.ex", "pub_sub.ex"],
         forbidden: ["Sandbox.Firecracker", "Rhizome.Native.optimize_graph", "Core.MotorDriver.sequence_plan"]
       }
     ]

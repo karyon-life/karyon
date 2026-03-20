@@ -19,6 +19,7 @@ defmodule Core.MetabolicDaemon do
 
     state = %{
       pressure: :low,
+      consciousness_state: :awake,
       baselines: %{l3_misses: 0, run_queue: 0, iops: 0},
       calibrated: false,
       preflight_status: :ok,
@@ -62,9 +63,22 @@ defmodule Core.MetabolicDaemon do
     {:reply,
      %{
        pressure: state.pressure,
+       consciousness_state: state.consciousness_state,
+       membrane_open: membrane_open?(state.consciousness_state),
+       motor_output_open: motor_output_open?(state.consciousness_state),
        preflight_status: state.preflight_status,
        calibrated: state.calibrated,
        strict_preflight: state.strict_preflight
+     }, state}
+  end
+
+  @impl true
+  def handle_call(:get_membrane_state, _from, state) do
+    {:reply,
+     %{
+       consciousness_state: state.consciousness_state,
+       membrane_open: membrane_open?(state.consciousness_state),
+       motor_output_open: motor_output_open?(state.consciousness_state)
      }, state}
   end
 
@@ -106,6 +120,7 @@ defmodule Core.MetabolicDaemon do
   def handle_info(:poll_metrics, state) do
     snapshot = collect_metric_snapshot(state)
     pressure = calculate_system_pressure(state, snapshot)
+    consciousness_state = determine_consciousness_state(state, snapshot)
     
     check_cpu_starvation(pressure)
     check_l3_cache_constriction(state, snapshot)
@@ -123,12 +138,15 @@ defmodule Core.MetabolicDaemon do
         run_queue: snapshot.run_queue,
         iops: snapshot.iops,
         atp: atp_level(pressure),
+        consciousness_state: consciousness_state,
+        membrane_open: membrane_open?(consciousness_state),
+        motor_output_open: motor_output_open?(consciousness_state),
         policy: Core.MetabolismPolicy.to_map(metabolic_policy(pressure)),
         preflight_status: state.preflight_status
       }
     )
     
-    {:noreply, %{state | pressure: pressure}}
+    {:noreply, %{state | pressure: pressure, consciousness_state: consciousness_state}}
   end
 
   defp pressure_to_num(:low), do: 0
@@ -155,7 +173,7 @@ defmodule Core.MetabolicDaemon do
       run_queue_len = :erlang.statistics(:run_queue)
       Logger.warning("[MetabolicDaemon] High Run Queue Detected: #{run_queue_len}. Triggering partial Apoptosis.")
       
-      severity = if pressure == :high, do: "high", else: "medium"
+      severity = if pressure == :high, do: 1.0, else: 0.6
       broadcast_spike("cpu", run_queue_len, 10.0, severity)
       
       induce_apoptosis(:generic)
@@ -168,7 +186,8 @@ defmodule Core.MetabolicDaemon do
       value: value * 1.0,
       threshold: threshold * 1.0,
       timestamp: System.system_time(:second),
-      severity: severity
+      severity: severity,
+      source: "metabolic_daemon"
     }
     
     # We'll use a globally registered endocrine gnat connection if available, 
@@ -199,7 +218,7 @@ defmodule Core.MetabolicDaemon do
     case snapshot.iops do
       iops when is_integer(iops) and iops > state.baselines.iops + 1000 ->
         Logger.info("[MetabolicDaemon] High IOPS detected. Digital Torpor engaged.")
-        broadcast_spike("iops", iops, state.baselines.iops + 1000, "high")
+        broadcast_spike("iops", iops, state.baselines.iops + 1000, 1.0)
       _ ->
         :ok
     end
@@ -294,6 +313,32 @@ defmodule Core.MetabolicDaemon do
   defp atp_level(pressure) do
     max(0.0, 1.0 - pressure_to_num(pressure) * 0.3)
   end
+
+  defp determine_consciousness_state(state, snapshot) do
+    cond do
+      iops_pressure(state, snapshot) == :high -> :torpor
+      simulation_daemon_dreaming?() -> :dreaming
+      true -> :awake
+    end
+  end
+
+  defp simulation_daemon_dreaming? do
+    if Code.ensure_loaded?(Core.SimulationDaemon) do
+      Core.SimulationDaemon.dreaming?()
+    else
+      false
+    end
+  rescue
+    _ -> false
+  catch
+    :exit, _ -> false
+  end
+
+  defp membrane_open?(:awake), do: true
+  defp membrane_open?(_), do: false
+
+  defp motor_output_open?(:awake), do: true
+  defp motor_output_open?(_), do: false
 
   defp metabolic_policy(pressure) do
     Core.MetabolismPolicy.build_policy(pressure)

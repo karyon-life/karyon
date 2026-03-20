@@ -35,20 +35,27 @@ defmodule Core.StemCellPropertyTest do
       # if it's extracted or by calling handle_info if we mock the protox decoder.
       
       handle_info_logic = fn
-        %{severity: "high"}, state -> %{state | atp_metabolism: 0.1, status: :torpor}
-        %{severity: "medium"}, state -> %{state | atp_metabolism: 0.5}
-        _, state -> state
+        %{severity: severity}, state when severity >= 0.85 ->
+          %{state | atp_metabolism: 0.1, status: :torpor}
+
+        %{severity: severity}, state when severity >= 0.5 ->
+          %{state | atp_metabolism: 0.5}
+
+        _, state ->
+          state
       end
 
       new_state = handle_info_logic.(spike, initial_state)
 
       case spike.severity do
-        "high" ->
+        severity when severity >= 0.85 ->
           assert new_state.status == :torpor
           assert new_state.atp_metabolism == 0.1
-        "medium" ->
+
+        severity when severity >= 0.5 ->
           assert new_state.status == :active
           assert new_state.atp_metabolism == 0.5
+
         _ ->
           assert new_state.status == :active
           assert new_state.atp_metabolism == 1.0
@@ -95,7 +102,7 @@ defmodule Core.StemCellPropertyTest do
   end
 
   defp metabolic_spike_gen do
-    gen all severity <- member_of(["high", "medium", "low", "none"]) do
+    gen all severity <- one_of([float(min: 0.0, max: 1.0), constant(nil)]) do
       %{severity: severity}
     end
   end

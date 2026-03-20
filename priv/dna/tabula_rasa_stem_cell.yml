@@ -1,0 +1,16 @@
+cell_type: "tabula_rasa_stem"
+description: "Blank-slate coordination cell for linguistic grounding, prediction, and pruning."
+allowed_actions:
+  - "form_expectation"
+  - "update_grounding"
+  - "prune_association"
+subscriptions:
+  - "metabolic.spike"
+  - "operator.feedback"
+  - "grounding.event"
+synapses:
+  - type: "push"
+    bind: "tcp://127.0.0.1:0"
+utility_threshold: 0.2
+precision_baseline: 0.9
+atp_requirement: 0.2

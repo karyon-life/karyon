@@ -11,7 +11,9 @@ defmodule NervousSystem.Application do
       {:error, {:already_started, _pid}} -> :ok
     end
     children = [
-      NervousSystem.PainReceptor
+      {Phoenix.PubSub, name: NervousSystem.LocalBus},
+      NervousSystem.PainReceptor,
+      Sensory.STDPCoordinator
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

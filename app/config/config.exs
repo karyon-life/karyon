@@ -2,11 +2,6 @@ import Config
 
 config :protox, :protoc, System.get_env("PROTOC_PATH") || System.find_executable("protoc") || "/tmp/protoc/bin/protoc"
 
-config :sandbox,
-  firecracker_binary: "/usr/local/bin/firecracker",
-  kernel_image_path: nil,
-  rootfs_path: nil
-
 config :karyon, :services,
   memgraph: [
     url: "bolt://127.0.0.1:7687",

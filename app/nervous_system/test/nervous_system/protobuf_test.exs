@@ -9,21 +9,25 @@ defmodule NervousSystem.ProtobufTest do
       value: 0.85,
       threshold: 0.80,
       timestamp: System.system_time(:second),
-      severity: "high"
+      severity: 0.85,
+      source: "metabolic_daemon"
     }
 
     assert {:ok, iodata} = MetabolicSpike.encode(msg)
     binary = IO.iodata_to_binary(iodata)
     assert {:ok, decoded} = MetabolicSpike.decode(binary)
     assert decoded.metric_type == "cpu"
-    assert decoded.severity == "high"
+    assert_in_delta decoded.severity, 0.85, 0.0001
     assert decoded.value == 0.85
+    assert decoded.source == "metabolic_daemon"
   end
 
   test "PredictionError handles optional metadata fields safely" do
     msg = %PredictionError{
       type: "nociception",
-      metadata: %{"key" => "value"}
+      metadata: %{"key" => "value"},
+      source: "operator_induced",
+      severity: 1.0
     }
 
     assert {:ok, iodata} = PredictionError.encode(msg)
@@ -31,6 +35,8 @@ defmodule NervousSystem.ProtobufTest do
     assert {:ok, decoded} = PredictionError.decode(binary)
     assert decoded.type == "nociception"
     assert decoded.metadata["key"] == "value"
+    assert decoded.source == "operator_induced"
+    assert_in_delta decoded.severity, 1.0, 0.0001
   end
 
   test "Protobuf rejects invalid binary data" do

@@ -12,16 +12,22 @@ defmodule Core.TestSupport.Chapter3Rubric do
         forbidden: ["Sandbox.Provisioner.capture_output", "\"firecracker_python\"", "\"error_test\""]
       },
       %{
-        id: :sandbox_owns_firecracker_execution_adapter,
-        path: "app/sandbox/lib/sandbox/executor.ex",
-        required: ["def capture_output", "Provisioner.capture_output"],
-        forbidden: ["Core.MotorDriver", "Core.StemCell"]
+        id: :operator_membrane_owns_motor_babble_adapter,
+        path: "app/core/lib/core/operator_sandbox_executor.ex",
+        required: ["def execute_plan", "mode: \"operator_environment\"", "stream: \"motor_babble\""],
+        forbidden: ["Firecracker", "Provisioner.capture_output", "Sandbox."]
       },
       %{
-        id: :dna_carries_executor_configuration,
-        path: "app/core/priv/dna/motor_firecracker.yml",
-        required: ["executor:", "module:", "function:"],
-        forbidden: ["motor_executor:"]
+        id: :tabula_rasa_baseline_is_linguistic,
+        path: "priv/dna/tabula_rasa_stem_cell.yml",
+        required: ["cell_type:", "subscriptions:", "utility_threshold:"],
+        forbidden: ["compile", "patch_codebase", "executor:", "ast_parser:"]
+      },
+      %{
+        id: :motor_babble_baseline_is_non_engineering,
+        path: "priv/dna/motor_babble_cell.yml",
+        required: ["cell_type:", "allowed_actions:", "babble"],
+        forbidden: ["compile", "patch_codebase", "execute_plan", "executor:"]
       }
     ]
   end

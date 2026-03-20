@@ -167,7 +167,7 @@ defmodule Core.MotorDriverTest do
   end
 
   test "StemCell boots successfully from new DNA templates" do
-    dna_path = "priv/dna/architect_planner.yml"
+    dna_path = "priv/dna/tabula_rasa_stem_cell.yml"
     # Ensure we are in the right place
     assert File.exists?(dna_path)
     

@@ -36,6 +36,15 @@ defmodule Core.StemCellTest do
 
       {:ok, %{id: event["id"]}}
     end
+
+    def prune_stdp_pathway(event) do
+      if pid = Process.whereis(:stem_cell_test_observer) do
+        send(pid, {:stdp_pathway_pruned, event})
+      end
+
+      mode = if event["severity"] < 0.5, do: :depressed, else: :deleted
+      {:ok, %{plasticity_mode: mode, sensory_id: event["sensory_id"], motor_id: event["motor_id"]}}
+    end
   end
 
   defmodule RhizomeStub do
@@ -113,7 +122,7 @@ defmodule Core.StemCellTest do
     ref = Process.monitor(pid)
 
     # Simulate medium stress spike
-    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "medium"}
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: 0.6, source: "metabolic_daemon"}
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     payload = IO.iodata_to_binary(iodata)
     send(pid, {:msg, "metabolic.spike", payload})
@@ -141,7 +150,7 @@ defmodule Core.StemCellTest do
     assert 3 == GenServer.call(pid, :get_synapse_count)
     
     # Simulate high stress spike
-    spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    spike = %Karyon.NervousSystem.MetabolicSpike{severity: 1.0, source: "metabolic_daemon"}
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(spike)
     payload = IO.iodata_to_binary(iodata)
     send(pid, {:msg, "metabolic.spike", payload})
@@ -204,6 +213,8 @@ defmodule Core.StemCellTest do
     # Simulate nociception
     noc_msg = %Karyon.NervousSystem.PredictionError{
       type: "nociception",
+      source: "telemetry",
+      severity: 1.0,
       metadata: %{"error" => "high_latency"}
     }
     {:ok, payload} = Karyon.NervousSystem.PredictionError.encode(noc_msg)
@@ -212,7 +223,7 @@ defmodule Core.StemCellTest do
 
     Process.sleep(100)
 
-    assert_received {:prediction_error_persisted, prediction_error}
+    assert_receive {:prediction_error_persisted, prediction_error}, 1_000
     assert prediction_error["type"] == "nociception"
     assert prediction_error["status"] == "pruned"
     assert prediction_error["vfe"] == 0.8
@@ -331,7 +342,9 @@ defmodule Core.StemCellTest do
 
     noc_msg = %Karyon.NervousSystem.PredictionError{
       type: "nociception",
-      metadata: %{"failed_expectation_id" => "critical-goal", "severity" => "high", "trace_id" => "weighted-trace"}
+      source: "telemetry",
+      severity: 1.0,
+      metadata: %{"failed_expectation_id" => "critical-goal", "severity" => "1.0", "trace_id" => "weighted-trace"}
     }
 
     {:ok, payload} = Karyon.NervousSystem.PredictionError.encode(noc_msg)
@@ -486,7 +499,7 @@ defmodule Core.StemCellTest do
 
     {:ok, pid} = StemCell.start_link(constrained_dna)
 
-    high_spike = %Karyon.NervousSystem.MetabolicSpike{severity: "high"}
+    high_spike = %Karyon.NervousSystem.MetabolicSpike{severity: 1.0, source: "metabolic_daemon"}
     {:ok, iodata} = Karyon.NervousSystem.MetabolicSpike.encode(high_spike)
     send(pid, {:msg, "metabolic.spike", IO.iodata_to_binary(iodata)})
     Process.sleep(100)
@@ -548,5 +561,57 @@ defmodule Core.StemCellTest do
 
     # Use GenServer.start (unlinked) to avoid exit signal propagation in test
     assert {:error, _} = GenServer.start(StemCell, malformed_dna)
+  end
+
+  test "StemCell prunes the active pathway when receiving an STDP prediction error" do
+    specialized_dna = "/tmp/stdp_dna.yml"
+    File.write!(specialized_dna, """
+    cell_type: specialized_motor
+    allowed_actions: ["patch_codebase"]
+    executor:
+      module: "Core.TestSupport.ExecutorStub"
+      function: "capture_output"
+    """)
+    on_exit(fn -> File.rm(specialized_dna) end)
+
+    Process.register(self(), :stem_cell_test_observer)
+
+    on_exit(fn ->
+      if Process.whereis(:stem_cell_test_observer) == self(), do: Process.unregister(:stem_cell_test_observer)
+    end)
+
+    original_module = Application.get_env(:core, :memory_module)
+    original_rhizome_module = Application.get_env(:core, :rhizome_module)
+    Application.put_env(:core, :memory_module, MemoryStub)
+    Application.put_env(:core, :rhizome_module, RhizomeStub)
+
+    on_exit(fn ->
+      if original_module do
+        Application.put_env(:core, :memory_module, original_module)
+      else
+        Application.delete_env(:core, :memory_module)
+      end
+
+      if original_rhizome_module do
+        Application.put_env(:core, :rhizome_module, original_rhizome_module)
+      else
+        Application.delete_env(:core, :rhizome_module)
+      end
+    end)
+
+    {:ok, pid} = StemCell.start_link(specialized_dna)
+
+    assert {:ok, %{exit_code: 0}} = GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "stdp_vm"]})
+
+    send(pid, {:stdp_prediction_error, specialized_dna, 0.9})
+
+    assert_receive {:stdp_pathway_pruned, event}
+    assert event["sensory_id"] == specialized_dna
+    assert String.starts_with?(event["motor_id"], "intent:specialized_motor:patch_codebase:")
+    assert_receive {:prediction_error_persisted, prediction_error}, 1_000
+    assert prediction_error["type"] == "stdp_prediction_error"
+    assert prediction_error["metadata"]["sensory_id"] == specialized_dna
+    assert prediction_error["metadata"]["motor_action_id"] == event["motor_id"]
+    assert prediction_error["status"] == "pruned"
   end
 end

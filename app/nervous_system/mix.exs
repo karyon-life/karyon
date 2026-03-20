@@ -30,6 +30,7 @@ defmodule NervousSystem.MixProject do
       {:gnat, "~> 1.6"},
       {:protox, "~> 1.7"},
       {:telemetry, "~> 1.0"},
+      {:phoenix_pubsub, "~> 2.1"},
       {:jason, "~> 1.4"},
       {:stream_data, "~> 1.0", only: :test}
     ]

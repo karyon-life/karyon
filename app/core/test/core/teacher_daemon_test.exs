@@ -10,11 +10,11 @@ defmodule Core.TeacherDaemonTest do
       {:ok,
        %{
          status: :exited,
-         vm_id: "teacher-vm-1",
+         vm_id: "operator_environment",
          exit_code: 0,
          telemetry: %{
            summary: %{
-             mutation_count: 1,
+              mutation_count: 1,
              compile_count: 1,
              tests_ran: 2,
              tests_failed: 0
@@ -50,7 +50,7 @@ defmodule Core.TeacherDaemonTest do
     assert Enum.all?(exams, &(String.length(&1["prompt"]) <= 240))
   end
 
-  test "administer_exam/2 runs a bounded synthetic exam through sandbox execution and persists curriculum evidence" do
+  test "administer_exam/2 runs a bounded synthetic exam through the operator membrane and persists curriculum evidence" do
     exam = %{
       "exam_id" => "teacher_exam:test",
       "schema" => "karyon.teacher-daemon.v1",
@@ -68,10 +68,10 @@ defmodule Core.TeacherDaemonTest do
                executor_module: ExecutorStub,
                memory_module: MemoryStub,
                workspace_root: Path.join(System.tmp_dir!(), "teacher-daemon-workspace"),
-               vm_id: "teacher-vm-1"
+               vm_id: "operator_environment"
              )
 
-    assert result.result.vm_id == "teacher-vm-1"
+    assert result.result.vm_id == "operator_environment"
     assert_received {:teacher_intent, intent}
     assert intent["action"] == "execute_plan"
     assert_received {:teacher_event_persisted, event}

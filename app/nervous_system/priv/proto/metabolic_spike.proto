@@ -7,5 +7,6 @@ message MetabolicSpike {
   double value = 2;
   double threshold = 3;
   int64 timestamp = 4;
-  string severity = 5;
+  float severity = 5;
+  string source = 6;
 }

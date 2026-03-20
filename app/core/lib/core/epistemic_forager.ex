@@ -10,7 +10,7 @@ defmodule Core.EpistemicForager do
   alias Core.Plan.Attractor
   alias Core.Plan.Step
 
-  @default_executor %{"module" => "Sandbox.Executor", "function" => "execute_plan"}
+  @default_executor %{"module" => "Core.OperatorSandboxExecutor", "function" => "execute_plan"}
 
   def forage_idle(opts \\ []) do
     policy = Keyword.get(opts, :policy, MetabolismPolicy.current_policy())
@@ -177,5 +177,5 @@ defmodule Core.EpistemicForager do
   defp normalize_float(_value), do: 0.0
 
   defp memory_module(opts), do: Keyword.get(opts, :memory_module, Rhizome.Memory)
-  defp executor_module(opts), do: Keyword.get(opts, :executor_module, Sandbox.Executor)
+  defp executor_module(opts), do: Keyword.get(opts, :executor_module, Core.OperatorSandboxExecutor)
 end

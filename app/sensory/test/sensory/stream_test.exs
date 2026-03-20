@@ -11,22 +11,8 @@ defmodule Sensory.StreamTest do
     assert {:ok, _} = Native.zmq_publish_tensor("neural_tensor", binary)
   end
 
-  test "deterministic AST parsing ensures zero-hallucination" do
-    code = "def hello(): print('world')"
-    # parse_to_graph returns a JSON string of the deterministic AST
-    result = Native.parse_to_graph("python", code)
-    assert String.contains?(result, "function_definition")
-    assert String.contains?(result, "hello")
-  end
-  
-  test "ingest_to_memgraph returns a resource pointer" do
-    code = "int main() { return 0; }"
-    case Native.ingest_to_memgraph("c", code) do
-      {:ok, resource} -> 
-        assert is_reference(resource)
-      {:error, reason} ->
-        # Accept connection errors if memgraph is down, but logic must be sound
-        assert String.contains?(reason, "Connection Error") or String.contains?(reason, "initialized")
-    end
+  test "transport NIF exposes bounded subscribe results" do
+    result = Native.zmq_subscribe_sensory("raw_bytes")
+    assert match?({:ok, _}, result) or match?({:error, _}, result)
   end
 end

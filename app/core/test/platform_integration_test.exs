@@ -17,8 +17,7 @@ defmodule Core.PlatformIntegrationTest do
   end
 
   test "End-to-end flow: Sensory -> Orchestrator -> Motor -> Archive", %{organism: _organism} do
-    code = "function test() { return 42; }"
-    lang = "javascript"
+    code = "hellohello"
     dna_path = Path.expand("../config/genetics/base_stem_cell.yml", __DIR__)
 
     {:ok, gnat_pid} = Endocrine.start_connection("platform_integration")
@@ -32,12 +31,13 @@ defmodule Core.PlatformIntegrationTest do
       if Process.alive?(gnat_pid), do: GenServer.stop(gnat_pid)
     end)
 
-    # 1. Ingest code through the sensory layer into Memgraph.
-    assert {:ok, _resource} = Sensory.Native.ingest_to_memgraph(lang, code)
+    # 1. Ingest raw bytes through the sensory layer into Memgraph.
+    assert {:ok, %{pooled_sequences: sequences}} = Sensory.ingest_bytes(code)
+    assert sequences != []
 
     # 2. Verify sensory output persisted in the graph layer.
     assert {:ok, [%{"count" => count}]} =
-             Rhizome.Native.memgraph_query("MATCH (n:ASTNode {type: 'program'}) RETURN count(n) AS count")
+             Rhizome.Native.memgraph_query("MATCH (n:PooledSequence) RETURN count(n) AS count")
 
     assert count >= 1
 
@@ -57,7 +57,8 @@ defmodule Core.PlatformIntegrationTest do
 
     # 5. Drive a real endocrine signal through the new cell and verify the response.
     spike = %Karyon.NervousSystem.MetabolicSpike{
-      severity: "high",
+      severity: 1.0,
+      source: "operator_induced",
       metric_type: "platform_integration"
     }
 
@@ -86,11 +87,11 @@ defmodule Core.PlatformIntegrationTest do
     Process.sleep(500)
     
     # 4. Attempt a platform action to verify recovery
-    case target_app do
+      case target_app do
       :rhizome ->
         assert {:ok, _} = Rhizome.Native.memgraph_query("MATCH (n) RETURN count(n)")
       :sensory ->
-        assert is_binary(Sensory.Native.parse_code("javascript", "const x = 1"))
+        assert {:ok, _} = Sensory.ingest_bytes("hellohello")
       _ ->
         :ok
     end

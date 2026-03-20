@@ -1,6 +1,6 @@
 use crate::client::{CLIENT, RUNTIME};
 use neo4rs::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{SystemTime, UNIX_EPOCH};
 use rustler::NifResult;
 
@@ -11,24 +11,59 @@ mod atoms {
     }
 }
 
-use single_clustering::network::CSRNetwork;
-use single_clustering::network::grouping::VectorGrouping;
-use single_clustering::community_search::leiden::{LeidenOptimizer, LeidenConfig};
-use single_clustering::community_search::leiden::partition::{VertexPartition, ModularityPartition};
-
-pub fn identify_communities(edges: Vec<(usize, usize, f64)>, node_count: usize) -> Result<Vec<Vec<usize>>, String> {
+pub fn identify_louvain_communities(
+    edges: Vec<(usize, usize, f64)>,
+    node_count: usize,
+) -> Result<Vec<Vec<usize>>, String> {
     if edges.is_empty() {
         return Ok(Vec::new());
     }
-    
-    let network = CSRNetwork::from_edges(&edges, vec![1.0; node_count]);
-    let mut optimizer = LeidenOptimizer::new(LeidenConfig::default());
 
-    let partition: ModularityPartition<f64, VectorGrouping> = optimizer
-        .find_partition(network)
-        .map_err(|error| format!("Partition Error: {}", error))?;
+    let mut graph: HashMap<usize, Vec<usize>> = HashMap::new();
 
-    Ok(partition.get_communities())
+    for (start, end, weight) in edges {
+        if weight < 0.5 {
+            continue;
+        }
+
+        graph.entry(start).or_default().push(end);
+        graph.entry(end).or_default().push(start);
+    }
+
+    let mut visited: HashSet<usize> = HashSet::new();
+    let mut communities = Vec::new();
+
+    for node in 0..node_count {
+        if visited.contains(&node) || !graph.contains_key(&node) {
+            continue;
+        }
+
+        let mut queue = VecDeque::from([node]);
+        let mut community = Vec::new();
+
+        while let Some(current) = queue.pop_front() {
+            if !visited.insert(current) {
+                continue;
+            }
+
+            community.push(current);
+
+            if let Some(neighbors) = graph.get(&current) {
+                for neighbor in neighbors {
+                    if !visited.contains(neighbor) {
+                        queue.push_back(*neighbor);
+                    }
+                }
+            }
+        }
+
+        if community.len() > 1 {
+            community.sort_unstable();
+            communities.push(community);
+        }
+    }
+
+    Ok(communities)
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -43,8 +78,12 @@ pub fn optimize_graph() -> NifResult<(rustler::Atom, String)> {
             None => return (atoms::error(), "Error: Memgraph client unavailable".to_string()),
         };
 
-        // 1. Fetch all nodes and edges from Memgraph
-        let mut result = match client.graph.execute(query("MATCH (n)-[r]->(m) RETURN id(n) as start, id(m) as end, coalesce(r.weight, 1.0) as weight")).await {
+        // 1. Fetch only operator-environment pooled-sequence co-occurrence edges.
+        let mut result = match client.graph.execute(query(
+            "MATCH (a:PooledSequence)-[r:CO_OCCURS_WITH]->(b:PooledSequence) \
+             WHERE a.source = 'operator_environment' AND b.source = 'operator_environment' \
+             RETURN id(a) as start, id(b) as end, coalesce(r.weight, 1.0) as weight"
+        )).await {
             Ok(r) => r,
             Err(e) => return (atoms::error(), format!("Query Error: {}", e)),
         };
@@ -85,48 +124,75 @@ pub fn optimize_graph() -> NifResult<(rustler::Atom, String)> {
         }
 
         if edge_list.is_empty() {
-            return (atoms::ok(), "Sleep Cycle: No graph data found to consolidate.".to_string());
+            return (
+                atoms::ok(),
+                "Sleep Cycle: No operator pooled-sequence graph data found to consolidate."
+                    .to_string(),
+            );
         }
 
         let node_count = next_internal_id;
 
-        // 2. Identify communities using Leiden
-        let communities = match identify_communities(edge_list, node_count) {
+        // 2. Identify communities using the active Louvain-style clustered language path.
+        let communities = match identify_louvain_communities(edge_list, node_count) {
             Ok(communities) => communities,
             Err(error) => return (atoms::error(), error),
         };
         let community_count = communities.len();
 
-        // 3. Super-Node Generation
+        // 3. GrammarSuperNode generation for structural grammar rules.
         for (i, community) in communities.iter().enumerate() {
             if community.len() > 1 {
                 let now = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .map(|duration| duration.as_secs())
                     .unwrap_or(0);
-                let super_node_id = format!("sn_{}_{}", now, i);
-                
-                // Calculate confidence based on cluster density/size
-                // Simplified: confidence = log2(size) / 10.0 (capped at 1.0)
+                let super_node_id = format!("grammar_supernode:{}:{}", now, i);
                 let confidence = ((community.len() as f64).log2() / 10.0).min(1.0);
+                let observed_at = now as i64;
 
-                // Create SuperNode with confidence
-                let _ = client.graph.run(query("CREATE (s:SuperNode {id: $id, type: 'COMMUNITY', confidence: $conf})")
+                let _ = client.graph.run(
+                    query(
+                        "MERGE (g:GrammarSuperNode {id: $id}) \
+                         SET g.kind = 'structural_grammar_rule', \
+                             g.community_size = $community_size, \
+                             g.confidence = $conf, \
+                             g.source = 'operator_environment', \
+                             g.created_at = $observed_at, \
+                             g.observed_at = $observed_at"
+                    )
                     .param("id", super_node_id.clone())
-                    .param("conf", confidence)).await;
+                    .param("community_size", community.len() as i64)
+                    .param("conf", confidence)
+                    .param("observed_at", observed_at)
+                ).await;
 
                 for internal_id in community {
                     if let Some(external_id) = internal_id_to_external.get(internal_id) {
-                        // Link member to SuperNode
-                        let _ = client.graph.run(query("MATCH (s:SuperNode {id: $sn_id}), (m) WHERE id(m) = $m_id CREATE (m)-[:MEMBER_OF]->(s)")
-                            .param("sn_id", super_node_id.clone())
-                            .param("m_id", *external_id as i64)).await;
+                        let _ = client.graph.run(
+                            query(
+                                "MATCH (g:GrammarSuperNode {id: $grammar_id}), (m:PooledSequence) \
+                                 WHERE id(m) = $member_id \
+                                 MERGE (g)-[r:ABSTRACTS]->(m) \
+                                 SET r.kind = 'grammar_consolidation', \
+                                     r.created_at = $observed_at"
+                            )
+                            .param("grammar_id", super_node_id.clone())
+                            .param("member_id", *external_id as i64)
+                            .param("observed_at", observed_at)
+                        ).await;
                     }
                 }
             }
         }
         
-        (atoms::ok(), format!("Optimization complete: identified {} communities and generated Super-Nodes.", community_count))
+        (
+            atoms::ok(),
+            format!(
+                "Louvain optimization complete: identified {} pooled-sequence communities and generated GrammarSuperNodes.",
+                community_count
+            ),
+        )
     }))
 }
 
@@ -142,7 +208,7 @@ mod tests {
         ];
         let node_count = 2;
 
-        let communities = identify_communities(edges, node_count).unwrap();
+        let communities = identify_louvain_communities(edges, node_count).unwrap();
         assert_eq!(communities.len(), 1);
         assert_eq!(communities[0].len(), 2);
     }
@@ -152,9 +218,7 @@ mod tests {
         let edges = vec![];
         let node_count = 2;
 
-        let communities = identify_communities(edges, node_count).unwrap();
-        // If there are no edges, it returns empty Vec or 1-node communities?
-        // Let's check implementation: if edges.is_empty() { return Vec::new(); }
+        let communities = identify_louvain_communities(edges, node_count).unwrap();
         assert_eq!(communities.len(), 0);
     }
 }

@@ -27,8 +27,11 @@ defmodule Rhizome.MemoryTopology do
         :query_working_memory,
         :query_memgraph,
         :query_low_confidence_candidates,
+        :query_grammar_supernodes,
         :upsert_graph_node,
         :relate_graph_nodes,
+        :prune_stdp_pathway,
+        :persist_pooled_sequence,
         :persist_pooled_pattern,
         :normalize_abstract_state
       ]
@@ -47,6 +50,7 @@ defmodule Rhizome.MemoryTopology do
         :submit_execution_outcome,
         :submit_execution_telemetry,
         :submit_prediction_error,
+        :submit_trauma_event,
         :submit_baseline_curriculum,
         :submit_objective_projection,
         :submit_cross_workspace_coordination,

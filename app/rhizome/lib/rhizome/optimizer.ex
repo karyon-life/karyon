@@ -21,7 +21,7 @@ defmodule Rhizome.Optimizer do
   def handle_info(:optimize, state) do
     Logger.info("[Rhizome.Optimizer] Beginning Sleep Cycle memory consolidation...")
     result = Rhizome.Native.optimize_graph()
-    Logger.info("[Rhizome.Optimizer] #{result}")
+    Logger.info("[Rhizome.Optimizer] #{format_result(result)}")
     
     schedule_optimization()
     {:noreply, state}
@@ -30,4 +30,8 @@ defmodule Rhizome.Optimizer do
   defp schedule_optimization do
     Process.send_after(self(), :optimize, @interval_ms)
   end
+
+  defp format_result({:ok, message}) when is_binary(message), do: message
+  defp format_result({:error, message}) when is_binary(message), do: "error: #{message}"
+  defp format_result(other), do: inspect(other)
 end

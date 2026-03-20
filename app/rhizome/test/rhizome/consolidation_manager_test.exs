@@ -22,26 +22,26 @@ defmodule Rhizome.ConsolidationManagerTest do
       end
 
       cond do
-        String.contains?(query, "RETURN id(n) AS internal_id") ->
+        String.contains?(query, "MATCH (n:PooledSequence)") ->
           {:ok,
            [
              %{
-               "internal_id" => 7,
-               "labels" => ["Cell"],
-               "props" => %{"id" => "cell-7", "vfe" => 0.95, "archived" => false}
+                "internal_id" => 7,
+               "labels" => ["PooledSequence"],
+               "props" => %{"id" => "sequence-7", "source" => "operator_environment", "archived" => false}
              },
              %{
-               "internal_id" => 8,
-               "labels" => ["PredictionError"],
-               "props" => %{"id" => "prediction-8", "vfe" => 0.2, "archived" => false}
+                "internal_id" => 8,
+               "labels" => ["PooledSequence"],
+               "props" => %{"id" => "sequence-8", "source" => "operator_environment", "archived" => false}
              }
            ]}
 
-        String.contains?(query, "MERGE (s:SleepSuperNode") ->
-          {:ok, [%{"supernode_id" => "sleep_supernode:2026-03-18T00:00:00Z", "abstracted_count" => 1}]}
+        String.contains?(query, "MATCH (a:PooledSequence)-[r:CO_OCCURS_WITH]->(b:PooledSequence)") ->
+          {:ok, [%{"start" => 7, "end" => 8, "weight" => 0.9}]}
 
-        String.contains?(query, "SET n.archived = true") ->
-          {:ok, [%{"pruned_count" => 1}]}
+        String.contains?(query, "MERGE (g:GrammarSuperNode") ->
+          {:ok, [%{"grammar_id" => "grammar_supernode:2026-03-18T00:00:00Z:1"}]}
 
         true ->
           {:ok, []}
@@ -157,19 +157,19 @@ defmodule Rhizome.ConsolidationManagerTest do
 
     assert result.learning_phase == "consolidation"
     assert result.learning_edge == "plasticity->consolidation"
-    assert {:ok, %{total: 2, prunable: [_], retainable: [_]}} = result.classified_candidates
-    assert {:ok, %{supernode_count: 1, abstracted_count: 1}} = result.abstractions
+    assert {:ok, %{total: 2, sequences: [_, _]}} = result.classified_candidates
+    assert {:ok, %{supernode_count: 1, abstracted_count: 2}} = result.abstractions
     assert {:ok, %{archived_count: 1}} = result.bridge_to_xtdb
     assert {:ok, "optimized"} = result.optimize_graph
-    assert {:ok, %{pruned_count: 1, retained_in_archive: true, strategy: "targeted_in_place_pruning"}} =
+    assert {:ok, %{pruned_count: 0, retained_in_archive: true, strategy: "targeted_in_place_pruning"}} =
              result.memory_relief
 
     assert_received {:native_query, query}
-    assert query =~ "RETURN id(n) AS internal_id"
+    assert query =~ "MATCH (n:PooledSequence)"
+    assert_received {:native_query, cooccurrence_query}
+    assert cooccurrence_query =~ "CO_OCCURS_WITH"
     assert_received {:native_query, abstraction_query}
-    assert abstraction_query =~ "MERGE (s:SleepSuperNode"
-    assert_received {:native_query, prune_query}
-    assert prune_query =~ "SET n.archived = true"
-    refute prune_query =~ "DETACH DELETE"
+    assert abstraction_query =~ "MERGE (g:GrammarSuperNode"
+    refute abstraction_query =~ "SleepSuperNode"
   end
 end

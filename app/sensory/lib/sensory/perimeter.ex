@@ -5,13 +5,6 @@ defmodule Sensory.Perimeter do
   """
 
   @contract %{
-    eyes: %{
-      description: "deterministic structural perception for repositories and source files",
-      surfaces: %{
-        repository_snapshot: [:filesystem],
-        source_file: [:filesystem]
-      }
-    },
     ears: %{
       description: "passive event and telemetry ingestion",
       surfaces: %{
@@ -21,8 +14,14 @@ defmodule Sensory.Perimeter do
         tensor_stream: [:zeromq]
       }
     },
+    tabula_rasa: %{
+      description: "continuous raw-byte linguistic intake without parser priors",
+      surfaces: %{
+        continuous_byte_stream: [:zeromq, :raw_socket]
+      }
+    },
     skin: %{
-      description: "unknown protocol and raw binary boundary sensing",
+      description: "raw byte and opaque payload boundary sensing",
       surfaces: %{
         protocol_frame: [:raw_socket],
         binary_payload: [:raw_socket]
