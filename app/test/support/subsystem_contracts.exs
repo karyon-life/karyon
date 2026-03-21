@@ -11,7 +11,7 @@ defmodule App.TestSupport.SubsystemContracts do
         path: "core/lib/core",
         description: "the nucleus owns sterile planning, lifecycle, metabolism, and dream-state control",
         required: ["application.ex", "epigenetic_supervisor.ex", "motor_driver.ex", "plan.ex", "stem_cell.ex", "yaml_parser.ex"],
-        forbidden: ["firecracker.ex", "pain_receptor.ex", "memory.ex", "dashboard_web"]
+        forbidden: ["pain_receptor.ex", "memory.ex", "dashboard_web"]
       },
       %{
         id: :cytoplasm_boundary,
@@ -19,7 +19,7 @@ defmodule App.TestSupport.SubsystemContracts do
         path: "core/lib/core/application.ex",
         description: "the cytoplasm boundary boots BEAM process-group and supervision infrastructure",
         required: [":pg.start_link()", "Core.EpigeneticSupervisor", "Core.MetabolicDaemon", "Core.StressTester"],
-        forbidden: ["Sandbox.Firecracker", "Rhizome.Memory.submit_xtdb", "NervousSystem.Synapse.send_signal("]
+        forbidden: ["Rhizome.Memory.submit_xtdb", "NervousSystem.Synapse.send_signal("]
       },
       %{
         id: :organelles_boundary,
@@ -27,7 +27,7 @@ defmodule App.TestSupport.SubsystemContracts do
         path: "rhizome/lib/rhizome",
         description: "organelles own heavy graph and temporal memory operations behind NIF boundaries",
         required: ["native.ex", "raw.ex", "memory.ex", "optimizer.ex", "xtdb.ex"],
-        forbidden: ["Sandbox.Firecracker", "DashboardWeb", "Core.EpigeneticSupervisor"]
+        forbidden: ["DashboardWeb", "Core.EpigeneticSupervisor"]
       },
       %{
         id: :membrane_boundary,
@@ -35,7 +35,7 @@ defmodule App.TestSupport.SubsystemContracts do
         path: "operator_environment/lib/operator_environment",
         description: "the waking-world membrane owns operator conditioning and membrane telemetry surfaces",
         required: ["telemetry_bridge.ex", "application.ex"],
-        forbidden: ["Sandbox.Firecracker", "Provisioner.capture_output", "Rhizome.Memory.submit_prediction_error"]
+        forbidden: ["Rhizome.Memory.submit_prediction_error"]
       },
       %{
         id: :nervous_system_boundary,
@@ -43,7 +43,7 @@ defmodule App.TestSupport.SubsystemContracts do
         path: "nervous_system/lib/nervous_system",
         description: "the nervous system owns synaptic transport, endocrine signals, pain routing, and membrane bus delivery",
         required: ["synapse.ex", "pain_receptor.ex", "endocrine.ex", "application.ex", "pub_sub.ex"],
-        forbidden: ["Sandbox.Firecracker", "Rhizome.Native.optimize_graph", "Core.MotorDriver.sequence_plan"]
+        forbidden: ["Rhizome.Native.optimize_graph", "Core.MotorDriver.sequence_plan"]
       }
     ]
   end

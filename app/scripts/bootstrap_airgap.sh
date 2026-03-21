@@ -17,7 +17,7 @@ mkdir -p "$OUTPUT_DIR/engrams"
 
 echo "1. Consolidating binaries..."
 cp bin/karyon-net-helper "$OUTPUT_DIR/bin/"
-# In a real environment, we'd add firecracker, protoc, etc.
+# In a real environment, we'd add protoc, etc.
 if [ -d "protoc_bin" ]; then
     cp -r protoc_bin "$OUTPUT_DIR/bin/"
 fi

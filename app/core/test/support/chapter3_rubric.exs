@@ -9,14 +9,9 @@ defmodule Core.TestSupport.Chapter3Rubric do
         id: :stem_cell_uses_declarative_executor_contracts,
         path: "app/core/lib/core/stem_cell.ex",
         required: ["resolve_executor(", "invoke_executor(", "ExecutionIntent.from_action(", "executor_spec"],
-        forbidden: ["Sandbox.Provisioner.capture_output", "\"firecracker_python\"", "\"error_test\""]
+        forbidden: ["\"error_test\""]
       },
-      %{
-        id: :operator_membrane_owns_motor_babble_adapter,
-        path: "app/core/lib/core/operator_sandbox_executor.ex",
-        required: ["def execute_plan", "mode: \"operator_environment\"", "stream: \"motor_babble\""],
-        forbidden: ["Firecracker", "Provisioner.capture_output", "Sandbox."]
-      },
+
       %{
         id: :tabula_rasa_baseline_is_linguistic,
         path: "priv/dna/tabula_rasa_stem_cell.yml",

@@ -15,10 +15,10 @@ defmodule OperatorEnvironmentWeb.OperatorSandboxLive.Index do
 
     {:ok,
      assign(socket,
-       input_stream: "",
-       feedback_multiplier: 0.5,
+       input_stream: "[\"ALLOW\", \"User_A\", \"READ\", \"Database_X\"]",
        motor_babble: [],
        last_feedback: nil,
+       error: nil,
        telemetry: %{
          free_energy: nil,
          pressure: :low,
@@ -34,47 +34,74 @@ defmodule OperatorEnvironmentWeb.OperatorSandboxLive.Index do
   end
 
   @impl true
-  def handle_event("stream_bytes", %{"value" => value}, socket) do
+  def handle_event("submit_dsl", %{"dsl_input" => dsl_json}, socket) do
     if socket.assigns.telemetry.membrane_open do
-    payload = %{
-      bytes: :erlang.binary_to_list(value),
-      stream: value,
-      observed_at: System.monotonic_time(:millisecond)
-    }
+      case Jason.decode(dsl_json) do
+        {:ok, tokens} when is_list(tokens) ->
+          # Automatically parse arrays into Sensory.Quantizer
+          node_ids = Enum.map(tokens, fn
+            token when is_binary(token) -> Sensory.Quantizer.quantize(token)
+            other -> Sensory.Quantizer.quantize(to_string(other))
+          end)
 
-      _ = NervousSystem.PubSub.broadcast(@sensory_topic, payload)
+          payload = %{
+            stream: dsl_json,
+            tokens: tokens,
+            node_ids: node_ids,
+            observed_at: System.monotonic_time(:millisecond),
+            source: :operator_induced
+          }
+          _ = NervousSystem.PubSub.broadcast(@sensory_topic, payload)
 
-      {:noreply, assign(socket, input_stream: value)}
+          {:noreply, assign(socket, input_stream: dsl_json, error: nil)}
+
+        _ ->
+          {:noreply, assign(socket, error: "Invalid DSL Array format. Must be a strict JSON array of strings.")}
+      end
     else
       {:noreply, socket}
     end
   end
 
-  def handle_event("adjust_feedback", %{"severity" => severity}, socket) do
-    {:noreply, assign(socket, feedback_multiplier: parse_severity(severity))}
-  end
-
-  def handle_event("inject_feedback", %{"severity" => severity}, socket) do
+  def handle_event("confirm_topology", _params, socket) do
     if socket.assigns.telemetry.membrane_open do
-      payload = nociception_payload(severity, socket.assigns.input_stream, false)
-      _ = NervousSystem.PubSub.broadcast(@nociception_topic, payload)
-      {:noreply, assign(socket, last_feedback: payload)}
+      payload = %{
+        "feedback_kind" => "approval",
+        "template_id" => "sandbox_dsl",
+        "target_path" => socket.assigns.input_stream,
+        "message" => "Confirm Topology",
+        "severity" => 1.0,
+        "id" => "operator_feedback:sandbox_dsl:#{System.system_time(:second)}"
+      }
+
+      # Record positive feedback via Core.OperatorFeedback (Dopamine analogue)
+      _ = Core.OperatorFeedback.record_event(payload)
+      
+      {:noreply, assign(socket, last_feedback: %{message: "Topology Confirmed (Dopamine Spike)"})}
     else
       {:noreply, socket}
     end
   end
 
-  def handle_event("bundle_input", %{"value" => value, "severity" => severity}, socket) do
+  def handle_event("reject_syntax", _params, socket) do
     if socket.assigns.telemetry.membrane_open do
-      payload = nociception_payload(severity, value, true)
-      _ = NervousSystem.PubSub.broadcast(@sensory_topic, payload)
-      _ = NervousSystem.PubSub.broadcast(@nociception_topic, payload)
+      payload = %{
+        "feedback_kind" => "friction",
+        "template_id" => "sandbox_dsl",
+        "target_path" => socket.assigns.input_stream,
+        "message" => "Reject Syntax",
+        "severity" => 1.0,
+        "id" => "operator_feedback:sandbox_dsl:#{System.system_time(:second)}"
+      }
+      
+      # Record logic/syntax failure via Core.OperatorFeedback
+      _ = Core.OperatorFeedback.record_event(payload)
+      
+      # Trigger negative Endocrine spike (Nociception) mapping STDP coordinator to decay pathways
+      nociception = nociception_payload(1.0, socket.assigns.input_stream, false)
+      _ = NervousSystem.PubSub.broadcast(@nociception_topic, nociception)
 
-      {:noreply,
-       socket
-       |> assign(:input_stream, value)
-       |> assign(:feedback_multiplier, payload.severity)
-       |> assign(:last_feedback, payload)}
+      {:noreply, assign(socket, last_feedback: %{message: "Syntax Rejected (Nociception Spike)"})}
     else
       {:noreply, socket}
     end
@@ -102,7 +129,7 @@ defmodule OperatorEnvironmentWeb.OperatorSandboxLive.Index do
       <header class="masthead">
         <div>
           <p class="eyebrow">Operator Sandbox</p>
-          <h1>Waking-World Conditioning Membrane</h1>
+          <h1>Action-Friction Harness</h1>
         </div>
         <div class="telemetry-pill">
           Pressure <span>{String.upcase(to_string(@telemetry.pressure || :low))}</span>
@@ -111,49 +138,41 @@ defmodule OperatorEnvironmentWeb.OperatorSandboxLive.Index do
 
       <section class="zone-grid">
         <section class="zone zone-input">
-          <h2>Continuous Byte Stream</h2>
-          <p class="zone-copy">`phx-keyup` streams the raw byte field continuously. `Shift+Enter` emits one bundled websocket event with the current severity multiplier.</p>
-          <textarea
-            id="sensory-stream"
-            phx-keyup="stream_bytes"
-            phx-hook="MacroInput"
-            data-severity-target="nociception-multiplier"
-            aria-label="continuous byte stream"
-            disabled={!@telemetry.membrane_open}
-          ><%= @input_stream %></textarea>
+          <h2>Deterministic DSL Input</h2>
+          <p class="zone-copy">Submit strict structural arrays representing spatial relationships. Conversational chat is unconditionally disabled.</p>
+          <form phx-submit="submit_dsl" class="dsl-form">
+            <input
+              type="text"
+              name="dsl_input"
+              value={@input_stream}
+              placeholder="[&quot;ALLOW&quot;, &quot;User_A&quot;, &quot;READ&quot;, &quot;Database_X&quot;]"
+              disabled={!@telemetry.membrane_open}
+              autocomplete="off"
+            />
+            <button type="submit" disabled={!@telemetry.membrane_open}>Ingest Vector</button>
+          </form>
+          <p :if={@error} class="error-msg" style="color: #ff4a4a; margin-top: 10px; font-weight: bold;"><%= @error %></p>
         </section>
 
         <section class="zone zone-output">
-          <h2>Motor Babble Output</h2>
-          <p class="zone-copy">Read-only surface for emitted motor babble and operator-facing execution briefs.</p>
+          <h2>Structural Prediction (Motor Babble)</h2>
+          <p class="zone-copy">Read-only surface for emitted execution briefs mapping predicted trajectory.</p>
           <textarea id="motor-babble-stream" readonly aria-label="motor babble output"><%= Enum.join(Enum.reverse(@motor_babble), "\n") %></textarea>
         </section>
 
         <section class="zone zone-feedback">
-          <h2>Biological Feedback Array</h2>
-          <p class="zone-copy">Inject variable `metabolic.spike` severity as typed numeric values.</p>
-          <div class="multiplier-row">
-            <label for="nociception-multiplier">Severity multiplier</label>
-            <input
-              id="nociception-multiplier"
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={@feedback_multiplier}
-              phx-change="adjust_feedback"
-              name="severity"
-              disabled={!@telemetry.membrane_open}
-            />
-            <span class="multiplier-value">{format_float(@feedback_multiplier)}</span>
+          <h2>Friction Controls</h2>
+          <p class="zone-copy">Evaluate system-generated topologies and force graph plasticity explicitly.</p>
+          <div class="feedback-array" style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <button type="button" class="btn-confirm" phx-click="confirm_topology" disabled={!@telemetry.membrane_open} style="background-color: #2e8b57; color: white; padding: 0.5rem 1rem; border: none; font-weight: bold; cursor: pointer;">
+              Confirm Topology
+            </button>
+            <button type="button" class="btn-reject" phx-click="reject_syntax" disabled={!@telemetry.membrane_open} style="background-color: #b22222; color: white; padding: 0.5rem 1rem; border: none; font-weight: bold; cursor: pointer;">
+              Reject Syntax
+            </button>
           </div>
-          <div class="feedback-array">
-            <button type="button" phx-click="inject_feedback" phx-value-severity="0.2" disabled={!@telemetry.membrane_open}>Inject 0.2</button>
-            <button type="button" phx-click="inject_feedback" phx-value-severity="0.5" disabled={!@telemetry.membrane_open}>Inject 0.5</button>
-            <button type="button" phx-click="inject_feedback" phx-value-severity="0.8" disabled={!@telemetry.membrane_open}>Inject 0.8</button>
-          </div>
-          <p :if={@last_feedback} class="feedback-trace">
-            Last feedback: severity={format_float(@last_feedback.severity)} bundled={@last_feedback.bundled}
+          <p :if={@last_feedback} class="feedback-trace" style="margin-top: 1rem; font-family: monospace; color: #aaa;">
+            Last internal state shift: <%= @last_feedback.message %>
           </p>
         </section>
 
@@ -205,7 +224,7 @@ defmodule OperatorEnvironmentWeb.OperatorSandboxLive.Index do
     %{
       severity: parsed,
       bundled: bundled,
-      bytes: :erlang.binary_to_list(value),
+      bytes: :erlang.binary_to_list(value || <<>>),
       stream: value,
       source: :operator_induced,
       observed_at: System.monotonic_time(:millisecond)

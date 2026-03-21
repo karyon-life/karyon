@@ -20,32 +20,64 @@ defmodule OperatorEnvironmentWeb.OperatorSandboxLive.IndexTest do
     :ok
   end
 
-  test "renders the four operator zones and streams bytes over keyup", %{conn: conn} do
-    {:ok, view, html} = live(conn, ~p"/")
+  test "renders the operator zones and action-friction controls", %{conn: conn} do
+    {:ok, _view, html} = live(conn, ~p"/")
 
-    assert html =~ "Continuous Byte Stream"
-    assert html =~ "Motor Babble Output"
-    assert html =~ "Biological Feedback Array"
-    assert html =~ "Variational Free Energy HUD"
-    assert html =~ "phx-keyup"
-    assert html =~ "readonly"
-
-    render_keyup(view, "stream_bytes", %{"value" => "hello"})
-
-    assert_received {"nervous_system:sensory_input", %{stream: "hello", bytes: [104, 101, 108, 108, 111]}}
+    assert html =~ "Action-Friction Harness"
+    assert html =~ "Deterministic DSL Input"
+    assert html =~ "Structural Prediction"
+    assert html =~ "Friction Controls"
+    assert html =~ "Confirm Topology"
+    assert html =~ "Reject Syntax"
   end
 
-  test "injects typed metabolic feedback and bundles shift-enter input", %{conn: conn} do
+  test "submits valid DSL array to the quantizer and broadcasts sensory_input", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/")
 
-    render_click(element(view, "button[phx-value-severity=\"0.8\"]"))
+    valid_json = "[\"ALLOW\", \"User_A\", \"READ\", \"Database_X\"]"
+    
+    view
+    |> form(".dsl-form", %{"dsl_input" => valid_json})
+    |> render_submit()
 
-    assert_received {"nervous_system:nociception", %{severity: 0.8, bundled: false, source: :operator_induced}}
+    assert_received {"nervous_system:sensory_input", payload}
+    assert payload.source == :operator_induced
+    assert payload.stream == valid_json
+    assert payload.tokens == ["ALLOW", "User_A", "READ", "Database_X"]
+    assert is_list(payload.node_ids)
+    assert length(payload.node_ids) == 4
+  end
 
-    render_hook(view, "bundle_input", %{"value" => "bundle", "severity" => "0.9"})
+  test "shows error when invalid non-array JSON is submitted", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
 
-    assert_received {"nervous_system:sensory_input", %{stream: "bundle", severity: 0.9, bundled: true}}
-    assert_received {"nervous_system:nociception", %{stream: "bundle", severity: 0.9, bundled: true}}
+    invalid_json = "{\"hello\": \"world\"}"
+    
+    html =
+      view
+      |> form(".dsl-form", %{"dsl_input" => invalid_json})
+      |> render_submit()
+
+    assert html =~ "Invalid DSL Array format. Must be a strict JSON array of strings."
+    refute_received {"nervous_system:sensory_input", _}
+  end
+
+  test "injects positive dopamine analogue via confirm_topology", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    render_click(element(view, ".btn-confirm"))
+
+    # Verify UI updates to show last feedback
+    assert render(view) =~ "Topology Confirmed (Dopamine Spike)"
+  end
+
+  test "injects negative nociception spike and triggers decay via reject_syntax", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    render_click(element(view, ".btn-reject"))
+
+    assert_received {"nervous_system:nociception", %{severity: 1.0, source: :operator_induced}}
+    assert render(view) =~ "Syntax Rejected (Nociception Spike)"
   end
 
   test "updates the motor babble stream and free-energy hud from organism telemetry", %{conn: conn} do
@@ -96,11 +128,14 @@ defmodule OperatorEnvironmentWeb.OperatorSandboxLive.IndexTest do
     assert rendered =~ "CLOSED"
     assert rendered =~ "disabled"
 
-    render_keyup(view, "stream_bytes", %{"value" => "blocked"})
-    render_hook(view, "bundle_input", %{"value" => "blocked-bundle", "severity" => "0.9"})
+    view
+    |> form(".dsl-form", %{"dsl_input" => "[\"TEST\"]"})
+    |> render_submit()
 
-    refute_received {"nervous_system:sensory_input", %{stream: "blocked", bytes: _}}
-    refute_received {"nervous_system:sensory_input", %{stream: "blocked-bundle", severity: 0.9, bundled: true}}
-    refute_received {"nervous_system:nociception", %{stream: "blocked-bundle", severity: 0.9, bundled: true}}
+    render_click(element(view, ".btn-confirm"))
+    render_click(element(view, ".btn-reject"))
+
+    refute_received {"nervous_system:sensory_input", _}
+    refute_received {"nervous_system:nociception", _}
   end
 end
