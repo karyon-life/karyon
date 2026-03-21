@@ -10,4 +10,7 @@ message PredictionError {
   string cell_id = 5;
   string source = 6;
   float severity = 7;
+  string source_node = 8;
+  string predicted_target = 9;
+  string corrected_target = 10;
 }

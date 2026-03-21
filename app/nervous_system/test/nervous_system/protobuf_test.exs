@@ -22,12 +22,15 @@ defmodule NervousSystem.ProtobufTest do
     assert decoded.source == "metabolic_daemon"
   end
 
-  test "PredictionError handles optional metadata fields safely" do
+  test "PredictionError round-trips targeted STDP fields safely" do
     msg = %PredictionError{
       type: "nociception",
       metadata: %{"key" => "value"},
       source: "operator_induced",
-      severity: 1.0
+      severity: 1.0,
+      source_node: "node:source",
+      predicted_target: "node:predicted",
+      corrected_target: "node:corrected"
     }
 
     assert {:ok, iodata} = PredictionError.encode(msg)
@@ -37,6 +40,9 @@ defmodule NervousSystem.ProtobufTest do
     assert decoded.metadata["key"] == "value"
     assert decoded.source == "operator_induced"
     assert_in_delta decoded.severity, 1.0, 0.0001
+    assert decoded.source_node == "node:source"
+    assert decoded.predicted_target == "node:predicted"
+    assert decoded.corrected_target == "node:corrected"
   end
 
   test "Protobuf rejects invalid binary data" do
