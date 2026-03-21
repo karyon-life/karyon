@@ -51,8 +51,10 @@ defmodule Sensory.StreamSupervisor do
   end
 
   defp handle_payload(%{surface: :tensor_stream}, payload) do
-    _tensor = Sensory.Quantizer.dequantize(payload)
+    _node_id = Sensory.Quantizer.decode_node_id(payload)
     :ok
+  rescue
+    ArgumentError -> :ok
   end
 
   defp handle_payload(%{surface: :continuous_byte_stream}, payload) when is_binary(payload) do

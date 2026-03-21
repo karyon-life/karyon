@@ -1,19 +1,32 @@
 defmodule Sensory.QuantizerTier3Test do
-  use ExUnit.Case
-  alias Sensory.Quantizer
+  use ExUnit.Case, async: true
   use ExUnitProperties
 
-  property "Quantization: Round-trip fidelity (8-bit)" do
-    check all tensor <- list_of(float(min: 0.0, max: 1.0), length: 1..100) do
-      binary = Quantizer.quantize(tensor)
-      recovered = Quantizer.dequantize(binary)
-      
-      # Precision loss is expected with 8-bit quantization
-      # Max error should be 1/255
-      Enum.zip(tensor, recovered)
-      |> Enum.each(fn {orig, dest} ->
-        assert_in_delta orig, dest, 0.005 # 1/255 approx 0.0039
-      end)
+  alias Sensory.Quantizer
+
+  @max_u64 0xFFFFFFFFFFFFFFFF
+
+  property "lexical hashing is deterministic for the same token" do
+    check all token <- string(:alphanumeric, min_length: 1, max_length: 64) do
+      assert Quantizer.quantize(token) == Quantizer.quantize(token)
+    end
+  end
+
+  property "lexical hashing returns a 64-bit integer for non-empty tokens" do
+    check all token <- string(:alphanumeric, min_length: 1, max_length: 64) do
+      id = Quantizer.quantize(token)
+
+      assert is_integer(id)
+      assert id >= 0
+      assert id <= @max_u64
+    end
+  end
+
+  property "lexical hashing avoids collisions across a generated unique corpus" do
+    check all tokens <- uniq_list_of(string(:alphanumeric, min_length: 1, max_length: 32), min_length: 25, max_length: 100) do
+      ids = Enum.map(tokens, &Quantizer.quantize/1)
+
+      assert length(ids) == length(Enum.uniq(ids))
     end
   end
 end

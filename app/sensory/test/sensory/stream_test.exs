@@ -3,12 +3,14 @@ defmodule Sensory.StreamTest do
   alias Sensory.Native
   alias Sensory.Quantizer
 
-  test "quantization and publication throughput" do
-    tensor = for _ <- 1..100, do: :rand.uniform()
-    binary = Quantizer.quantize(tensor)
-    
+  test "lexical node ids can be encoded and published for transport" do
+    node_id =
+      "Deploy"
+      |> Quantizer.quantize()
+      |> Quantizer.encode_node_id()
+
     # Verify publication returns ok even without listeners (ZMQ PUB/SUB behavior)
-    assert {:ok, _} = Native.zmq_publish_tensor("neural_tensor", binary)
+    assert {:ok, _} = Native.zmq_publish_tensor("neural_tensor", node_id)
   end
 
   test "transport NIF exposes bounded subscribe results" do
