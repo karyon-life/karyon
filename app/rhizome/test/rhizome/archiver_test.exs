@@ -8,16 +8,18 @@ defmodule Rhizome.ArchiverTest do
       {:ok, %{message: info}} -> assert String.contains?(info, "Successfully bridged")
       {:error, reason} -> 
         assert String.contains?(reason, "Memgraph Query Error") or 
+               String.contains?(reason, "Query Error") or
                String.contains?(reason, "Connection Error") or
                String.contains?(reason, "XTDB Error")
     end
   end
 
-  test "optimizer logic runs Louvain grammar community detection" do
+  test "optimizer logic runs temporal grammar chunking" do
     case Native.optimize_graph() do
       {:ok, info} -> 
-        assert String.contains?(info, "Louvain optimization complete") or 
-               String.contains?(info, "No operator pooled-sequence graph data")
+        assert String.contains?(info, "Temporal chunking complete") or 
+               String.contains?(info, "No operator FOLLOWED_BY temporal path data found") or
+               String.contains?(info, "No high-support temporal sequence candidates found")
       {:error, reason} ->
         assert String.contains?(reason, "Memgraph client not initialized") or
                String.contains?(reason, "Connection Error") or

@@ -161,16 +161,13 @@ defmodule Rhizome.ConsolidationManager do
   end
 
   defp create_sleep_supernodes(native_module, {:ok, %{sequences: sequences}}, cycle_started_at) do
-    with {:ok, rows} <- native_module.memgraph_query(cooccurrence_query()),
-         communities <- identify_louvain_communities(rows),
-         non_trivial <- Enum.filter(communities, &(length(&1) > 1)),
-         {:ok, _} <- optimize_language_graph(native_module),
-         {:ok, abstraction_ids} <- persist_grammar_supernodes(native_module, non_trivial, cycle_started_at) do
+    with {:ok, _message} <- optimize_language_graph(native_module),
+         {:ok, summary} <- summarize_temporal_supernodes(native_module, cycle_started_at) do
       {:ok,
        %{
-         supernode_count: length(abstraction_ids),
-         abstracted_count: Enum.sum(Enum.map(non_trivial, &length/1)),
-         abstraction_ids: abstraction_ids,
+         supernode_count: summary.supernode_count,
+         abstracted_count: summary.abstracted_count,
+         abstraction_ids: summary.abstraction_ids,
          candidate_count: length(sequences)
        }}
     else
@@ -193,31 +190,6 @@ defmodule Rhizome.ConsolidationManager do
 
   defp normalize_sleep_candidate(_row), do: nil
 
-  defp normalize_number(value) when is_float(value), do: value
-  defp normalize_number(value) when is_integer(value), do: value * 1.0
-
-  defp normalize_number(value) when is_binary(value) do
-    case Float.parse(value) do
-      {parsed, _} -> parsed
-      :error -> 0.0
-    end
-  end
-
-  defp normalize_number(_value), do: 0.0
-
-  defp grammar_supernode_id(cycle_started_at, index) do
-    "grammar_supernode:" <> DateTime.to_iso8601(cycle_started_at) <> ":#{index}"
-  end
-
-  defp cooccurrence_query do
-    """
-    MATCH (a:PooledSequence)-[r:CO_OCCURS_WITH]->(b:PooledSequence)
-    WHERE a.source = 'operator_environment'
-      AND b.source = 'operator_environment'
-    RETURN id(a) AS start, id(b) AS end, coalesce(r.weight, 1.0) AS weight
-    """
-  end
-
   defp optimize_language_graph(native_module) do
     case native_module.optimize_graph() do
       {:ok, _message} = ok -> ok
@@ -226,96 +198,37 @@ defmodule Rhizome.ConsolidationManager do
     end
   end
 
-  defp identify_louvain_communities(rows) when is_list(rows) do
-    graph =
-      Enum.reduce(rows, %{}, fn row, acc ->
-        start_id = row["start"]
-        end_id = row["end"]
-        weight = normalize_number(row["weight"])
+  defp summarize_temporal_supernodes(native_module, cycle_started_at) do
+    observed_at = DateTime.to_unix(cycle_started_at)
 
-        if is_integer(start_id) and is_integer(end_id) and weight >= 0.5 do
-          acc
-          |> Map.update(start_id, MapSet.new([end_id]), &MapSet.put(&1, end_id))
-          |> Map.update(end_id, MapSet.new([start_id]), &MapSet.put(&1, start_id))
-        else
-          acc
-        end
-      end)
+    query = """
+    MATCH (g:GrammarSuperNode)
+    WHERE g.source = 'operator_environment'
+      AND g.kind = 'temporal_grammar_chunk'
+      AND coalesce(g.observed_at, 0) >= #{observed_at}
+    RETURN count(g) AS supernode_count,
+           coalesce(sum(g.sequence_length), 0) AS abstracted_count,
+           collect(g.id) AS abstraction_ids
+    """
 
-    graph
-    |> Map.keys()
-    |> Enum.reduce({MapSet.new(), []}, fn node, {visited, communities} ->
-      if MapSet.member?(visited, node) do
-        {visited, communities}
-      else
-        community = explore_component(node, graph, MapSet.new())
-        {MapSet.union(visited, community), [community |> MapSet.to_list() |> Enum.sort() | communities]}
-      end
-    end)
-    |> elem(1)
-    |> Enum.reverse()
-  end
+    case native_module.memgraph_query(query) do
+      {:ok, [%{"supernode_count" => count, "abstracted_count" => abstracted_count, "abstraction_ids" => abstraction_ids}]}
+          when is_integer(count) and is_integer(abstracted_count) and is_list(abstraction_ids) ->
+        {:ok,
+         %{
+           supernode_count: count,
+           abstracted_count: abstracted_count,
+           abstraction_ids: abstraction_ids
+         }}
 
-  defp persist_grammar_supernodes(_native_module, [], _cycle_started_at), do: {:ok, []}
+      {:ok, []} ->
+        {:ok, %{supernode_count: 0, abstracted_count: 0, abstraction_ids: []}}
 
-  defp persist_grammar_supernodes(native_module, communities, cycle_started_at) do
-    created_at = DateTime.to_iso8601(cycle_started_at)
+      {:error, reason} ->
+        {:error, reason}
 
-    Enum.reduce_while(Enum.with_index(communities, 1), {:ok, []}, fn {community, index}, {:ok, acc} ->
-      grammar_id = grammar_supernode_id(cycle_started_at, index)
-      confidence = community_confidence(community)
-
-      query = """
-      MERGE (g:GrammarSuperNode {id: '#{escape_cypher(grammar_id)}'})
-      SET g.kind = 'structural_grammar_rule',
-          g.community_size = #{length(community)},
-          g.confidence = #{confidence},
-          g.source = 'operator_environment',
-          g.created_at = '#{escape_cypher(created_at)}',
-          g.observed_at = '#{escape_cypher(created_at)}'
-      WITH g
-      MATCH (p:PooledSequence)
-      WHERE id(p) IN [#{Enum.join(community, ",")}]
-      MERGE (g)-[r:ABSTRACTS]->(p)
-      SET r.kind = 'grammar_consolidation',
-          r.created_at = '#{escape_cypher(created_at)}'
-      RETURN g.id AS grammar_id
-      """
-
-      case native_module.memgraph_query(query) do
-        {:ok, _rows} -> {:cont, {:ok, [grammar_id | acc]}}
-        {:error, reason} -> {:halt, {:error, reason}}
-        other -> {:halt, {:error, {:invalid_grammar_supernode_result, other}}}
-      end
-    end)
-    |> case do
-      {:ok, ids} -> {:ok, Enum.reverse(ids)}
-      error -> error
+      other ->
+        {:error, {:invalid_temporal_summary_result, other}}
     end
   end
-
-  defp explore_component(node, graph, visited) do
-    if MapSet.member?(visited, node) do
-      visited
-    else
-      neighbors = Map.get(graph, node, MapSet.new())
-      Enum.reduce(neighbors, MapSet.put(visited, node), fn neighbor, acc -> explore_component(neighbor, graph, acc) end)
-    end
-  end
-
-  defp community_confidence(community) do
-    community
-    |> length()
-    |> Kernel./(10.0)
-    |> min(1.0)
-    |> Float.round(3)
-  end
-
-  defp escape_cypher(value) when is_binary(value) do
-    value
-    |> String.replace("\\", "\\\\")
-    |> String.replace("'", "\\'")
-  end
-
-  defp escape_cypher(value), do: value |> to_string() |> escape_cypher()
 end

@@ -5,7 +5,7 @@ defmodule Rhizome.SleepConsolidationTest do
   require Logger
 
   defmodule NativeStub do
-    def optimize_graph, do: {:ok, "Optimization complete"}
+    def optimize_graph, do: {:ok, "Temporal chunking complete: created 1 ordered grammar chunks from FOLLOWED_BY paths."}
 
     def memgraph_query(query) do
       cond do
@@ -24,11 +24,15 @@ defmodule Rhizome.SleepConsolidationTest do
              }
            ]}
 
-        String.contains?(query, "MATCH (a:PooledSequence)-[r:CO_OCCURS_WITH]->(b:PooledSequence)") ->
-          {:ok, [%{"start" => 11, "end" => 12, "weight" => 1.0}]}
-
-        String.contains?(query, "MERGE (g:GrammarSuperNode") ->
-          {:ok, [%{"grammar_id" => "grammar_supernode:2026-03-18T00:00:00Z:1"}]}
+        String.contains?(query, "MATCH (g:GrammarSuperNode)") ->
+          {:ok,
+           [
+             %{
+               "supernode_count" => 1,
+               "abstracted_count" => 3,
+               "abstraction_ids" => ["grammar_supernode:11>12>13"]
+             }
+           ]}
 
         true ->
           {:ok, []}
@@ -40,7 +44,7 @@ defmodule Rhizome.SleepConsolidationTest do
     def bridge_working_memory_to_archive, do: {:ok, %{message: "bridged", archived_count: 3}}
   end
 
-  test "Louvain optimization generates grammar super-nodes from operator pooled sequences" do
+  test "temporal chunking optimization generates grammar super-nodes from operator pooled sequences" do
     # 1. Manually inject a cluster of nodes into Memgraph via Native calls
     # (In a real test we'd need Memgraph running)
     
@@ -48,8 +52,9 @@ defmodule Rhizome.SleepConsolidationTest do
     case Rhizome.Native.optimize_graph() do
       {:ok, result} ->
         Logger.info("[SleepConsolidationTest] Optimization result: #{result}")
-        assert String.contains?(result, "Louvain optimization complete") or
-                 String.contains?(result, "No operator pooled-sequence graph data found")
+        assert String.contains?(result, "Temporal chunking complete") or
+                 String.contains?(result, "No operator FOLLOWED_BY temporal path data found") or
+                 String.contains?(result, "No high-support temporal sequence candidates found")
       {:error, reason} ->
         # Accept structured service failures in environments without Memgraph
         assert reason != nil
@@ -74,7 +79,7 @@ defmodule Rhizome.SleepConsolidationTest do
         clock_fun: fn -> ~U[2026-03-18 00:00:00Z] end
       )
 
-    assert {:ok, %{supernode_count: 1, abstracted_count: 2}} = result.abstractions
+    assert {:ok, %{supernode_count: 1, abstracted_count: 3}} = result.abstractions
     assert {:ok, %{archived_count: 3}} = result.bridge_to_xtdb
     assert {:ok, %{pruned_count: 0, retained_in_archive: true}} = result.memory_relief
   end

@@ -14,7 +14,7 @@ defmodule Rhizome.ConsolidationManagerTest do
   alias Rhizome.ConsolidationManager
 
   defmodule NativeStub do
-    def optimize_graph, do: {:ok, "optimized"}
+    def optimize_graph, do: {:ok, "Temporal chunking complete: created 1 ordered grammar chunks from FOLLOWED_BY paths."}
 
     def memgraph_query(query) do
       if pid = Process.whereis(:consolidation_manager_observer) do
@@ -37,11 +37,15 @@ defmodule Rhizome.ConsolidationManagerTest do
              }
            ]}
 
-        String.contains?(query, "MATCH (a:PooledSequence)-[r:CO_OCCURS_WITH]->(b:PooledSequence)") ->
-          {:ok, [%{"start" => 7, "end" => 8, "weight" => 0.9}]}
-
-        String.contains?(query, "MERGE (g:GrammarSuperNode") ->
-          {:ok, [%{"grammar_id" => "grammar_supernode:2026-03-18T00:00:00Z:1"}]}
+        String.contains?(query, "MATCH (g:GrammarSuperNode)") ->
+          {:ok,
+           [
+             %{
+               "supernode_count" => 1,
+               "abstracted_count" => 3,
+               "abstraction_ids" => ["grammar_supernode:7>8>9"]
+             }
+           ]}
 
         true ->
           {:ok, []}
@@ -158,18 +162,18 @@ defmodule Rhizome.ConsolidationManagerTest do
     assert result.learning_phase == "consolidation"
     assert result.learning_edge == "plasticity->consolidation"
     assert {:ok, %{total: 2, sequences: [_, _]}} = result.classified_candidates
-    assert {:ok, %{supernode_count: 1, abstracted_count: 2}} = result.abstractions
+    assert {:ok, %{supernode_count: 1, abstracted_count: 3}} = result.abstractions
     assert {:ok, %{archived_count: 1}} = result.bridge_to_xtdb
-    assert {:ok, "optimized"} = result.optimize_graph
+    assert {:ok, "Temporal chunking complete: created 1 ordered grammar chunks from FOLLOWED_BY paths."} =
+             result.optimize_graph
     assert {:ok, %{pruned_count: 0, retained_in_archive: true, strategy: "targeted_in_place_pruning"}} =
              result.memory_relief
 
     assert_received {:native_query, query}
     assert query =~ "MATCH (n:PooledSequence)"
-    assert_received {:native_query, cooccurrence_query}
-    assert cooccurrence_query =~ "CO_OCCURS_WITH"
-    assert_received {:native_query, abstraction_query}
-    assert abstraction_query =~ "MERGE (g:GrammarSuperNode"
-    refute abstraction_query =~ "SleepSuperNode"
+    assert_received {:native_query, summary_query}
+    assert summary_query =~ "MATCH (g:GrammarSuperNode)"
+    assert summary_query =~ "temporal_grammar_chunk"
+    refute summary_query =~ "CO_OCCURS_WITH"
   end
 end
