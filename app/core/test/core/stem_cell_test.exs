@@ -45,6 +45,14 @@ defmodule Core.StemCellTest do
       mode = if event["severity"] < 0.5, do: :depressed, else: :deleted
       {:ok, %{plasticity_mode: mode, sensory_id: event["sensory_id"], motor_id: event["motor_id"]}}
     end
+
+    def reinforce_pathway(pathway) do
+      if pid = Process.whereis(:stem_cell_test_observer) do
+        send(pid, {:stdp_pathway_reinforced, pathway})
+      end
+
+      {:ok, %{message: "reinforced", from_id: pathway[:from_id], to_id: pathway[:to_id]}}
+    end
   end
 
   defmodule RhizomeStub do
@@ -563,7 +571,7 @@ defmodule Core.StemCellTest do
     assert {:error, _} = GenServer.start(StemCell, malformed_dna)
   end
 
-  test "StemCell prunes the active pathway when receiving an STDP prediction error" do
+  test "StemCell applies targeted weaken and reinforce updates when receiving an STDP targeted edge correction" do
     specialized_dna = "/tmp/stdp_dna.yml"
     File.write!(specialized_dna, """
     cell_type: specialized_motor
@@ -603,15 +611,26 @@ defmodule Core.StemCellTest do
 
     assert {:ok, %{exit_code: 0}} = GenServer.call(pid, {:execute, "patch_codebase", [vm_id: "stdp_vm"]})
 
-    send(pid, {:stdp_prediction_error, specialized_dna, 0.9})
+    send(pid, {:stdp_targeted_edge_update,
+               %{
+                 source_node: specialized_dna,
+                 predicted_target: :sys.get_state(pid).stdp_active_actions[specialized_dna].motor_action_id,
+                 corrected_target: "intent:corrected:patch_codebase",
+                 severity: 0.9
+               }})
 
     assert_receive {:stdp_pathway_pruned, event}
     assert event["sensory_id"] == specialized_dna
     assert String.starts_with?(event["motor_id"], "intent:specialized_motor:patch_codebase:")
+    assert_receive {:pathway_reinforced, pathway}
+    assert pathway[:from_id] == specialized_dna
+    assert pathway[:to_id] == "intent:corrected:patch_codebase"
+    assert pathway[:relationship_type] == "PREDICTS_SUCCESS"
     assert_receive {:prediction_error_persisted, prediction_error}, 1_000
-    assert prediction_error["type"] == "stdp_prediction_error"
-    assert prediction_error["metadata"]["sensory_id"] == specialized_dna
-    assert prediction_error["metadata"]["motor_action_id"] == event["motor_id"]
-    assert prediction_error["status"] == "pruned"
+    assert prediction_error["type"] == "stdp_targeted_edge_update"
+    assert prediction_error["metadata"]["source_node"] == specialized_dna
+    assert prediction_error["metadata"]["predicted_target"] == event["motor_id"]
+    assert prediction_error["metadata"]["corrected_target"] == "intent:corrected:patch_codebase"
+    assert prediction_error["status"] == "applied"
   end
 end

@@ -287,56 +287,91 @@ defmodule Core.StemCell do
     end
   end
 
+  def handle_info({:stdp_targeted_edge_update, correction}, state) when is_map(correction) do
+    source_node = Map.get(correction, :source_node) || Map.get(correction, "source_node")
+    predicted_target = Map.get(correction, :predicted_target) || Map.get(correction, "predicted_target")
+    corrected_target = Map.get(correction, :corrected_target) || Map.get(correction, "corrected_target")
+    severity = Map.get(correction, :severity) || Map.get(correction, "severity")
+
+    with true <- is_binary(source_node) and source_node != "",
+         true <- is_binary(predicted_target) and predicted_target != "",
+         true <- is_binary(corrected_target) and corrected_target != "" do
+      normalized_severity = normalize_error_signal(severity)
+
+      negative_event = %{
+        "sensory_id" => source_node,
+        "motor_id" => predicted_target,
+        "severity" => normalized_severity,
+        "trace_id" => "stdp:#{source_node}:#{predicted_target}",
+        "event_at" => System.system_time(:second),
+        "recorded_at" => iso_timestamp(),
+        "observed_at" => iso_timestamp()
+      }
+
+      positive_pathway = %{
+        from_id: source_node,
+        to_id: corrected_target,
+        relationship_type: "PREDICTS_SUCCESS",
+        weight_delta: normalized_severity,
+        trace_id: "stdp:#{source_node}:#{corrected_target}",
+        source_step_id: source_node,
+        target_id: corrected_target
+      }
+
+      correction_status =
+        apply_targeted_stdp_update(negative_event, positive_pathway)
+
+      persist_prediction_error(
+        %{
+          "id" => "prediction_error:#{state.lineage_id}:stdp:#{System.system_time(:second)}",
+          "cell_id" => state.lineage_id,
+          "source_cell_id" => source_node,
+          "type" => "stdp_targeted_edge_update",
+          "message" => "Operator-induced nociception triggered targeted STDP edge correction",
+          "recorded_at" => iso_timestamp(),
+          "observed_at" => iso_timestamp(),
+          "timestamp_unit" => "iso8601",
+          "status" => correction_status,
+          "learning_phase" => "prediction_error",
+          "learning_edge" => "prediction_error->plasticity",
+          "vfe" => normalized_severity,
+          "metadata" => %{
+            "schema_version" => "2026-03-21",
+            "event_source" => "stdp",
+            "severity" => normalized_severity,
+            "source_node" => source_node,
+            "predicted_target" => predicted_target,
+            "corrected_target" => corrected_target,
+            "correction_type" => "targeted_edge_update",
+            "correction_status" => correction_status
+          },
+          "expectation_lineage" => []
+        }
+      )
+
+      next_state = %{state | stdp_active_actions: Map.delete(state.stdp_active_actions, source_node)}
+      {:noreply, checkpoint_state(next_state)}
+    else
+      _ -> {:noreply, state}
+    end
+  end
+
   def handle_info({:stdp_prediction_error, sensory_id, severity}, state) when is_binary(sensory_id) do
     case Map.get(state.stdp_active_actions, sensory_id) do
-      nil ->
-        {:noreply, state}
-
       %{motor_action_id: motor_action_id} ->
-        stdp_event = %{
-          "sensory_id" => sensory_id,
-          "motor_id" => motor_action_id,
-          "severity" => normalize_error_signal(severity),
-          "trace_id" => "stdp:#{sensory_id}:#{motor_action_id}",
-          "event_at" => System.system_time(:second),
-          "recorded_at" => iso_timestamp(),
-          "observed_at" => iso_timestamp()
-        }
-
-        case memory_module().prune_stdp_pathway(stdp_event) do
-          {:ok, _} -> :ok
-          {:error, reason} -> Logger.warning("[StemCell] Failed to prune STDP pathway #{inspect(stdp_event)}: #{inspect(reason)}")
-        end
-
-        persist_prediction_error(
-          %{
-            "id" => "prediction_error:#{state.lineage_id}:stdp:#{System.system_time(:second)}",
-            "cell_id" => state.lineage_id,
-            "source_cell_id" => sensory_id,
-            "type" => "stdp_prediction_error",
-            "message" => "Operator-induced nociception correlated against active motor trace",
-            "recorded_at" => iso_timestamp(),
-            "observed_at" => iso_timestamp(),
-            "timestamp_unit" => "iso8601",
-            "status" => "pruned",
-            "learning_phase" => "prediction_error",
-            "learning_edge" => "prediction_error->plasticity",
-            "vfe" => normalize_error_signal(severity),
-            "metadata" => %{
-              "schema_version" => "2026-03-19",
-              "event_source" => "stdp",
-              "severity" => normalize_error_signal(severity),
-              "motor_action_id" => motor_action_id,
-              "sensory_id" => sensory_id,
-              "correction_type" => "prune_stdp_pathway",
-              "correction_status" => "applied"
-            },
-            "expectation_lineage" => []
-          }
+        handle_info(
+          {:stdp_targeted_edge_update,
+           %{
+             source_node: sensory_id,
+             predicted_target: motor_action_id,
+             corrected_target: motor_action_id,
+             severity: severity
+           }},
+          state
         )
 
-        next_state = %{state | stdp_active_actions: Map.delete(state.stdp_active_actions, sensory_id)}
-        {:noreply, checkpoint_state(next_state)}
+      _ ->
+        {:noreply, state}
     end
   end
 
@@ -1059,7 +1094,13 @@ defmodule Core.StemCell do
 
   defp register_stdp_trace(state, %ExecutionIntent{} = intent) do
     sensory_id = state.lineage_id
-    entry = %{motor_action_id: intent.id, sensory_id: sensory_id, stem_cell_pid: self()}
+    entry = %{
+      motor_action_id: intent.id,
+      predicted_target: intent.id,
+      sensory_id: sensory_id,
+      source_node: sensory_id,
+      stem_cell_pid: self()
+    }
 
     if Process.whereis(Sensory.STDPCoordinator) do
       Sensory.STDPCoordinator.register_trace(entry)
@@ -1093,6 +1134,31 @@ defmodule Core.StemCell do
 
   defp normalize_monotonic(value) when is_integer(value), do: value
   defp normalize_monotonic(_), do: System.monotonic_time(:millisecond)
+
+  defp apply_targeted_stdp_update(negative_event, positive_pathway) do
+    negative_result =
+      case memory_module().prune_stdp_pathway(negative_event) do
+        {:ok, _} -> :ok
+        {:error, reason} ->
+          Logger.warning("[StemCell] Failed to prune targeted STDP pathway #{inspect(negative_event)}: #{inspect(reason)}")
+          {:error, :negative_failed}
+      end
+
+    positive_result =
+      case rhizome_module().reinforce_pathway(positive_pathway) do
+        {:ok, _} -> :ok
+        {:error, reason} ->
+          Logger.warning("[StemCell] Failed to reinforce targeted STDP pathway #{inspect(positive_pathway)}: #{inspect(reason)}")
+          {:error, :positive_failed}
+      end
+
+    case {negative_result, positive_result} do
+      {:ok, :ok} -> "applied"
+      {{:error, :negative_failed}, :ok} -> "partially_applied"
+      {:ok, {:error, :positive_failed}} -> "partially_applied"
+      _ -> "failed"
+    end
+  end
 
   defp proto_timestamp_to_iso(timestamp) when is_integer(timestamp) do
     timestamp

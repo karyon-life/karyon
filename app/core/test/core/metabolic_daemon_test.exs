@@ -187,6 +187,19 @@ defmodule Core.MetabolicDaemonTest do
     assert policy.objective_priors["repair"] == 1.3
   end
 
+  test "MetabolicDaemon exposes typed node lock status for targeted STDP coordination" do
+    {:ok, pid} = MetabolicDaemon.start_link(name: :lock_status_test_daemon)
+
+    assert %{"node:a" => :unlocked, "node:b" => :unlocked} =
+             GenServer.call(pid, {:get_node_lock_status, ["node:a", "node:b"]})
+
+    assert :ok =
+             GenServer.call(pid, {:set_node_locks, %{"node:a" => :locked, "node:b" => :unlocked}})
+
+    assert %{"node:a" => :locked, "node:b" => :unlocked} =
+             GenServer.call(pid, {:get_node_lock_status, ["node:a", "node:b"]})
+  end
+
   test "MetabolicDaemon refuses to boot when strict preflight fails" do
     Process.flag(:trap_exit, true)
 

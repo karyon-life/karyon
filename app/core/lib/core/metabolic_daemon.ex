@@ -20,6 +20,7 @@ defmodule Core.MetabolicDaemon do
     state = %{
       pressure: :low,
       consciousness_state: :awake,
+      node_locks: %{},
       baselines: %{l3_misses: 0, run_queue: 0, iops: 0},
       calibrated: false,
       preflight_status: :ok,
@@ -80,6 +81,21 @@ defmodule Core.MetabolicDaemon do
        membrane_open: membrane_open?(state.consciousness_state),
        motor_output_open: motor_output_open?(state.consciousness_state)
      }, state}
+  end
+
+  @impl true
+  def handle_call({:get_node_lock_status, node_ids}, _from, state) when is_list(node_ids) do
+    statuses =
+      Map.new(node_ids, fn node_id ->
+        {node_id, Map.get(state.node_locks, node_id, :unlocked)}
+      end)
+
+    {:reply, statuses, state}
+  end
+
+  @impl true
+  def handle_call({:set_node_locks, locks}, _from, state) when is_map(locks) do
+    {:reply, :ok, %{state | node_locks: locks}}
   end
 
   @impl true
