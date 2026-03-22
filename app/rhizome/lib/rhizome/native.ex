@@ -16,15 +16,30 @@ defmodule Rhizome.Native do
   Errors are always returned as `{:error, reason}` without simulated success payloads.
   """
 
-  alias Rhizome.Raw
+  use Rustler, 
+    otp_app: :rhizome, 
+    crate: :rhizome_nif
+
+  # NIF Stubs (Arities must match Rust exact exports)
+  def create_pointer(_id), do: :erlang.nif_error(:nif_not_loaded)
+  def get_pointer_id(_resource), do: :erlang.nif_error(:nif_not_loaded)
+  def optimize_graph(), do: :erlang.nif_error(:nif_not_loaded)
+  
+  def memgraph_query(_query, _config), do: :erlang.nif_error(:nif_not_loaded)
+  def xtdb_submit(_id, _data, _config), do: :erlang.nif_error(:nif_not_loaded)
+  def xtdb_query(_query, _config), do: :erlang.nif_error(:nif_not_loaded)
+  def bridge_to_xtdb(_config), do: :erlang.nif_error(:nif_not_loaded)
+  def weaken_edge(_resource, _config), do: :erlang.nif_error(:nif_not_loaded)
+  
+  # New Dirty NIFs for graph traversal and causal updates
+  def initialize_graph(), do: :erlang.nif_error(:nif_not_loaded)
+  def traverse_subgraph(_resource, _query), do: :erlang.nif_error(:nif_not_loaded)
+  def apply_causal_epoch(_resource, _batch), do: :erlang.nif_error(:nif_not_loaded)
+
   alias Rhizome.Xtdb
 
-  def create_pointer(id), do: Raw.create_pointer(id)
-  def get_pointer_id(resource), do: Raw.get_pointer_id(resource)
-  def optimize_graph(), do: Raw.optimize_graph()
-
   def memgraph_query(query) when is_binary(query) do
-    with {:ok, payload} <- Raw.memgraph_query(query, service_config_json()),
+    with {:ok, payload} <- memgraph_query(query, service_config_json()),
          {:ok, rows} <- decode_json(payload, :memgraph_query) do
       case rows do
         list when is_list(list) -> {:ok, list}
@@ -55,7 +70,7 @@ defmodule Rhizome.Native do
   end
 
   def weaken_edge(resource) do
-    with {:ok, message} <- Raw.weaken_edge(resource, service_config_json()) do
+    with {:ok, message} <- weaken_edge(resource, service_config_json()) do
       {:ok, %{message: message}}
     end
   end

@@ -3,6 +3,13 @@ use rustler::NifResult;
 use serde_json::{Map, Number, Value};
 use std::sync::Arc;
 
+#[derive(rustler::NifMap, Clone, Debug)]
+pub struct CausalPair {
+    pub source_node: String,
+    pub target_node: String,
+    pub delta_w: f64,
+}
+
 
 mod atoms {
     rustler::atoms! {
@@ -41,6 +48,41 @@ pub fn memgraph_query(query: String, service_config: String) -> NifResult<(rustl
             Err(e) => Ok((atoms::error(), e)),
         }
     })
+}
+
+#[rustler::nif]
+pub fn initialize_graph() -> rustler::ResourceArc<crate::resource::GraphResource> {
+    rustler::ResourceArc::new(crate::resource::GraphResource {
+        pointer: std::sync::RwLock::new(crate::resource::GraphPointer {
+            node_id: 0,
+            generation: 1,
+            flags: 0,
+        }),
+        graph: std::sync::RwLock::new(crate::resource::ActiveGraph::new()),
+    })
+}
+
+#[rustler::nif(schedule = "DirtyCpu")]
+pub fn apply_causal_epoch(
+    resource: rustler::ResourceArc<crate::resource::GraphResource>, 
+    causal_batch: Vec<CausalPair>
+) -> rustler::Atom {
+    let mut graph = match resource.graph.write() {
+        Ok(lock) => lock,
+        Err(_) => return atoms::error(),
+    };
+    graph.batch_update(causal_batch);
+    
+    atoms::ok()
+}
+
+#[rustler::nif(schedule = "DirtyCpu")]
+pub fn traverse_subgraph(
+    _resource: rustler::ResourceArc<crate::resource::GraphResource>,
+    _query: String
+) -> rustler::Atom {
+    // Stub for future traversal implementation
+    atoms::ok()
 }
 
 #[rustler::nif(schedule = "DirtyIo")]

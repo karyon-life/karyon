@@ -10,12 +10,15 @@ use rustler::{Env, Term};
 use crate::resource::GraphResource;
 
 rustler::init!(
-    "Elixir.Rhizome.Raw",
+    "Elixir.Rhizome.Native",
     [
         crate::resource::create_pointer,
         crate::resource::get_pointer_id,
         crate::memgraph::memgraph_query,
         crate::memgraph::weaken_edge,
+        crate::memgraph::apply_causal_epoch,
+        crate::memgraph::initialize_graph,
+        crate::memgraph::traverse_subgraph,
         crate::xtdb::xtdb_query,
         crate::xtdb::xtdb_submit,
         crate::optimizer::optimize_graph,
