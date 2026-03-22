@@ -28,7 +28,8 @@ defmodule Core.MetabolicDaemon do
       calibration_delay_ms: Keyword.get(opts, :calibration_delay_ms, 2000),
       native_module: Keyword.get(opts, :native_module, Core.Native),
       strict_preflight: Keyword.get(opts, :strict_preflight, strict_preflight?()),
-      preflight_opts: Keyword.get(opts, :preflight_opts, [])
+      preflight_opts: Keyword.get(opts, :preflight_opts, []),
+      epoch_ticks: 0
     }
 
     case Core.Preflight.run_checks(Keyword.put(state.preflight_opts, :native_module, state.native_module)) do
@@ -143,6 +144,15 @@ defmodule Core.MetabolicDaemon do
     check_digital_torpor(state, snapshot)
     check_numa_violation(state, snapshot)
 
+    new_epoch_ticks = state.epoch_ticks + 1
+    state = 
+      if new_epoch_ticks >= 10 do
+        broadcast_epoch_close()
+        %{state | epoch_ticks: 0}
+      else
+        %{state | epoch_ticks: new_epoch_ticks}
+      end
+
     schedule_poll(state)
     
     :telemetry.execute(
@@ -217,6 +227,15 @@ defmodule Core.MetabolicDaemon do
           {:error, reason} ->
             Logger.error("[MetabolicDaemon] Failed to encode spike: #{inspect(reason)}")
         end
+    end
+  end
+
+  defp broadcast_epoch_close() do
+    case GenServer.whereis(:endocrine_gnat) do
+      nil -> :ok
+      pid -> 
+        Logger.info("[MetabolicDaemon] Endocrine Epoch Close triggered. Broadcasting phase transition.")
+        NervousSystem.Endocrine.publish_epoch_close(pid, System.system_time(:second))
     end
   end
 
