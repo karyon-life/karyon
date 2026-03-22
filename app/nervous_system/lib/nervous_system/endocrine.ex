@@ -56,6 +56,13 @@ defmodule NervousSystem.Endocrine do
   end
 
   @doc """
+  Broadcasts an epoch close signal.
+  """
+  def publish_epoch_close(gnat, current_clock) do
+    publish_gradient(gnat, "endocrine.epoch_close", to_string(current_clock))
+  end
+
+  @doc """
   Subscribes the current process to an endocrine gradient topic.
   """
   def subscribe(gnat, topic) do

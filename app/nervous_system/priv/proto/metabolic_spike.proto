@@ -9,4 +9,5 @@ message MetabolicSpike {
   int64 timestamp = 4;
   float severity = 5;
   string source = 6;
+  uint64 lamport_clock = 7;
 }

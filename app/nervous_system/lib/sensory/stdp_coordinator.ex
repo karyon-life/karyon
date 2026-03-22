@@ -7,12 +7,13 @@ defmodule Sensory.STDPCoordinator do
   use GenServer
   require Logger
 
-  @default_window_ms 4_000
-  @min_window_ms 3_000
-  @max_window_ms 5_000
+  @default_lambda 0.1
   @default_subject "operator.nociception"
   @default_retry_delay_ms 50
   @max_retry_attempts 3
+
+  # Epoch-gated tracking
+  @epoch_close_subject "endocrine.epoch_close"
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
@@ -28,29 +29,29 @@ defmodule Sensory.STDPCoordinator do
 
   @impl true
   def init(opts) do
-    window_ms = normalize_window_ms(Keyword.get(opts, :window_ms, @default_window_ms))
     subject = Keyword.get(opts, :subject, @default_subject)
+    lambda = Keyword.get(opts, :lambda, @default_lambda)
 
     maybe_subscribe(subject)
+    maybe_subscribe(@epoch_close_subject)
 
     {:ok,
      %{
        subject: subject,
-       window_ms: window_ms,
+       lambda: lambda,
        retry_delay_ms: Keyword.get(opts, :retry_delay_ms, @default_retry_delay_ms),
        traces: %{},
+       delayed_feedback: [],
        deferred_corrections: %{}
      }}
   end
 
   @impl true
   def handle_call(:runtime_state, _from, state) do
-    state = prune_expired_traces(state, now_ms())
-
     {:reply,
      %{
        subject: state.subject,
-       window_ms: state.window_ms,
+       lambda: state.lambda,
        trace_count: map_size(state.traces),
        deferred_count: map_size(state.deferred_corrections)
      }, state}
@@ -58,10 +59,7 @@ defmodule Sensory.STDPCoordinator do
 
   @impl true
   def handle_cast({:register_trace, trace}, state) do
-    now = now_ms()
-    state = prune_expired_traces(state, now)
-
-    case normalize_trace(trace, now) do
+    case normalize_trace(trace) do
       {:ok, normalized} ->
         trace_key = trace_key(normalized.source_node, normalized.predicted_target)
         {:noreply, %{state | traces: Map.put(state.traces, trace_key, normalized)}}
@@ -77,14 +75,20 @@ defmodule Sensory.STDPCoordinator do
     handle_info({:msg, topic, payload}, state)
   end
 
+  def handle_info({:msg, topic, iodata}, state) when topic == @epoch_close_subject do
+    Logger.info("[STDPCoordinator] Epoch Boundary Reached. Flushing causal matrix.")
+    state = apply_epoch_causal_flush(state)
+    {:noreply, state}
+  end
+
   def handle_info({:msg, topic, iodata}, %{subject: subject} = state) when topic == subject do
     payload = IO.iodata_to_binary(iodata)
-    now = now_ms()
-    state = prune_expired_traces(state, now)
 
     case Karyon.NervousSystem.PredictionError.decode(payload) do
       {:ok, %Karyon.NervousSystem.PredictionError{} = prediction_error} ->
-        route_operator_nociception(prediction_error, state)
+        # Buffer feedback instead of acting immediately
+        new_feedback = [prediction_error | state.delayed_feedback]
+        {:noreply, %{state | delayed_feedback: new_feedback}}
 
       {:error, reason} ->
         Logger.debug("[STDPCoordinator] Failed to decode operator nociception payload: #{inspect(reason)}")
@@ -112,16 +116,45 @@ defmodule Sensory.STDPCoordinator do
 
   def handle_info(_message, state), do: {:noreply, state}
 
-  defp route_operator_nociception(prediction_error, state) do
-    with :operator_induced <- normalize_source(prediction_error.source),
-         {:ok, severity} <- validate_severity(prediction_error.severity),
-         {:ok, targeted_update} <- normalize_targeted_update(prediction_error, severity) do
-      route_targeted_correction(Map.put(targeted_update, :attempt, 0), state)
-    else
-      other ->
-        Logger.debug("[STDPCoordinator] Dropping nociception event: #{inspect(other)}")
-        {:noreply, state}
-    end
+  defp apply_epoch_causal_flush(state) do
+    Enum.each(state.delayed_feedback, fn feedback ->
+      with :operator_induced <- normalize_source(feedback.source),
+           {:ok, severity} <- validate_severity(feedback.severity),
+           {:ok, targeted_update} <- normalize_targeted_update(feedback, severity) do
+        
+        feedback_clock = feedback.lamport_clock || 0
+        
+        Enum.each(state.traces, fn {_key, trace} ->
+          delta_c = feedback_clock - trace.lamport_clock
+          if delta_c >= 0 do
+            # F * e^(-lambda * delta_c)
+            delta_w = severity * :math.exp(-state.lambda * delta_c)
+            
+            payload = %{
+              source_node: trace.source_node,
+              predicted_target: trace.predicted_target,
+              corrected_target: targeted_update.corrected_target,
+              severity: delta_w,
+              negative_spike: %{
+                direction: :negative,
+                source_node: trace.source_node,
+                target_node: trace.predicted_target,
+                severity: delta_w
+              },
+              positive_spike: %{
+                direction: :positive,
+                source_node: trace.source_node,
+                target_node: targeted_update.corrected_target,
+                severity: delta_w
+              }
+            }
+            send(trace.stem_cell_pid, {:stdp_targeted_edge_update, payload})
+          end
+        end)
+      end
+    end)
+    
+    %{state | delayed_feedback: [], traces: %{}}
   end
 
   defp route_targeted_correction(correction, state) do
@@ -223,20 +256,20 @@ defmodule Sensory.STDPCoordinator do
     end
   end
 
-  defp normalize_trace(trace, recorded_at) do
+  defp normalize_trace(trace) do
     motor_action_id = Map.get(trace, :motor_action_id) || Map.get(trace, "motor_action_id")
     sensory_id = Map.get(trace, :sensory_id) || Map.get(trace, "sensory_id")
     source_node = Map.get(trace, :source_node) || Map.get(trace, "source_node") || sensory_id
     predicted_target = Map.get(trace, :predicted_target) || Map.get(trace, "predicted_target") || motor_action_id
     stem_cell_pid = Map.get(trace, :stem_cell_pid) || Map.get(trace, "stem_cell_pid")
-    trace_timestamp = Map.get(trace, :recorded_at_ms) || Map.get(trace, "recorded_at_ms") || recorded_at
+    trace_timestamp = Map.get(trace, :lamport_clock) || Map.get(trace, "lamport_clock") || 0
 
     cond do
       not is_binary(source_node) -> {:error, :invalid_source_node}
       not is_binary(predicted_target) -> {:error, :invalid_predicted_target}
       not is_pid(stem_cell_pid) -> {:error, :invalid_stem_cell_pid}
       not Process.alive?(stem_cell_pid) -> {:error, :dead_stem_cell_pid}
-      not is_integer(trace_timestamp) -> {:error, :invalid_recorded_at}
+      not is_integer(trace_timestamp) -> {:error, :invalid_lamport_clock}
       true ->
         {:ok,
          %{
@@ -245,33 +278,12 @@ defmodule Sensory.STDPCoordinator do
            source_node: to_string(source_node),
            predicted_target: to_string(predicted_target),
            stem_cell_pid: stem_cell_pid,
-           recorded_at_ms: trace_timestamp
+           lamport_clock: trace_timestamp
          }}
     end
   end
 
-  defp prune_expired_traces(state, now) do
-    traces =
-      Enum.reduce(state.traces, %{}, fn {motor_action_id, trace}, acc ->
-        if Process.alive?(trace.stem_cell_pid) and now - trace.recorded_at_ms <= state.window_ms do
-          Map.put(acc, motor_action_id, trace)
-        else
-          acc
-        end
-      end)
-
-    %{state | traces: traces}
-  end
-
-  defp normalize_window_ms(value) when is_integer(value) do
-    cond do
-      value < @min_window_ms -> @min_window_ms
-      value > @max_window_ms -> @max_window_ms
-      true -> value
-    end
-  end
-
-  defp normalize_window_ms(_value), do: @default_window_ms
+ 
 
   defp validate_severity(value) when is_float(value) and value >= 0.0 and value <= 1.0, do: {:ok, value}
   defp validate_severity(value) when is_integer(value), do: validate_severity(value * 1.0)
@@ -305,6 +317,4 @@ defmodule Sensory.STDPCoordinator do
   defp trace_key(source_node, predicted_target), do: "#{source_node}->#{predicted_target}"
   defp normalize_binary(value) when is_binary(value), do: value
   defp normalize_binary(_value), do: nil
-
-  defp now_ms, do: System.monotonic_time(:millisecond)
 end

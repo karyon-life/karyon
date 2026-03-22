@@ -58,7 +58,12 @@ defmodule NervousSystem.Synapse do
     
     with {:ok, %{protocol: protocol, host: host, port: port}} <- parse_bind_addr(bind_addr),
          action <- Keyword.get(opts, :action, :bind),
-         {:ok, state} <- initialize_socket(socket_pid, type, owner, protocol, host, port, action, hwm) do
+         {:ok, init_state} <- initialize_socket(socket_pid, type, owner, protocol, host, port, action, hwm) do
+      
+      state = init_state 
+      |> Map.put(:lamport_clock, 0)
+      |> Map.put(:causal_history, [])
+
       {:ok, state}
     else
       {:error, reason} ->
@@ -126,6 +131,12 @@ defmodule NervousSystem.Synapse do
 
   @impl true
   def handle_call({:send, payload}, _from, state) do
+    state = Map.update(state, :lamport_clock, 1, &(&1 + 1))
+    
+    # Normally we would encode the clock before sending, but since payload is already binary,
+    # the sender should have used our clock. In a full implementation, we might intercept
+    # struct-based sends rather than raw binaries.
+
     case :chumak.send(state.socket, payload) do
       :ok ->
         emit_transport_event(:send_ok, %{protocol: state.protocol, port: state.port, type: state.type, plane: state.plane, bytes: payload_size(payload)})
@@ -153,6 +164,18 @@ defmodule NervousSystem.Synapse do
   @impl true
   def handle_info({:synapse_recv_internal, payload}, state) do
     emit_transport_event(:recv_ok, %{protocol: state.protocol, port: state.port, type: state.type, plane: state.plane, bytes: payload_size(payload)})
+    
+    state =
+      case Karyon.NervousSystem.MetabolicSpike.decode(payload) do
+        {:ok, spike} ->
+          new_clock = max(Map.get(state, :lamport_clock, 0), spike.lamport_clock || 0) + 1
+          history = Map.get(state, :causal_history, [])
+          new_history = [{:receive, spike.source, new_clock} | history]
+          %{state | lamport_clock: new_clock, causal_history: new_history}
+        _ ->
+          state
+      end
+
     send(state.owner, {:synapse_recv, self(), payload})
     {:noreply, state}
   end

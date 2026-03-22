@@ -13,4 +13,5 @@ message PredictionError {
   string source_node = 8;
   string predicted_target = 9;
   string corrected_target = 10;
+  uint64 lamport_clock = 11;
 }
