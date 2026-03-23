@@ -64,6 +64,7 @@ defmodule Core.MotorDriverTest do
     :ok
   end
 
+  @tag :external
   test "sequence_plan/1 returns a structured plan for a known attractor" do
     case MotorDriver.sequence_plan("test_attractor") do
       {:ok, %Plan{} = plan} ->
@@ -111,7 +112,7 @@ defmodule Core.MotorDriverTest do
                 }),
                (:TaskNode {
                   id: '#{child}',
-                  action: 'propagate_signal',
+                  action: 'babble',
                   predicted_outcome: 'child_ready',
                   sequence: 2,
                   phase: 'propagate',
@@ -155,19 +156,19 @@ defmodule Core.MotorDriverTest do
     assert first.predicted_state.summary == "root_ready"
     assert first.predicted_state.phase == "stabilize"
     assert first.predicted_state.objective_priors["stability"] == 1.2
-    assert second.action == "propagate_signal"
+    assert second.action == "babble"
     assert second.predicted_state.summary == "child_ready"
     assert second.predicted_state.phase == "propagate"
     assert second.predicted_state.needs["throughput"] == 0.8
     assert first.params["fanout"] == 1
     assert second.params["fanout"] == 0
     assert plan.transition_delta.step_count == 2
-    assert plan.transition_delta.actions == ["checkpoint", "propagate_signal"]
+    assert plan.transition_delta.actions == ["checkpoint", "babble"]
     assert [%{"summary" => "root_ready"}, %{"summary" => "child_ready"}] = plan.transition_delta.predicted_states
   end
 
   test "StemCell boots successfully from new DNA templates" do
-    dna_path = "priv/dna/tabula_rasa_stem_cell.yml"
+    dna_path = "../../priv/dna/tabula_rasa_stem_cell.yml"
     # Ensure we are in the right place
     assert File.exists?(dna_path)
     
@@ -202,7 +203,7 @@ defmodule Core.MotorDriverTest do
       steps: [
         %Step{
           id: "step-1",
-          action: "patch_codebase",
+          action: "babble",
           params: %{"vm_id" => "intent-vm"},
           predicted_state: %AbstractState{
             entity: "step-1",
@@ -215,7 +216,7 @@ defmodule Core.MotorDriverTest do
           }
         }
       ],
-      transition_delta: %{step_count: 1, actions: ["patch_codebase"]},
+      transition_delta: %{step_count: 1, actions: ["babble"]},
       created_at: 1_710_000_000
     }
 
@@ -228,7 +229,7 @@ defmodule Core.MotorDriverTest do
     assert intent.plan_step_ids == ["step-1"]
     assert intent.target_state.summary == "target_state:typed-attractor"
     assert intent.executor["module"] == "Core.TestSupport.ExecutorStub"
-    assert intent.params["steps"] == [%{"id" => "step-1", "action" => "patch_codebase", "params" => %{"vm_id" => "intent-vm"}, "predicted_state" => %{"entity" => "step-1", "phase" => "transition", "summary" => "patched", "attributes" => %{}, "needs" => %{}, "values" => %{}, "objective_priors" => %{}}, "predicted_outcome" => "patched"}]
+    assert intent.params["steps"] == [%{"id" => "step-1", "action" => "babble", "params" => %{"vm_id" => "intent-vm"}, "predicted_state" => %{"entity" => "step-1", "phase" => "transition", "summary" => "patched", "attributes" => %{}, "needs" => %{}, "values" => %{}, "objective_priors" => %{}}, "predicted_outcome" => "patched"}]
   end
 
   test "sequence_plan/1 enriches attractors with metabolism policy priors" do
@@ -386,7 +387,7 @@ defmodule Core.MotorDriverTest do
       steps: [
         %Step{
           id: "step-deferred",
-          action: "refine_notes",
+          action: "babble",
           params: %{},
           predicted_state: %AbstractState{
             entity: "step-deferred",

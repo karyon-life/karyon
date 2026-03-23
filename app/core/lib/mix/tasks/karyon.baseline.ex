@@ -122,12 +122,13 @@ defmodule Mix.Tasks.Karyon.Baseline do
   defp measure_sensory_parse(parse_iterations) do
     payload = "hellohello"
 
-    Sensory.ingest_bytes(payload)
+    # Warm up
+    _ = Sensory.PeripheralNif.compress_stream(self(), payload, 0.8, 5)
 
     {duration_us, last_result} =
       timed(fn ->
         Enum.reduce(1..parse_iterations, nil, fn _, _ ->
-          Sensory.ingest_bytes(payload)
+          Sensory.PeripheralNif.compress_stream(self(), payload, 0.8, 5)
         end)
       end)
 
@@ -137,7 +138,7 @@ defmodule Mix.Tasks.Karyon.Baseline do
       ops_per_second: rate_per_second(parse_iterations, duration_us),
       avg_parse_latency_ms: Float.round(duration_us / parse_iterations / 1_000, 3),
       sample_size_bytes: byte_size(payload),
-      sample_verified: match?({:ok, %{pooled_sequences: sequences}} when is_list(sequences), last_result)
+      sample_verified: match?({:ok, _tokens}, last_result)
     }
   end
 

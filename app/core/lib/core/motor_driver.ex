@@ -196,19 +196,10 @@ defmodule Core.MotorDriver do
     }
   end
 
-  defp normalize_action(props, labels, fanout) do
+  defp normalize_action(props, _labels, _fanout) do
     cond do
-      is_binary(props["action"]) and props["action"] != "" ->
+      is_binary(props["action"]) and props["action"] in ["babble", "emit_tokens"] ->
         props["action"]
-
-      "ASTNode" in labels and is_binary(props["type"]) ->
-        "analyze_#{props["type"]}"
-
-      "Cell" in labels and fanout > 0 ->
-        "propagate_signal"
-
-      "Cell" in labels ->
-        "checkpoint"
 
       true ->
         "checkpoint"

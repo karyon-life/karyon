@@ -38,13 +38,6 @@ defmodule Core.DNA do
   @type t :: %__MODULE__{}
 
   @schema_version 1
-  @legacy_executor_map %{
-    "operator_environment_motor_babble" => %{
-      "module" => "Core.OperatorSandboxExecutor",
-      "function" => "capture_output",
-      "default_args" => %{}
-    }
-  }
 
   def load(file_path) when is_binary(file_path) do
     full_path = Path.expand(file_path)
@@ -279,15 +272,7 @@ defmodule Core.DNA do
   end
 
   defp normalize_executor(spec, file_path) when is_map(spec) do
-    case Map.get(spec, "executor") do
-      nil ->
-        with {:ok, legacy_config} <- legacy_executor(Map.get(spec, "motor_executor")) do
-          normalize_executor_config(legacy_config, file_path)
-        end
-
-      config ->
-        normalize_executor_config(config, file_path)
-    end
+    normalize_executor_config(Map.get(spec, "executor"), file_path)
   end
 
   defp normalize_executor_config(nil, _file_path), do: {:ok, nil}
@@ -331,17 +316,6 @@ defmodule Core.DNA do
     end
   end
 
-  defp legacy_executor(nil), do: {:ok, nil}
-  defp legacy_executor("none"), do: {:ok, nil}
-
-  defp legacy_executor(value) when is_binary(value) do
-    case Map.get(@legacy_executor_map, value) do
-      nil -> {:error, {:unknown_legacy_executor, value}}
-      executor -> {:ok, executor}
-    end
-  end
-
-  defp legacy_executor(other), do: {:error, {:unknown_legacy_executor, other}}
 
   defp resolve_relative_path(path, file_path) do
     file_path
@@ -389,8 +363,6 @@ defmodule Core.DNA do
   defp dna_error_message({:invalid_executor, file_path}, _default_path),
     do: "DNA #{file_path} has invalid executor definition"
 
-  defp dna_error_message({:unknown_legacy_executor, executor_name}, file_path),
-    do: "DNA #{file_path} references unknown legacy motor_executor #{inspect(executor_name)}"
 
   defp dna_error_message({:invalid_synapses, file_path}, _default_path),
     do: "DNA #{file_path} has invalid synapses definition"

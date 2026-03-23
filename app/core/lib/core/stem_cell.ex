@@ -46,20 +46,9 @@ defmodule Core.StemCell do
             [start_synapse(syn_config)]
       end
 
-    # Phase 1: Self-subscribe to the Pain Receptor as an "Eye" for the organism
-    nociception_address = Application.get_env(:nervous_system, :nociception_port, 5555)
-    
-    bind_uri = case nociception_address do
-      addr when is_binary(addr) -> addr
-      port when is_integer(port) -> "tcp://127.0.0.1:#{port}"
-    end
-
-    {:ok, nociception_syn_pid} = NervousSystem.Synapse.start_link(
-      type: :sub, 
-      bind: bind_uri, 
-      action: :connect,
-      hwm: 500
-    )
+    # Phase 1: Self-subscribe to the Pain Receptor via internal PubSub
+    # This ensures zero-serialization for local signals.
+    NervousSystem.PubSub.subscribe(:nociception)
 
     # Subscribe to metabolic spikes via NATS (Endocrine system)
     endocrine_topic = "metabolic.spike"
@@ -71,7 +60,7 @@ defmodule Core.StemCell do
       dna: dna,
       control_plane: dna.control_plane,
       dna_spec: dna_spec,
-      synapses: [nociception_syn_pid | synapses], 
+      synapses: synapses, 
       expectations: %{}, # Map of id -> typed expectation records
       beliefs: %{},
       status: :active,
@@ -251,40 +240,34 @@ defmodule Core.StemCell do
   end
 
   @impl true
-  def handle_info({:synapse_recv, _pid, iodata}, state) do
-    payload = IO.iodata_to_binary(iodata)
-    case Karyon.NervousSystem.PredictionError.decode(payload) do
-      {:ok, %Karyon.NervousSystem.PredictionError{} = prediction_error} ->
-        Logger.warning("[StemCell] Received Nociception Signal! Calculating Variational Free Energy.")
-        
-        # Calculate Variational Free Energy (F)
-        metadata = normalize_prediction_metadata(prediction_error.metadata)
-        expectation_lineage = expectation_lineage(state.expectations)
-        vfe = calculate_variational_free_energy(state.expectations, metadata)
+  def handle_info({:prediction_error, prediction_error}, state) do
+    Logger.warning("[StemCell] Received Nociception Signal! Calculating Variational Free Energy.")
+    
+    # Calculate Variational Free Energy (F)
+    metadata = normalize_prediction_metadata(prediction_error.metadata)
+    expectation_lineage = expectation_lineage(state.expectations)
+    vfe = calculate_variational_free_energy(state.expectations, metadata)
 
-        utility_threshold = Core.DNA.utility_threshold(state.dna)
-        next_state =
-          %{state | expectations: %{}}
-          |> put_in([:beliefs], Map.merge(state.beliefs, %{
-            last_vfe: vfe,
-            last_prediction_metadata: metadata,
-            last_expectation_lineage: expectation_lineage
-          }))
+    utility_threshold = Core.DNA.utility_threshold(state.dna)
+    next_state =
+      %{state | expectations: %{}}
+      |> put_in([:beliefs], Map.merge(state.beliefs, %{
+        last_vfe: vfe,
+        last_prediction_metadata: metadata,
+        last_expectation_lineage: expectation_lineage
+      }))
 
-        persist_prediction_error(
-          nociception_payload(next_state, prediction_error, metadata, vfe, utility_threshold, expectation_lineage)
-        )
+    persist_prediction_error(
+      nociception_payload(next_state, prediction_error, metadata, vfe, utility_threshold, expectation_lineage)
+    )
 
-        if vfe > utility_threshold do
-          Logger.error("[StemCell] VFE #{vfe} exceeds threshold #{utility_threshold}. Triggering structural pruning.")
-          # Pruning logic: remove failed branches in the Rhizome
-          prune_rhizome_pathways(state.expectations)
-        end
-        
-        {:noreply, checkpoint_state(next_state)}
-      _ ->
-        {:noreply, state}
+    if vfe > utility_threshold do
+      Logger.error("[StemCell] VFE #{vfe} exceeds threshold #{utility_threshold}. Triggering structural pruning.")
+      # Pruning logic: remove failed branches in the Rhizome
+      prune_rhizome_pathways(state.expectations)
     end
+    
+    {:noreply, checkpoint_state(next_state)}
   end
 
   def handle_info({:stdp_targeted_edge_update, correction}, state) when is_map(correction) do

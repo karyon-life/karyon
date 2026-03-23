@@ -38,10 +38,10 @@ defmodule Core.TeacherDaemon do
 
     # Initialize ZMQ Umbilical
     {:ok, pub_socket} = :chumak.socket(:pub)
-    :ok = :chumak.bind(pub_socket, "tcp://127.0.0.1:#{@pub_port}")
+    :ok = :chumak.bind(pub_socket, :tcp, ~c"127.0.0.1", @pub_port)
 
     {:ok, pull_socket} = :chumak.socket(:pull)
-    :ok = :chumak.bind(pull_socket, "tcp://127.0.0.1:#{@pull_port}")
+    :ok = :chumak.bind(pull_socket, :tcp, ~c"127.0.0.1", @pull_port)
 
     parent = self()
     
