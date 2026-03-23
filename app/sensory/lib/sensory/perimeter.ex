@@ -5,26 +5,10 @@ defmodule Sensory.Perimeter do
   """
 
   @contract %{
-    ears: %{
-      description: "passive event and telemetry ingestion",
-      surfaces: %{
-        telemetry_event: [:zeromq, :nats],
-        log_line: [:zeromq, :nats],
-        webhook_payload: [:http],
-        tensor_stream: [:zeromq]
-      }
-    },
     tabula_rasa: %{
       description: "continuous raw-byte linguistic intake without parser priors",
       surfaces: %{
         continuous_byte_stream: [:zeromq, :raw_socket]
-      }
-    },
-    skin: %{
-      description: "raw byte and opaque payload boundary sensing",
-      surfaces: %{
-        protocol_frame: [:raw_socket],
-        binary_payload: [:raw_socket]
       }
     }
   }

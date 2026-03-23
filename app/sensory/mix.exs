@@ -13,10 +13,10 @@ defmodule Sensory.MixProject do
       start_permanent: Mix.env() == :prod,
       compilers: Mix.compilers(),
       rustler_crates: [
-        sensory_nif: [
-          path: "native/sensory_nif",
+        karyon_nif: [
+          path: "../native/karyon_nif",
           mode: (if Mix.env() == :prod, do: :release, else: :debug),
-          crate: :sensory_nif
+          crate: :karyon_nif
         ]
       ],
       deps: deps()
@@ -34,7 +34,8 @@ defmodule Sensory.MixProject do
     [
       {:jason, "~> 1.4"},
       {:rustler, "~> 0.37.0", runtime: false},
-      {:rhizome, in_umbrella: true}
+      {:rhizome, in_umbrella: true},
+      {:chumak, "~> 1.4"}
     ]
   end
 end
