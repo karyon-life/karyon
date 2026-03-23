@@ -145,21 +145,7 @@ defmodule Sensory.STDPCoordinator do
   end
   
   defp query_memgraph(query, params) do
-    # Assuming Rhizome.Native exposes memgraph_query/2 or we fallback to string interpolation if it doesn't.
-    # We will try the typical Elixir Bolt driver invocation pattern if Rhizome isn't capturing params
-    if Code.ensure_loaded?(Rhizome.Native) and function_exported?(Rhizome.Native, :memgraph_query, 2) do
-      apply(Rhizome.Native, :memgraph_query, [query, params])
-    else
-      # Fallback to Rhizome.Native.memgraph_query/1 with safe interpolation if needed
-      Rhizome.Native.memgraph_query(interpolate_params(query, params))
-    end
-  end
-  
-  defp interpolate_params(query, params) do
-    Enum.reduce(params, query, fn {k, v}, acc ->
-      val_str = if is_binary(v), do: "'#{String.replace(v, "'", "\\'")}'", else: to_string(v)
-      String.replace(acc, "$#{k}", val_str)
-    end)
+    Rhizome.Native.memgraph_query(query, params)
   end
 
   defp decode_sensory_activation(payload) do

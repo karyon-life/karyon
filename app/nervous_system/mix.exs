@@ -12,13 +12,7 @@ defmodule NervousSystem.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       compilers: Mix.compilers(),
-      rustler_crates: [
-        karyon_nif: [
-          path: "../native/karyon_nif",
-          mode: (if Mix.env() == :prod, do: :release, else: :debug),
-          crate: :karyon_nif
-        ]
-      ],
+      rustler_crates: [],
       deps: deps()
     ]
   end

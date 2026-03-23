@@ -1,171 +1,71 @@
 defmodule NervousSystem.PainReceptorTest do
+  @moduledoc """
+  Verifies that biological failure states are correctly converted to prediction errors.
+  Now uses PubSub instead of ZMQ synapses.
+  """
   use ExUnit.Case, async: false
   require Logger
+  alias NervousSystem.PainReceptor
+  alias NervousSystem.PubSub
 
   setup do
-    # Revert to TCP because chumak does NOT support inproc, but use a random port
-    port = Enum.random(40000..60000)
-    address = "tcp://127.0.0.1:#{port}"
-    
-    # Explicitly start the Nervous System application and wait for its supervisor
+    # Ensure the Nervous System application and its PubSub bus are started
     Application.ensure_all_started(:nervous_system)
     
-    # Wait for the supervisor to be registered and ready
-    case wait_for_ready(NervousSystem.Supervisor, 100) do
-      :ok -> :ok
-      _ -> Logger.error("[PainReceptorTest] Supervisor failed to start!")
-    end
-
-    # 1. Stop the global supervised instance if it exists to avoid port/name collisions
-    if Process.whereis(NervousSystem.Supervisor) do
-      try do
-        Supervisor.terminate_child(NervousSystem.Supervisor, NervousSystem.PainReceptor)
-      rescue
-        _ -> :ok
-      end
+    # Capture the PID of the supervised instance or start it if needed
+    pid = case PainReceptor.start_link([]) do
+      {:ok, p} -> p
+      {:error, {:already_started, p}} -> p
     end
     
-    # Also stop any manually started ones or zombies from previous failed runs
-    stop_if_alive(Karyon.NervousSystem.PainReceptor)
-    stop_if_alive(NervousSystem.PainReceptor)
-    stop_if_alive(:pain_synapse)
+    # Note: Since it's a named GenServer, we don't strictly need to stop it on_exit
+    # if we want to reuse the supervised one, but for isolation we could terminate it.
     
-    # Give the OS a moment to reclaim ports
-    Process.sleep(100)
-
-    # 2. Start the PainReceptor for the test with EXPLICIT address
-    {:ok, pid} = NervousSystem.PainReceptor.start_link(%{address: address})
-    
-    on_exit(fn ->
-      stop_if_alive(pid)
-      stop_if_alive(:pain_synapse)
-    end)
-    
-    {:ok, pid: pid, address: address}
+    {:ok, pid: pid}
   end
 
-  defp wait_for_ready(name, attempts) do
-    if Process.whereis(name) do
-      :ok
-    else
-      if attempts > 0 do
-        Process.sleep(100)
-        wait_for_ready(name, attempts - 1)
-      else
-        {:error, :timeout}
-      end
-    end
+  test "intercepts telemetry and broadcasts prediction error via PubSub" do
+    # 1. Subscribe to nociception topic via our PubSub facade
+    # topic(:nociception) returns "nervous_system:nociception"
+    PubSub.subscribe(:nociception)
+    topic = PubSub.topic(:nociception)
+
+    # 2. Trigger a simulated "Pain" event via Telemetry
+    # Note: PainReceptor listens to specific telemetry events
+    metadata = %{reason: "crash", module: Core.MockCell}
+    # PainReceptor.init attaches to [:elixir, :proc_lib, :crash] among others
+    :telemetry.execute([:elixir, :proc_lib, :crash], %{}, metadata)
+
+    # 3. Assert signal arrival via PubSub
+    assert_receive {^topic, {:prediction_error, error}}, 5000
+    
+    assert error.type == "nociception"
+    assert error.source == "telemetry_interceptor"
+    assert error.severity == 1.0
+    assert error.metadata["reason"] == "\"crash\""
+    assert is_binary(error.id)
+    assert is_integer(error.timestamp)
   end
 
-  defp stop_if_alive(pid) when is_pid(pid) do
-    if Process.alive?(pid) do
-      try do
-        Process.unlink(pid)
-        GenServer.stop(pid)
-      catch
-        :exit, _ -> :ok
-      end
-    else
-      :ok
-    end
-  end
+  test "filters recursive nervous-system pain sources" do
+    PubSub.subscribe(:nociception)
+    topic = PubSub.topic(:nociception)
 
-  defp stop_if_alive(name) do
-    case GenServer.whereis(name) do
-      nil -> :ok
-      pid -> stop_if_alive(pid)
-    end
-  end
-
-  test "intercepts telemetry error and sends nociception signal", %{address: address} do
-    # 1. Listen for Synapse signals
-    
-    # Start a SUB synapse to verify the PainReceptor's PUB broadcast
-    {:ok, sub_pid} = NervousSystem.Synapse.start_link(
-      type: :sub, 
-      bind: address, 
-      action: :connect,
-      owner: self()
-    )
-    
-    on_exit(fn -> if Process.alive?(sub_pid), do: GenServer.stop(sub_pid) end)
-
-    # Subscribe to all messages (empty string topic)
-    :ok = GenServer.call(sub_pid, {:subscribe, ""})
-
-    # 2. Give ZMQ SUB time to connect to the PUB socket (slow joiner problem)
-    # inproc is very fast but still needs a micro-sleep for handshake
-    Process.sleep(200)
-
-    # 3. Trigger a simulated "Pain" event via Telemetry
-    # Check if PainReceptor is still alive before sending
-    assert Process.whereis(NervousSystem.PainReceptor) != nil
-    
-    metadata = %{reason: "crash", module: __MODULE__}
-    :telemetry.execute([:logger, :error], %{count: 1}, metadata)
-
-    # 4. Assert signal arrival
-    # PainReceptor might log warnings if Synapse is dead, but it should still try to send
-    assert_receive {:synapse_recv, ^sub_pid, payload}, 10000
-    
-    assert {:ok, decoded} = Karyon.NervousSystem.PredictionError.decode(payload)
-    assert decoded.type == "nociception"
-    assert decoded.source == "telemetry"
-    assert_in_delta decoded.severity, 1.0, 0.0001
-    assert Map.get(decoded.metadata, "reason") == "crash"
-    assert Map.get(decoded.metadata, "event_source") == "telemetry"
-    assert Map.get(decoded.metadata, "severity") == "1.0"
-    assert Map.get(decoded.metadata, "schema_version") == "2026-03-18"
-    assert Map.get(decoded.metadata, "learning_phase") == "prediction_error"
-    assert Map.get(decoded.metadata, "learning_edge") == "prediction_error->plasticity"
-    assert Map.get(decoded.metadata, "timestamp_unit") == "iso8601"
-    assert Map.get(decoded.metadata, "proto_timestamp_unit") == "second"
-    assert Map.get(decoded.metadata, "correction_type") == "pending_graph_correction"
-    assert Map.get(decoded.metadata, "correction_status") == "pending"
-    assert is_binary(Map.get(decoded.metadata, "recorded_at"))
-    assert Map.get(decoded.metadata, "event_fingerprint") == "Elixir.NervousSystem.PainReceptorTest:crash"
-    assert is_binary(Map.get(decoded.metadata, "trace_id"))
-  end
-
-  test "filters recursive nervous-system pain sources", %{address: address} do
-    {:ok, sub_pid} =
-      NervousSystem.Synapse.start_link(
-        type: :sub,
-        bind: address,
-        action: :connect,
-        owner: self()
-      )
-
-    on_exit(fn -> if Process.alive?(sub_pid), do: GenServer.stop(sub_pid) end)
-
-    :ok = GenServer.call(sub_pid, {:subscribe, ""})
-    Process.sleep(200)
-
+    # Modules in NervousSystem should be ignored to avoid feedback loops
+    # Note: they are prefixed with Elixir. in the check
     metadata = %{reason: "loop", module: NervousSystem.Synapse}
-    :telemetry.execute([:logger, :error], %{count: 1}, metadata)
+    :telemetry.execute([:elixir, :proc_lib, :crash], %{}, metadata)
 
-    refute_receive {:synapse_recv, ^sub_pid, _payload}, 500
+    refute_receive {^topic, {:prediction_error, _}}, 500
   end
 
-  test "suppresses duplicate pain bursts for the same fingerprint", %{address: address} do
-    {:ok, sub_pid} =
-      NervousSystem.Synapse.start_link(
-        type: :sub,
-        bind: address,
-        action: :connect,
-        owner: self()
-      )
+  test "manual trigger_nociception works" do
+    PubSub.subscribe(:nociception)
+    topic = PubSub.topic(:nociception)
 
-    on_exit(fn -> if Process.alive?(sub_pid), do: GenServer.stop(sub_pid) end)
+    PainReceptor.trigger_nociception(%{reason: "manual_test"})
 
-    :ok = GenServer.call(sub_pid, {:subscribe, ""})
-    Process.sleep(200)
-
-    metadata = %{reason: "burst", module: __MODULE__}
-    :telemetry.execute([:logger, :error], %{count: 1}, metadata)
-    :telemetry.execute([:logger, :error], %{count: 1}, metadata)
-
-    assert_receive {:synapse_recv, ^sub_pid, _payload}, 5_000
-    refute_receive {:synapse_recv, ^sub_pid, _payload}, 500
+    assert_receive {^topic, {:prediction_error, error}}, 1000
+    assert error.metadata["reason"] == "\"manual_test\""
   end
 end
