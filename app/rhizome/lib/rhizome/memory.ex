@@ -259,6 +259,26 @@ defmodule Rhizome.Memory do
   def query_recent_execution_outcomes(_opts), do: {:error, :invalid_recent_execution_outcomes_query}
 
   @doc """
+  Atomic upsert of a SensoryNode and its constituent edges.
+  """
+  def upsert_sensory_node(id, constituent_ids) when is_integer(id) or is_binary(id) do
+    with_topology(:upsert_sensory_node, fn ->
+      query = build_sensory_node_query(id, constituent_ids)
+      Rhizome.Native.memgraph_query(query)
+    end)
+  end
+
+  @doc """
+  Atomic deletion of a SensoryNode and its orphaned edges.
+  """
+  def delete_sensory_node(id) when is_integer(id) or is_binary(id) do
+    with_topology(:delete_sensory_node, fn ->
+      query = build_delete_sensory_node_query(id)
+      Rhizome.Native.memgraph_query(query)
+    end)
+  end
+
+  @doc """
   Returns recent execution telemetry artifacts suitable for curriculum replay.
   """
   def query_recent_execution_telemetry(opts \\ %{})
@@ -1972,6 +1992,28 @@ defmodule Rhizome.Memory do
     MERGE (from)-[r:#{relationship_type}]->(to)
     #{set_clause}
     RETURN type(r) AS relationship_type
+    """
+  end
+
+  defp build_sensory_node_query(id, constituent_ids) do
+    escaped_id = property_literal(id)
+    unwind_list = "[#{Enum.map_join(constituent_ids, ", ", &property_literal/1)}]"
+
+    """
+    MERGE (n:SensoryNode {id: #{escaped_id}})
+    WITH n
+    UNWIND #{unwind_list} AS c_id
+    MATCH (c:SensoryNode {id: c_id})
+    MERGE (n)-[:COMPOSED_OF]->(c)
+    RETURN n.id AS id
+    """
+  end
+
+  defp build_delete_sensory_node_query(id) do
+    """
+    MATCH (n:SensoryNode {id: #{property_literal(id)}})
+    DETACH DELETE n
+    RETURN #{property_literal(id)} AS id
     """
   end
 
