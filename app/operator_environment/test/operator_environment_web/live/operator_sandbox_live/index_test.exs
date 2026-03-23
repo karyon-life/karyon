@@ -128,12 +128,9 @@ defmodule OperatorEnvironmentWeb.OperatorSandboxLive.IndexTest do
     assert rendered =~ "CLOSED"
     assert rendered =~ "disabled"
 
-    view
-    |> form(".dsl-form", %{"dsl_input" => "[\"TEST\"]"})
-    |> render_submit()
-
-    render_click(element(view, ".btn-confirm"))
-    render_click(element(view, ".btn-reject"))
+    render_hook(view, "submit_dsl", %{"dsl_input" => "[\"TEST\"]"})
+    render_hook(view, "confirm_topology", %{})
+    render_hook(view, "reject_syntax", %{})
 
     refute_received {"nervous_system:sensory_input", _}
     refute_received {"nervous_system:nociception", _}

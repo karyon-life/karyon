@@ -38,10 +38,10 @@ defmodule OperatorEnvironmentWeb.OperatorSandboxLive.Index do
     if socket.assigns.telemetry.membrane_open do
       case Jason.decode(dsl_json) do
         {:ok, tokens} when is_list(tokens) ->
-          # Automatically parse arrays into Sensory.Quantizer
+          # Generate deterministic node IDs without the deprecated Quantizer
           node_ids = Enum.map(tokens, fn
-            token when is_binary(token) -> Sensory.Quantizer.quantize(token)
-            other -> Sensory.Quantizer.quantize(to_string(other))
+            token when is_binary(token) -> :erlang.phash2(token)
+            other -> :erlang.phash2(to_string(other))
           end)
 
           payload = %{
