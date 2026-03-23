@@ -1,15 +1,15 @@
 cell_type: "sensory"
-description: "Raw text and byte ingestion cell that pools recurring sensory sequences without parser shortcuts."
+description: "Universal byte-stream ingestion cell utilizing Rust-native BPE compression for semantic token minting."
 allowed_actions:
-  - "ingest_bytes"
-  - "pool_sequences"
-  - "stabilize_patterns"
+  - "ingest_stream"
+  - "mint_tokens"
+  - "prune_topology"
 synapses:
   - type: "pub"
     bind: "tcp://127.0.0.1:5557"
 subscriptions:
   - "metabolic.spike"
-  - "operator.utterance"
+  - "operator.dsl_input"
 utility_threshold: 0.7
-memory_retention: "short_term"
-sampling_rate_ms: 75
+precision_baseline: 1.0
+atp_requirement: 0.1
