@@ -1,73 +1,53 @@
 defmodule Sensory.STDPCoordinator do
   @moduledoc """
-  Correlates operator-induced nociception with recent motor traces using
-  a monotonic eligibility window and emits typed STDP prediction errors.
+  Correlates MotorDriver emissions with Sensory.Stream perceptions using
+  true microsecond-precise Spike-Timing-Dependent Plasticity (STDP) and
+  exponential decay. Uses an ETS table for non-blocking high-frequency track.
   """
 
   use GenServer
   require Logger
 
-  @default_lambda 0.1
-  @default_subject "operator.nociception"
-  @default_retry_delay_ms 50
-  @max_retry_attempts 3
+  @ets_table :stdp_motor_spikes
+  @echo_window_ms 150
+  @tau 50.0 # Time constant for exponential decay
+  @amplitude_plus 1.0 # Maximum weight increase
 
-  # Epoch-gated tracking
-  @epoch_close_subject "endocrine.epoch_close"
+  # Client API
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
   end
 
-  def register_trace(trace) when is_map(trace) do
-    GenServer.cast(__MODULE__, {:register_trace, trace})
+  @doc """
+  Records a motor spike instantly via ETS to avoid GenServer mailbox bottlenecks.
+  Called by the MotorDriver or StemCell when a motor intent is executed.
+  """
+  def record_motor_spike(motor_node_id) do
+    timestamp_us = System.os_time(:microsecond)
+    # Using public write_concurrency table, any process can insert
+    :ets.insert(@ets_table, {:motor_spike, to_string(motor_node_id), timestamp_us})
+    :ok
   end
 
-  def runtime_state(server \\ __MODULE__) do
-    GenServer.call(server, :runtime_state)
-  end
+  # Server Callbacks
 
   @impl true
-  def init(opts) do
-    subject = Keyword.get(opts, :subject, @default_subject)
-    lambda = Keyword.get(opts, :lambda, @default_lambda)
+  def init(_opts) do
+    # Create the ETS table for high-speed tracking
+    # Using [:set, :public, :write_concurrency] as requested
+    :ets.new(@ets_table, [
+      :set,
+      :public,
+      :named_table,
+      write_concurrency: true,
+      read_concurrency: true
+    ])
 
-    maybe_subscribe(subject)
-    maybe_subscribe(@epoch_close_subject)
+    # Subscribe to Sensory Stream events to detect incoming compressions
+    maybe_subscribe("sensory.stream")
 
-    {:ok,
-     %{
-       subject: subject,
-       lambda: lambda,
-       retry_delay_ms: Keyword.get(opts, :retry_delay_ms, @default_retry_delay_ms),
-       traces: %{},
-       delayed_feedback: [],
-       deferred_corrections: %{}
-     }}
-  end
-
-  @impl true
-  def handle_call(:runtime_state, _from, state) do
-    {:reply,
-     %{
-       subject: state.subject,
-       lambda: state.lambda,
-       trace_count: map_size(state.traces),
-       deferred_count: map_size(state.deferred_corrections)
-     }, state}
-  end
-
-  @impl true
-  def handle_cast({:register_trace, trace}, state) do
-    case normalize_trace(trace) do
-      {:ok, normalized} ->
-        trace_key = trace_key(normalized.source_node, normalized.predicted_target)
-        {:noreply, %{state | traces: Map.put(state.traces, trace_key, normalized)}}
-
-      {:error, reason} ->
-        Logger.debug("[STDPCoordinator] Ignoring invalid STDP trace: #{inspect(reason)}")
-        {:noreply, state}
-    end
+    {:ok, %{}}
   end
 
   @impl true
@@ -75,246 +55,146 @@ defmodule Sensory.STDPCoordinator do
     handle_info({:msg, topic, payload}, state)
   end
 
-  def handle_info({:msg, topic, iodata}, state) when topic == @epoch_close_subject do
-    Logger.info("[STDPCoordinator] Epoch Boundary Reached. Flushing causal matrix.")
-    state = apply_epoch_causal_flush(state)
+  def handle_info({:msg, topic, iodata}, state) when topic == "sensory.stream" do
+    payload = IO.iodata_to_binary(iodata)
+    
+    case decode_sensory_activation(payload) do
+      {:ok, sensory_node_id} ->
+        process_sensory_event(sensory_node_id, System.os_time(:microsecond))
+      
+      _ ->
+        :ok
+    end
+
     {:noreply, state}
   end
 
-  def handle_info({:msg, topic, iodata}, %{subject: subject} = state) when topic == subject do
-    payload = IO.iodata_to_binary(iodata)
-
-    case Karyon.NervousSystem.PredictionError.decode(payload) do
-      {:ok, %Karyon.NervousSystem.PredictionError{} = prediction_error} ->
-        # Buffer feedback instead of acting immediately
-        new_feedback = [prediction_error | state.delayed_feedback]
-        {:noreply, %{state | delayed_feedback: new_feedback}}
-
-      {:error, reason} ->
-        Logger.debug("[STDPCoordinator] Failed to decode operator nociception payload: #{inspect(reason)}")
-        {:noreply, state}
-    end
+  def handle_info(_msg, state) do
+    {:noreply, state}
   end
 
-  def handle_info({:retry_targeted_correction, correction_key}, state) do
-    now = now_ms()
-    state = prune_expired_traces(state, now)
+  # Internal Logic
 
-    case Map.pop(state.deferred_corrections, correction_key) do
-      {nil, deferred_state} ->
-        {:noreply, %{state | deferred_corrections: deferred_state}}
+  defp process_sensory_event(sensory_node_id, t_sensory_us) do
+    # Find recent motor spikes in ETS
+    # In a high-throughput scenario, we match all and filter by recent times
+    records = :ets.tab2list(@ets_table)
+    
+    Enum.each(records, fn {:motor_spike, motor_node_id, t_motor_us} ->
+      weight_update = calculate_weight_update(t_motor_us, t_sensory_us)
 
-      {%{attempt: attempt} = correction, deferred_state} when attempt >= @max_retry_attempts ->
-        Logger.warning("[STDPCoordinator] Dropping targeted correction after bounded retries: #{inspect(correction_key)}")
-        {:noreply, %{state | deferred_corrections: deferred_state}}
-
-      {%{} = correction, deferred_state} ->
-        state = %{state | deferred_corrections: deferred_state}
-        route_targeted_correction(%{correction | attempt: correction.attempt + 1}, state)
-    end
-  end
-
-  def handle_info(_message, state), do: {:noreply, state}
-
-  defp apply_epoch_causal_flush(state) do
-    Enum.each(state.delayed_feedback, fn feedback ->
-      with :operator_induced <- normalize_source(feedback.source),
-           {:ok, severity} <- validate_severity(feedback.severity),
-           {:ok, targeted_update} <- normalize_targeted_update(feedback, severity) do
-        
-        feedback_clock = feedback.lamport_clock || 0
-        
-        Enum.each(state.traces, fn {_key, trace} ->
-          delta_c = feedback_clock - trace.lamport_clock
-          if delta_c >= 0 do
-            # F * e^(-lambda * delta_c)
-            delta_w = severity * :math.exp(-state.lambda * delta_c)
-            
-            payload = %{
-              source_node: trace.source_node,
-              predicted_target: trace.predicted_target,
-              corrected_target: targeted_update.corrected_target,
-              severity: delta_w,
-              negative_spike: %{
-                direction: :negative,
-                source_node: trace.source_node,
-                target_node: trace.predicted_target,
-                severity: delta_w
-              },
-              positive_spike: %{
-                direction: :positive,
-                source_node: trace.source_node,
-                target_node: targeted_update.corrected_target,
-                severity: delta_w
-              }
-            }
-            send(trace.stem_cell_pid, {:stdp_targeted_edge_update, payload})
-          end
-        end)
+      if weight_update > 0.0 do
+        # Valid causal link detected! Update Memgraph topology
+        apply_memgraph_topology_update(motor_node_id, sensory_node_id, weight_update)
       end
     end)
     
-    %{state | delayed_feedback: [], traces: %{}}
+    # Prune old spikes from ETS
+    prune_old_spikes(t_sensory_us)
   end
 
-  defp route_targeted_correction(correction, state) do
-    correction_key = trace_key(correction.source_node, correction.predicted_target)
+  @doc """
+  Calculates the STDP exponential decay based on microsecond temporal gap.
+  Because motor actions cause the sensory input in this context, 
+  delta_t_ms will be strictly positive (t_sensory - t_motor > 0).
+  """
+  def calculate_weight_update(t_motor_us, t_sensory_us) do
+    delta_t_ms = (t_sensory_us - t_motor_us) / 1000.0
 
-    with {:ok, trace} <- fetch_matching_trace(state, correction_key),
-         :ok <- ensure_nodes_mutable(correction),
-         :ok <- deliver_targeted_update(trace, correction) do
-      {:noreply, state}
+    if delta_t_ms > 0 and delta_t_ms <= @echo_window_ms do
+      # STDP Exponential Decay calculation
+      @amplitude_plus * :math.exp(-delta_t_ms / @tau)
     else
-      {:error, :trace_not_found} ->
-        Logger.debug("[STDPCoordinator] No active targeted trace found for #{inspect(correction_key)}")
-        {:noreply, state}
-
-      {:error, :nodes_locked} ->
-        schedule_retry(correction_key, correction, state)
-
-      {:error, reason} ->
-        Logger.debug("[STDPCoordinator] Dropping targeted STDP correction: #{inspect(reason)}")
-        {:noreply, state}
+      # Outside window or negative time (spurious)
+      0.0 
     end
   end
 
-  defp fetch_matching_trace(state, correction_key) do
-    case Map.get(state.traces, correction_key) do
-      nil -> {:error, :trace_not_found}
-      trace -> {:ok, trace}
-    end
-  end
+  defp apply_memgraph_topology_update(motor_id, sensory_id, weight_update) do
+    timestamp = System.system_time(:second)
 
-  defp ensure_nodes_mutable(correction) do
-    node_ids =
-      [correction.source_node, correction.predicted_target, correction.corrected_target]
-      |> Enum.uniq()
+    query = """
+    MATCH (m:MotorNode {id: $motor_id})
+    MATCH (s:SensoryNode {id: $sensory_id})
+    MERGE (m)-[rel:PRODUCES]->(s)
+    ON CREATE SET 
+        rel.weight = $weight_update, 
+        rel.created_at = $timestamp, 
+        rel.last_updated = $timestamp
+    ON MATCH SET 
+        rel.weight = rel.weight + $weight_update, 
+        rel.last_updated = $timestamp
+    """
 
-    case node_lock_status(node_ids) do
-      {:ok, statuses} ->
-        if Enum.any?(statuses, fn {_node_id, status} -> status != :unlocked end) do
-          {:error, :nodes_locked}
-        else
-          :ok
-        end
-
-      {:error, _reason} ->
-        :ok
-    end
-  end
-
-  defp node_lock_status(node_ids) do
-    cond do
-      not Code.ensure_loaded?(Core.MetabolicDaemon) ->
-        {:error, :metabolic_daemon_unavailable}
-
-      pid = GenServer.whereis(Core.MetabolicDaemon) ->
-        {:ok, GenServer.call(pid, {:get_node_lock_status, node_ids})}
-
-      true ->
-        {:error, :metabolic_daemon_unavailable}
-    end
-  end
-
-  defp deliver_targeted_update(trace, correction) do
-    payload = %{
-      source_node: correction.source_node,
-      predicted_target: correction.predicted_target,
-      corrected_target: correction.corrected_target,
-      severity: correction.severity,
-      negative_spike: %{
-        direction: :negative,
-        source_node: correction.source_node,
-        target_node: correction.predicted_target,
-        severity: correction.severity
-      },
-      positive_spike: %{
-        direction: :positive,
-        source_node: correction.source_node,
-        target_node: correction.corrected_target,
-        severity: correction.severity
-      }
+    params = %{
+      "motor_id" => motor_id,
+      "sensory_id" => sensory_id,
+      "weight_update" => weight_update,
+      "timestamp" => timestamp
     }
 
-    send(trace.stem_cell_pid, {:stdp_targeted_edge_update, payload})
-    :ok
+    # Asynchronously dispatch to Rhizome natively
+    Task.start(fn ->
+      case query_memgraph(query, params) do
+        {:ok, _} -> 
+          Logger.debug("[STDPCoordinator] Successfully updated topology: MotorNode:#{motor_id} -> SensoryNode:#{sensory_id} (w: #{weight_update})")
+        {:error, reason} ->
+          Logger.warning("[STDPCoordinator] Failed topology update: #{inspect(reason)}")
+      end
+    end)
+  end
+  
+  defp query_memgraph(query, params) do
+    # Assuming Rhizome.Native exposes memgraph_query/2 or we fallback to string interpolation if it doesn't.
+    # We will try the typical Elixir Bolt driver invocation pattern if Rhizome isn't capturing params
+    if Code.ensure_loaded?(Rhizome.Native) and function_exported?(Rhizome.Native, :memgraph_query, 2) do
+      apply(Rhizome.Native, :memgraph_query, [query, params])
+    else
+      # Fallback to Rhizome.Native.memgraph_query/1 with safe interpolation if needed
+      Rhizome.Native.memgraph_query(interpolate_params(query, params))
+    end
+  end
+  
+  defp interpolate_params(query, params) do
+    Enum.reduce(params, query, fn {k, v}, acc ->
+      val_str = if is_binary(v), do: "'#{String.replace(v, "'", "\\'")}'", else: to_string(v)
+      String.replace(acc, "$#{k}", val_str)
+    end)
   end
 
-  defp schedule_retry(correction_key, correction, state) do
-    deferred =
-      state.deferred_corrections
-      |> Map.put(correction_key, correction)
-
-    Process.send_after(self(), {:retry_targeted_correction, correction_key}, state.retry_delay_ms)
-    {:noreply, %{state | deferred_corrections: deferred}}
+  defp decode_sensory_activation(payload) do
+    # Temporary fallback to pull out simple token JSON since no proto definition was given
+    try do
+      case Jason.decode(payload) do
+        {:ok, %{"node_id" => node_id}} -> {:ok, to_string(node_id)}
+        {:ok, %{"token_id" => node_id}} -> {:ok, to_string(node_id)}
+        _ -> {:error, :invalid_format}
+      end
+    rescue
+      _ -> {:error, :decode_failed}
+    end
   end
 
   defp maybe_subscribe(subject) do
     case GenServer.whereis(:endocrine_gnat) do
-      nil -> :ok
-      pid -> NervousSystem.Endocrine.subscribe(pid, subject)
+      nil -> 
+        if Code.ensure_loaded?(NervousSystem.LocalBus) do
+          Phoenix.PubSub.subscribe(NervousSystem.LocalBus, subject)
+        end
+        :ok
+      pid -> 
+        NervousSystem.Endocrine.subscribe(pid, subject)
     end
   end
 
-  defp normalize_trace(trace) do
-    motor_action_id = Map.get(trace, :motor_action_id) || Map.get(trace, "motor_action_id")
-    sensory_id = Map.get(trace, :sensory_id) || Map.get(trace, "sensory_id")
-    source_node = Map.get(trace, :source_node) || Map.get(trace, "source_node") || sensory_id
-    predicted_target = Map.get(trace, :predicted_target) || Map.get(trace, "predicted_target") || motor_action_id
-    stem_cell_pid = Map.get(trace, :stem_cell_pid) || Map.get(trace, "stem_cell_pid")
-    trace_timestamp = Map.get(trace, :lamport_clock) || Map.get(trace, "lamport_clock") || 0
-
-    cond do
-      not is_binary(source_node) -> {:error, :invalid_source_node}
-      not is_binary(predicted_target) -> {:error, :invalid_predicted_target}
-      not is_pid(stem_cell_pid) -> {:error, :invalid_stem_cell_pid}
-      not Process.alive?(stem_cell_pid) -> {:error, :dead_stem_cell_pid}
-      not is_integer(trace_timestamp) -> {:error, :invalid_lamport_clock}
-      true ->
-        {:ok,
-         %{
-           motor_action_id: to_string(predicted_target),
-           sensory_id: to_string(source_node),
-           source_node: to_string(source_node),
-           predicted_target: to_string(predicted_target),
-           stem_cell_pid: stem_cell_pid,
-           lamport_clock: trace_timestamp
-         }}
-    end
+  defp prune_old_spikes(current_us) do
+    cutoff_us = current_us - (@echo_window_ms * 1000)
+    
+    # Use match_delete to prune everything older than the cutoff efficiently
+    # The ETS table has the structure: {:motor_spike, motor_node_id, t_motor_us}
+    # For a set, match_delete with a guard is performant
+    :ets.select_delete(@ets_table, [
+      {{:motor_spike, :_, :"$1"}, [{:<, :"$1", cutoff_us}], [true]}
+    ])
   end
-
- 
-
-  defp validate_severity(value) when is_float(value) and value >= 0.0 and value <= 1.0, do: {:ok, value}
-  defp validate_severity(value) when is_integer(value), do: validate_severity(value * 1.0)
-  defp validate_severity(_value), do: {:error, :invalid_severity}
-
-  defp normalize_targeted_update(prediction_error, severity) do
-    source_node = normalize_binary(prediction_error.source_node)
-    predicted_target = normalize_binary(prediction_error.predicted_target)
-    corrected_target = normalize_binary(prediction_error.corrected_target)
-
-    cond do
-      source_node in [nil, ""] -> {:error, :missing_source_node}
-      predicted_target in [nil, ""] -> {:error, :missing_predicted_target}
-      corrected_target in [nil, ""] -> {:error, :missing_corrected_target}
-      true ->
-        {:ok,
-         %{
-           source_node: source_node,
-           predicted_target: predicted_target,
-           corrected_target: corrected_target,
-           severity: severity
-         }}
-    end
-  end
-
-  defp normalize_source(source) when is_atom(source), do: source
-  defp normalize_source("operator_induced"), do: :operator_induced
-  defp normalize_source("OPERATOR_INDUCED"), do: :operator_induced
-  defp normalize_source(_source), do: :unknown
-
-  defp trace_key(source_node, predicted_target), do: "#{source_node}->#{predicted_target}"
-  defp normalize_binary(value) when is_binary(value), do: value
-  defp normalize_binary(_value), do: nil
 end

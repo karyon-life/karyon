@@ -11,6 +11,14 @@ defmodule NervousSystem.MixProject do
       lockfile: "../mix.lock",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      compilers: Mix.compilers(),
+      rustler_crates: [
+        karyon_nif: [
+          path: "../native/karyon_nif",
+          mode: (if Mix.env() == :prod, do: :release, else: :debug),
+          crate: :karyon_nif
+        ]
+      ],
       deps: deps()
     ]
   end
@@ -32,6 +40,7 @@ defmodule NervousSystem.MixProject do
       {:telemetry, "~> 1.0"},
       {:phoenix_pubsub, "~> 2.1"},
       {:jason, "~> 1.4"},
+      {:rustler, "~> 0.37.0", runtime: false},
       {:stream_data, "~> 1.0", only: :test}
     ]
   end
