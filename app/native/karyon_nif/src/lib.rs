@@ -47,6 +47,7 @@ fn compress_stream(
     pmi_threshold: f64, 
     min_freq: u64
 ) -> NifResult<Vec<u64>> {
+    let _ = env;
     let data = binary.as_slice();
     let mut buffer: Vec<u64> = Vec::with_capacity(data.len());
     
@@ -185,4 +186,4 @@ fn trigger_apoptosis(env: Env, token: u64) -> NifResult<Atom> {
     Ok(atoms::ok())
 }
 
-rustler::init!("Elixir.Karyon.NervousSystem.PeripheralNif", [compress_stream, decompress_token, trigger_apoptosis]);
+rustler::init!("Elixir.Sensory.PeripheralNif", [compress_stream, decompress_token, trigger_apoptosis]);
