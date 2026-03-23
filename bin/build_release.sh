@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UMBRELLA_ROOT="$REPO_ROOT/app"
-DASHBOARD_ROOT="$UMBRELLA_ROOT/dashboard"
+DASHBOARD_ROOT="$UMBRELLA_ROOT/operator_environment"
 OUTPUT_DIR="${1:-$UMBRELLA_ROOT/_build/prod/rel/karyon}"
 
 echo "--- Building Karyon release ---"
