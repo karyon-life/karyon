@@ -7,6 +7,7 @@ defmodule Sensory.Application do
   def start(_type, _args) do
     children = [
       Sensory.TabulaRasa.Ingestor,
+      Sensory.NifRouter,
       Sensory.StreamSupervisor
     ]
     opts = [strategy: :one_for_one, name: Sensory.Supervisor]

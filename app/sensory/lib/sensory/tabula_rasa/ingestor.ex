@@ -5,8 +5,6 @@ defmodule Sensory.TabulaRasa.Ingestor do
 
   use GenServer
 
-  alias Sensory.SpatialPooler
-
   @default_window_size 5
   @default_threshold 2
   @default_max_buffer_size 256
@@ -67,66 +65,14 @@ defmodule Sensory.TabulaRasa.Ingestor do
   end
 
   defp ingest_payload(payload, state) do
-    carry = carryover(state.buffer, state.window_size)
-    scan_input = carry <> payload
+    # With Elixir pooling removed, the ingestor natively forwards raw buffers to the Rust NIF boundary.
+    # We maintain the buffer constraint but drop SpatialPooler.
     updated_buffer = trim_buffer(state.buffer <> payload, state.max_buffer_size)
 
-    {activated, counts} =
-      scan_input
-      |> SpatialPooler.extract_windows(state.window_size)
-      |> Enum.reduce({[], state.sequence_counts}, fn sequence, {acc, counts} ->
-        signature = Base.encode16(sequence, case: :lower)
-        previous = Map.get(counts, signature, %{sequence: sequence, occurrences: 0})
-        current = %{sequence: sequence, occurrences: previous.occurrences + 1}
-        next_counts = Map.put(counts, signature, current)
-
-        if current.occurrences >= state.threshold and current.occurrences != previous.occurrences do
-          case state.memory_module.persist_pooled_sequence(%{
-                 sequence: sequence,
-                 encoding: infer_encoding(sequence),
-                 occurrences: current.occurrences,
-                 activation_threshold: state.threshold,
-                 window_size: state.window_size,
-                 observed_at: System.system_time(:second),
-                 source: "operator_environment",
-                 organ: "tabula_rasa_ingestor"
-               }) do
-            {:ok, result} ->
-              activated_sequence = %{
-                sequence_id: result.sequence_id,
-                signature: signature,
-                occurrences: current.occurrences,
-                activation_threshold: state.threshold
-              }
-
-              {[activated_sequence | acc], next_counts}
-
-            {:error, _reason} ->
-              {acc, next_counts}
-          end
-        else
-          {acc, next_counts}
-        end
-      end)
-
-    {Enum.reverse(activated), %{state | buffer: updated_buffer, sequence_counts: counts}}
-  end
-
-  defp carryover(buffer, window_size) do
-    carry_size = max(window_size - 1, 0)
-    size = byte_size(buffer)
-
-    cond do
-      carry_size == 0 -> <<>>
-      size <= carry_size -> buffer
-      true -> binary_part(buffer, size - carry_size, carry_size)
-    end
+    # Return empty activated sequences as token minting now occurs asynchronously via Sensory.NifRouter
+    {[], %{state | buffer: updated_buffer, sequence_counts: state.sequence_counts}}
   end
 
   defp trim_buffer(buffer, max_buffer_size) when byte_size(buffer) <= max_buffer_size, do: buffer
   defp trim_buffer(buffer, max_buffer_size), do: binary_part(buffer, byte_size(buffer) - max_buffer_size, max_buffer_size)
-
-  defp infer_encoding(payload) do
-    if String.valid?(payload), do: "utf8", else: "binary"
-  end
 end

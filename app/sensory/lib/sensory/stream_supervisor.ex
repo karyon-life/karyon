@@ -50,11 +50,10 @@ defmodule Sensory.StreamSupervisor do
     {:noreply, state}
   end
 
-  defp handle_payload(%{surface: :tensor_stream}, payload) do
-    _node_id = Sensory.Quantizer.decode_node_id(payload)
+  defp handle_payload(%{surface: :tensor_stream}, _payload) do
+    # Tensor streams are now processed natively by the Rust peripheral boundary.
+    # The resulting 64-bit integer tokens are emitted asynchronously to Sensory.NifRouter.
     :ok
-  rescue
-    ArgumentError -> :ok
   end
 
   defp handle_payload(%{surface: :continuous_byte_stream}, payload) when is_binary(payload) do

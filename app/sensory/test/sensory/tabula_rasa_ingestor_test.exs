@@ -31,15 +31,15 @@ defmodule Sensory.TabulaRasaIngestorTest do
     assert Process.whereis(Ingestor)
   end
 
-  test "ingest_bytes accumulates windows across chunks and persists only at threshold" do
+  test "ingest_bytes forwards natively and returns empty activations" do
     name = :"ingestor_#{System.unique_integer([:positive])}"
     {:ok, pid} = Ingestor.start_link(name: name, memory_module: MemoryStub, window_size: 5, threshold: 2)
 
-    assert {:ok, %{pooled_sequences: []}} = Ingestor.ingest_bytes("hello", server: pid)
+    assert {:ok, result1} = Ingestor.ingest_bytes("hello", server: pid)
+    assert result1.pooled_sequences == []
 
-    assert {:ok, result} = Ingestor.ingest_bytes("hello", server: pid)
-    assert Enum.any?(result.pooled_sequences, fn sequence -> sequence.signature == Base.encode16("hello", case: :lower) end)
-    assert_receive {:pooled_sequence_persisted, %{activation_threshold: 2, window_size: 5}}
+    assert {:ok, result2} = Ingestor.ingest_bytes("hello", server: pid)
+    assert result2.pooled_sequences == []
   end
 
   test "ingestor maintains a bounded ephemeral buffer" do

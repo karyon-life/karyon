@@ -1,13 +1,9 @@
 defmodule Sensory.StreamTest do
   use ExUnit.Case
   alias Sensory.Native
-  alias Sensory.Quantizer
-
-  test "lexical node ids can be encoded and published for transport" do
-    node_id =
-      "Deploy"
-      |> Quantizer.quantize()
-      |> Quantizer.encode_node_id()
+  test "integer node ids can be deployed over transport" do
+    # The Rust NIF expects binaries for ZMQ payload, so we pack the 64-bit ID
+    node_id = <<1234567890::64>>
 
     # Verify publication returns ok even without listeners (ZMQ PUB/SUB behavior)
     assert {:ok, _} = Native.zmq_publish_tensor("neural_tensor", node_id)

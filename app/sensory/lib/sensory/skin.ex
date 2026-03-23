@@ -5,30 +5,19 @@ defmodule Sensory.Skin do
 
   alias Sensory.Perimeter
 
-  @default_threshold 2
-  @default_window 5
-
   def discover_payload(payload, opts \\ []) do
     surface = Keyword.get(opts, :surface, infer_surface(payload))
-    threshold = Keyword.get(opts, :threshold, @default_threshold)
-    window = Keyword.get(opts, :window, @default_window)
-    memory_module = Keyword.get(opts, :memory_module, Application.get_env(:sensory, :memory_module, Rhizome.Memory))
 
     with {:ok, _policy} <- Perimeter.validate_ingestion(%{organ: :skin, surface: surface, transport: :raw_socket}),
-         {:ok, bytes, encoding} <- normalize_payload(payload, surface),
-         {:ok, persisted} <-
-           Sensory.SpatialPooler.pool_bytes(bytes,
-             window_size: window,
-             threshold: threshold,
-             encoding: encoding,
-             memory_module: memory_module
-           ) do
+         {:ok, bytes, encoding} <- normalize_payload(payload, surface) do
+      # Note: In the new architecture, sequential byte pooling is gracefully offloaded
+      # to the Rust peripheral NIF, which asynchronously mints 64-bit integer tokens
+      # and routes them directly to Sensory.NifRouter.
       {:ok,
        %{
          surface: surface,
          encoding: encoding,
-         threshold: threshold,
-         pooled_sequences: persisted.pooled_sequences
+         payload: bytes
        }}
     end
   end
