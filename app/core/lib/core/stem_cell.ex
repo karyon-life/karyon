@@ -1094,16 +1094,9 @@ defmodule Core.StemCell do
 
   defp register_stdp_trace(state, %ExecutionIntent{} = intent) do
     sensory_id = state.lineage_id
-    entry = %{
-      motor_action_id: intent.id,
-      predicted_target: intent.id,
-      sensory_id: sensory_id,
-      source_node: sensory_id,
-      stem_cell_pid: self()
-    }
 
     if Process.whereis(Sensory.STDPCoordinator) do
-      Sensory.STDPCoordinator.register_trace(entry)
+      Sensory.STDPCoordinator.record_motor_spike(intent.id)
     end
 
     put_in(state.stdp_active_actions[sensory_id], %{motor_action_id: intent.id, recorded_at: System.monotonic_time(:millisecond)})
