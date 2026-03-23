@@ -25,7 +25,7 @@ defmodule Rhizome.Native do
   def get_pointer_id(_resource), do: :erlang.nif_error(:nif_not_loaded)
   def optimize_graph(), do: :erlang.nif_error(:nif_not_loaded)
   
-  def memgraph_query(_query, _config), do: :erlang.nif_error(:nif_not_loaded)
+  def memgraph_query_nif(_query, _config), do: :erlang.nif_error(:nif_not_loaded)
   def xtdb_submit(_id, _data, _config), do: :erlang.nif_error(:nif_not_loaded)
   def xtdb_query(_query, _config), do: :erlang.nif_error(:nif_not_loaded)
   def bridge_to_xtdb(_config), do: :erlang.nif_error(:nif_not_loaded)
@@ -38,14 +38,25 @@ defmodule Rhizome.Native do
 
   alias Rhizome.Xtdb
 
+  def memgraph_query(query, params) when is_binary(query) and is_map(params) do
+    memgraph_query(interpolate_params(query, params))
+  end
+
   def memgraph_query(query) when is_binary(query) do
-    with {:ok, payload} <- memgraph_query(query, service_config_json()),
+    with {:ok, payload} <- memgraph_query_nif(query, service_config_json()),
          {:ok, rows} <- decode_json(payload, :memgraph_query) do
       case rows do
         list when is_list(list) -> {:ok, list}
         other -> {:ok, [other]}
       end
     end
+  end
+
+  defp interpolate_params(query, params) do
+    Enum.reduce(params, query, fn {k, v}, acc ->
+      val_str = if is_binary(v), do: "'#{escape_cypher(v)}'", else: to_string(v)
+      String.replace(acc, "$#{k}", val_str)
+    end)
   end
 
   def xtdb_submit(id, data) when is_binary(id) do

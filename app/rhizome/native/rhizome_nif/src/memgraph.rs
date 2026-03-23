@@ -18,7 +18,7 @@ mod atoms {
     }
 }
 
-#[rustler::nif(schedule = "DirtyIo")]
+#[rustler::nif(name = "memgraph_query_nif", schedule = "DirtyIo")]
 pub fn memgraph_query(query: String, service_config: String) -> NifResult<(rustler::Atom, String)> {
     RUNTIME.block_on(async {
         let config = match parse_service_config(&service_config) {
