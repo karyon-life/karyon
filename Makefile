@@ -23,7 +23,7 @@ deps:
 
 build:
 	cd app/rhizome/native/rhizome_nif && cargo build --release
-	cd app/sensory/native/sensory_nif && cargo build --release
+	cd app/native/karyon_nif && cargo build --release
 	cd app/core/native/metabolic_nif && cargo build --release
 	cd app && mix compile
 
@@ -38,7 +38,7 @@ test:
 
 test-native:
 	cd app/rhizome/native/rhizome_nif && cargo test
-	cd app/sensory/native/sensory_nif && cargo test
+	cd app/native/karyon_nif && cargo test
 	cd app/core/native/metabolic_nif && cargo test
 
 test-property:
@@ -55,5 +55,5 @@ run-server: up
 clean:
 	cd app && mix clean
 	cd app/rhizome/native/rhizome_nif && cargo clean
-	cd app/sensory/native/sensory_nif && cargo clean
+	cd app/native/karyon_nif && cargo clean
 	cd app/core/native/metabolic_nif && cargo clean
