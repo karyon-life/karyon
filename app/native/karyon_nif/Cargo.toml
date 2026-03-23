@@ -1,0 +1,15 @@
+[package]
+name = "karyon_nif"
+version = "0.1.0"
+edition = "2021"
+authors = ["Karyon AI Engineering"]
+description = "High-speed peripheral nervous system (BPE compression/decompression) for Karyon AI"
+
+[lib]
+name = "karyon_nif"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = "0.33.0"
+lazy_static = "1.4.0"
+dashmap = "5.5.3"
