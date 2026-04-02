@@ -27,6 +27,7 @@ config/*.secret.exs
 # IDEs and Editors
 .idea/
 .vscode/
+*.code-workspace
 *.suo
 *.ntvs*
 *.njsproj
