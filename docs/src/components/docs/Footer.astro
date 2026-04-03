@@ -1,0 +1,21 @@
+---
+import DefaultFooter from '@astrojs/starlight/components/Footer.astro';
+import FooterSubscribeForm from '../forms/FooterSubscribeForm.astro';
+---
+
+<div class="docs-footer-shell">
+	<DefaultFooter {...Astro.props} />
+	<div class="docs-footer-subscribe">
+		<FooterSubscribeForm currentPath={Astro.url.pathname} />
+	</div>
+</div>
+
+<style>
+	.docs-footer-shell {
+		margin-top: 4rem;
+	}
+
+	.docs-footer-subscribe {
+		padding-top: 1rem;
+	}
+</style>

@@ -1,0 +1,116 @@
+---
+import config from 'virtual:starlight/user-config';
+
+import LanguageSelect from '@astrojs/starlight/components/LanguageSelect.astro';
+import Search from '@astrojs/starlight/components/Search.astro';
+import SiteTitle from '@astrojs/starlight/components/SiteTitle.astro';
+import SocialIcons from '@astrojs/starlight/components/SocialIcons.astro';
+import DownloadBook from './DownloadBook.astro';
+
+const shouldRenderSearch =
+	config.pagefind || config.components.Search !== '@astrojs/starlight/components/Search.astro';
+---
+
+<div class="header">
+	<div class="title-wrapper sl-flex">
+		<SiteTitle />
+	</div>
+	<div class="sl-hidden md:sl-flex print:hidden right-group">
+		{shouldRenderSearch && <Search class="docs-header-search" />}
+		<DownloadBook />
+		<div class="sl-flex social-icons">
+			<SocialIcons />
+			<a href="/contact/" aria-label="Contact Karyon" class="contact-icon">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+					<path d="M3.75 6.75h16.5v10.5H3.75z" />
+					<path d="m4.5 7.5 7.5 6 7.5-6" />
+				</svg>
+			</a>
+		</div>
+		<LanguageSelect />
+	</div>
+</div>
+
+<style>
+	@layer starlight.core {
+		.header {
+			display: flex;
+			gap: var(--sl-nav-gap);
+			justify-content: space-between;
+			align-items: center;
+			height: 100%;
+			width: 100%;
+		}
+
+		.title-wrapper {
+			overflow: clip;
+			padding: 0.25rem;
+			margin: -0.25rem;
+			min-width: 0;
+		}
+
+		.right-group,
+		.social-icons {
+			align-items: center;
+		}
+
+		.right-group {
+			margin-inline-start: auto;
+			gap: 1.25rem;
+		}
+
+		.social-icons {
+			gap: 1rem;
+		}
+
+		.contact-icon {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 2rem;
+			height: 2rem;
+			color: var(--sl-color-text);
+		}
+
+		.contact-icon:hover,
+		.contact-icon:focus-visible {
+			color: var(--sl-color-text-accent);
+		}
+
+		.contact-icon svg {
+			width: 1.25rem;
+			height: 1.25rem;
+			fill: none;
+			stroke: currentColor;
+			stroke-width: 1.8;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+		}
+
+		.social-icons::before {
+			content: '';
+			height: 2rem;
+			border-inline-start: 1px solid var(--sl-color-gray-5);
+			margin-inline-end: 0.25rem;
+		}
+
+		:global(.docs-header-search) {
+			margin-inline-start: auto;
+			flex: 1 1 22rem;
+		}
+
+		@media (min-width: 50rem) {
+			:global(:root[data-has-sidebar]) {
+				--__sidebar-pad: calc(2 * var(--sl-nav-pad-x));
+			}
+			:global(:root:not([data-has-toc])) {
+				--__toc-width: 0rem;
+			}
+			.header {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) auto;
+				align-content: center;
+			}
+		}
+	}
+</style>

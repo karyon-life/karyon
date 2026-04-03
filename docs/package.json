@@ -4,16 +4,47 @@
   "version": "0.0.1",
   "scripts": {
     "predev": "node scripts/aggregate-book.mjs",
-    "dev": "astro dev",
+    "mailpit:ensure": "node scripts/ensure-mailpit.mjs",
+    "mailpit:up": "node scripts/ensure-mailpit.mjs",
+    "mailpit:down": "docker compose -f compose.yml stop mailpit",
+    "mailpit:logs": "docker compose -f compose.yml logs -f mailpit",
+    "sync:devvars": "node scripts/sync-dev-vars.mjs",
+    "d1:migrate:local": "wrangler d1 execute karyon-docs-subscribers --local --file=./migrations/0001_subscribers.sql",
+    "dev": "npm run mailpit:up && astro dev",
+    "dev:cloudflare": "node scripts/dev-cloudflare.mjs",
     "start": "astro dev",
     "prebuild": "node scripts/aggregate-book.mjs",
     "build": "astro build",
+    "check": "astro check",
+    "cleanup:markdown": "node scripts/cleanup-markdown.mjs --write",
+    "cleanup:markdown:check": "node scripts/cleanup-markdown.mjs --check",
     "preview": "astro preview",
+    "test": "vitest run",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.37.6",
+    "@tailwindcss/vite": "^4.1.4",
     "astro": "^5.6.1",
-    "sharp": "^0.34.2"
+    "katex": "^0.16.22",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx": "^3.1.1",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "sharp": "^0.34.2",
+    "tailwindcss": "^4.1.4",
+    "unified": "^11.0.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.8",
+    "@astrojs/cloudflare": "^12.6.13",
+    "@types/nodemailer": "^7.0.11",
+    "nodemailer": "^8.0.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2",
+    "wrangler": "^4.80.0"
   }
 }

@@ -1,63 +1,211 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig, envField } from 'astro/config';
+import cloudflare from '@astrojs/cloudflare';
 import starlight from '@astrojs/starlight';
+import rehypeKatex from 'rehype-katex';
+import remarkMath from 'remark-math';
+import tailwindcss from '@tailwindcss/vite';
+import { getStarlightSidebarConfig } from './src/utils/starlight-nav.mjs';
+
+/**
+ * Normalize common AI-exported LaTeX escaping inside math nodes so KaTeX can render it.
+ * @param {string} value
+ */
+function normalizeEscapedMath(value) {
+	return value
+		.replace(/\\\\([A-Za-z]+)/g, '\\$1')
+		.replace(/\\([\[\]])/g, '$1')
+		.replace(/\\left\\([\[\]\(\)])/g, '\\left$1')
+		.replace(/\\right\\([\[\]\(\)])/g, '\\right$1')
+		.replace(/\\([_=+\-])/g, '$1');
+}
+
+/**
+ * @param {{ children?: any[] } & Record<string, any>} node
+ * @param {(node: any) => void} visitor
+ */
+function walkTree(node, visitor) {
+	visitor(node);
+	if (!node || !Array.isArray(node.children)) {
+		return;
+	}
+
+	for (const child of node.children) {
+		walkTree(child, visitor);
+	}
+}
+
+function remarkNormalizeEscapedMath() {
+	/** @param {any} tree */
+	return (tree) => {
+		walkTree(tree, (node) => {
+			if ((node.type === 'math' || node.type === 'inlineMath') && typeof node.value === 'string') {
+				const normalizedValue = normalizeEscapedMath(node.value);
+				node.value = normalizedValue;
+
+				if (node.data && Array.isArray(node.data.hChildren)) {
+					for (const child of node.data.hChildren) {
+						if (child && child.type === 'text' && typeof child.value === 'string') {
+							child.value = normalizedValue;
+						}
+					}
+				}
+			}
+		});
+	};
+}
+
+/**
+ * Normalize the HAST nodes that `rehype-katex` actually reads during Astro/Starlight rendering.
+ */
+function rehypeNormalizeEscapedMath() {
+	/** @param {any} tree */
+	return (tree) => {
+		walkTree(tree, (node) => {
+			if (node?.type !== 'element' || node.tagName !== 'code') {
+				return;
+			}
+
+			const classNames = Array.isArray(node.properties?.className) ? node.properties.className : [];
+			if (!classNames.includes('language-math')) {
+				return;
+			}
+
+			if (!Array.isArray(node.children)) {
+				return;
+			}
+
+			for (const child of node.children) {
+				if (child?.type === 'text' && typeof child.value === 'string') {
+					child.value = normalizeEscapedMath(child.value);
+				}
+			}
+		});
+	};
+}
 
 // https://astro.build/config
 export default defineConfig({
+	site: 'https://karyon.life',
+	adapter: cloudflare(),
+	vite: {
+		plugins: [/** @type {any} */ (tailwindcss())],
+	},
+	markdown: {
+		remarkPlugins: [remarkMath, remarkNormalizeEscapedMath],
+		rehypePlugins: [rehypeNormalizeEscapedMath, [rehypeKatex, { strict: 'ignore' }]],
+	},
+	env: {
+		schema: {
+			DOCS_PUBLIC_TURNSTILE_SITE_KEY: envField.string({
+				context: 'client',
+				access: 'public',
+				optional: true,
+			}),
+			DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE: envField.boolean({
+				context: 'client',
+				access: 'public',
+				optional: true,
+			}),
+			DOCS_TURNSTILE_SECRET_KEY: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_SMTP_HOST: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_SMTP_PORT: envField.number({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_SMTP_USERNAME: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_SMTP_PASSWORD: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_SMTP_FROM: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_SMTP_REPLY_TO: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_CONTACT_ROUTING_JSON: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_SUBSCRIBE_NOTIFY_RECIPIENTS: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_FORM_TOKEN_SECRET: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_LOCAL_DEV_MODE: envField.enum({
+				values: ['astro', 'cloudflare'],
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_FORMS_LOCAL_BYPASS_TURNSTILE: envField.boolean({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS: envField.boolean({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_FORMS_LOCAL_USE_MAILPIT: envField.boolean({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_MAILPIT_SMTP_HOST: envField.string({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+			DOCS_MAILPIT_SMTP_PORT: envField.number({
+				context: 'server',
+				access: 'secret',
+				optional: true,
+			}),
+		},
+	},
 	integrations: [
 		starlight({
-			title: 'Karyon: The Architecture of a Cellular Graph Intelligence',
+			customCss: ['./src/styles/global.css'],
+			title: 'Karyon: Working towards a Cellular Graph Intelligence',
+			logo: {
+        		src: './src/assets/logo.svg',
+      		},
 			components: {
+				Footer: './src/components/docs/Footer.astro',
+				Header: './src/components/docs/Header.astro',
+				Sidebar: './src/components/docs/Sidebar.astro',
 				SiteTitle: './src/components/SiteTitle.astro',
+				ThemeSelect: './src/components/docs/ThemeSelect.astro',
 			},
-			sidebar: [
-				{
-					label: 'Book Outline',
-					link: '/book-outline/',
-				},
-				{
-					label: 'Part I: The Biological Edge in Systems',
-					items: [
-						{ label: 'Chapter 1: The Problem with Transformers', autogenerate: { directory: 'part-1/chapter-1' } },
-						{ label: 'Chapter 2: Principles of Biological Intelligence', autogenerate: { directory: 'part-1/chapter-2' } },
-					],
-				},
-				{
-					label: 'Part II: Anatomy of the Organism',
-					items: [
-						{ label: 'Chapter 3: The Karyon Kernel (Nucleus)', autogenerate: { directory: 'part-2/chapter-3' } },
-						{ label: 'Chapter 4: Digital DNA & Epigenetics', autogenerate: { directory: 'part-2/chapter-4' } },
-					],
-				},
-				{
-					label: 'Part III: The Rhizome (Memory & Learning)',
-					items: [
-						{ label: 'Chapter 5: The Extracellular Matrix (Topology)', autogenerate: { directory: 'part-3/chapter-5' } },
-						{ label: 'Chapter 6: Synaptic Plasticity & Consolidation', autogenerate: { directory: 'part-3/chapter-6' } },
-					],
-				},
-				{
-					label: 'Part IV: Perception and Action',
-					items: [
-						{ label: 'Chapter 7: Sensory Organs (I/O Constraints)', autogenerate: { directory: 'part-4/chapter-7' } },
-						{ label: 'Chapter 8: Motor Functions and Validation', autogenerate: { directory: 'part-4/chapter-8' } },
-					],
-				},
-				{
-					label: 'Part V: Consciousness and Autonomy',
-					items: [
-						{ label: 'Chapter 9: Digital Metabolism & Needs', autogenerate: { directory: 'part-5/chapter-9' } },
-						{ label: 'Chapter 10: Sovereign Architecture & Symbiosis', autogenerate: { directory: 'part-5/chapter-10' } },
-					],
-				},
-				{
-					label: 'Part VI: Maturation & Lifecycle Execution',
-					items: [
-						{ label: 'Chapter 11: Bootstrapping Karyon', autogenerate: { directory: 'part-6/chapter-11' } },
-						{ label: 'Chapter 12: The Training Curriculum', autogenerate: { directory: 'part-6/chapter-12' } },
-					],
-				},
-			],
+			sidebar: getStarlightSidebarConfig(),
+			routeMiddleware: ['./src/middleware/starlightRouteData.ts'],
 		}),
 	],
 });

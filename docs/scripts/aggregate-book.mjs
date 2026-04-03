@@ -1,83 +1,117 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { BOOKS, DOCS_LIBRARY_DOWNLOAD } from '../src/utils/starlight-nav.mjs';
 
-const docsDir = path.join(process.cwd(), 'src', 'content', 'docs');
-const outputDir = path.join(process.cwd(), 'public');
-const outputFile = path.join(outputDir, 'book.md');
+const projectRoot = process.cwd();
+const outputDir = path.join(projectRoot, 'public', 'books');
+const legacyOutputFile = path.join(projectRoot, 'public', 'book.md');
 
-function getBookFiles(dir) {
-  let results = [];
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      
-      // At the root docs level, only process directories starting with part-
-      if (dir === docsDir && (!entry.isDirectory() || !entry.name.startsWith('part-'))) {
-        continue;
-      }
+function sortPaths(paths) {
+	return [...paths].sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
+}
 
-      if (entry.isDirectory()) {
-        results = results.concat(getBookFiles(fullPath));
-      } else if (entry.isFile() && entry.name.endsWith('.md')) {
-        results.push(fullPath);
-      }
-    }
-  } catch (error) {
-    console.error(`Error reading directory ${dir}:`, error);
-  }
+function getSidebarOrder(filePath) {
+	const rawContent = fs.readFileSync(filePath, 'utf8');
+	const frontmatterMatch = rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+	if (!frontmatterMatch) return Number.POSITIVE_INFINITY;
 
-  // Sort logically (so 2-foo comes before 10-bar)
-  return results.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+	const orderMatch = frontmatterMatch[1].match(/^\s{2}order:\s*(\d+)\s*$/m);
+	return orderMatch ? Number.parseInt(orderMatch[1], 10) : Number.POSITIVE_INFINITY;
+}
+
+function collectMarkdownFiles(rootPath) {
+	if (!fs.existsSync(rootPath)) {
+		throw new Error(`Book export root not found: ${rootPath}`);
+	}
+
+	const stats = fs.statSync(rootPath);
+	if (stats.isFile()) {
+		return [rootPath];
+	}
+
+	const entries = fs.readdirSync(rootPath, { withFileTypes: true });
+	return sortPaths(
+		entries.flatMap((entry) => {
+			const fullPath = path.join(rootPath, entry.name);
+			if (entry.isDirectory()) {
+				return collectMarkdownFiles(fullPath);
+			}
+
+			if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.mdx'))) {
+				return [fullPath];
+			}
+
+			return [];
+		}),
+	);
 }
 
 function stripFrontmatter(content) {
-  const frontmatterRegex = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
-  if (frontmatterRegex.test(content)) {
-    return content.replace(frontmatterRegex, '').trim();
-  }
-  return content.trim();
+	return content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim();
 }
 
-function aggregate() {
-  console.log('Aggregating KARYON Architecture Book markdown files...');
-  
-  if (!fs.existsSync(docsDir)) {
-    console.error(`Docs directory not found at ${docsDir}`);
-    process.exit(1);
-  }
-
-  const files = getBookFiles(docsDir);
-  
-  if (files.length === 0) {
-    console.warn('No markdown files found in the book structure.');
-    return;
-  }
-
-  // Initial title and formatting
-  let aggregatedContent = '# KARYON: The Architecture of a Cellular Graph Intelligence\n\n';
-  aggregatedContent += '> This document is auto-generated from the KARYON documentation source.\n\n';
-
-  for (const file of files) {
-    try {
-      const rawContent = fs.readFileSync(file, 'utf-8');
-      const content = stripFrontmatter(rawContent);
-      
-      // Add a visual separator between sections/chapters if needed, but headers usually suffice.
-      // We will append it with a standard markdown horizontal rule.
-      aggregatedContent += `\n---\n\n${content}\n\n`;
-    } catch (error) {
-      console.error(`Error processing file ${file}:`, error);
-    }
-  }
-
-  // Ensure public directory exists
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
-  fs.writeFileSync(outputFile, aggregatedContent);
-  console.log(`Successfully aggregated ${files.length} parts into ${outputFile}`);
+function stripMdxOnlySyntax(content) {
+	return content
+		.replace(/^import\s.+$/gm, '')
+		.replace(/^\s*<\/?[A-Z][^>]*>\s*$/gm, '')
+		.replace(/\n{3,}/g, '\n\n')
+		.trim();
 }
 
-aggregate();
+function resolveBookFiles(book) {
+	const files = book.exportRoots.flatMap((root) =>
+		collectMarkdownFiles(path.join(projectRoot, root)).sort((left, right) => {
+			const orderDelta = getSidebarOrder(left) - getSidebarOrder(right);
+			if (orderDelta !== 0) return orderDelta;
+
+			return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
+		}),
+	);
+
+	return Array.from(new Set(files));
+}
+
+function buildBookMarkdown(book) {
+	const sections = resolveBookFiles(book).map((filePath) => {
+		const rawContent = fs.readFileSync(filePath, 'utf8');
+		return stripMdxOnlySyntax(stripFrontmatter(rawContent));
+	});
+
+	return `# ${book.downloadTitle}\n\n> This document is auto-generated from the Karyon docs source.\n\n${sections.join('\n\n---\n\n')}\n`;
+}
+
+function ensureOutputDir() {
+	fs.mkdirSync(outputDir, { recursive: true });
+}
+
+function writeBookOutput(fileName, content) {
+	const outputPath = path.join(outputDir, fileName);
+	fs.writeFileSync(outputPath, content);
+	return outputPath;
+}
+
+function main() {
+	console.log('Generating contextual Karyon docs exports...');
+	ensureOutputDir();
+
+	const bookOutputs = BOOKS.map((book) => {
+		const content = buildBookMarkdown(book);
+		const outputPath = writeBookOutput(book.downloadFileName, content);
+		console.log(`Generated ${path.relative(projectRoot, outputPath)}`);
+		return { book, content };
+	});
+
+	const compositeContent = `# ${DOCS_LIBRARY_DOWNLOAD.downloadTitle}\n\n> This document is auto-generated from the Karyon docs source.\n\n${bookOutputs
+		.map(({ content }) => content.trim())
+		.join('\n\n---\n\n')}\n`;
+
+	const compositeOutputPath = writeBookOutput(DOCS_LIBRARY_DOWNLOAD.downloadFileName, compositeContent);
+	console.log(`Generated ${path.relative(projectRoot, compositeOutputPath)}`);
+
+	if (fs.existsSync(legacyOutputFile)) {
+		fs.rmSync(legacyOutputFile);
+		console.log(`Removed legacy export ${path.relative(projectRoot, legacyOutputFile)}`);
+	}
+}
+
+main();
