@@ -49,5 +49,9 @@ coverage/
 *.dylib
 *.gz
 
+# AI
+.codex
+
+
 
 
