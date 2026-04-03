@@ -10,7 +10,7 @@ Karyon is a structurally discrete, biomimetic multi-agent ecosystem. It explicit
 *   **Organelles:** Optimized Rust NIFs for heavy computation.
 *   **DNA:** Declarative YAML schemas defining agent bounds.
 
-For more details, see [SPEC.md](SPEC.md), [PLAN.md](PLAN.md), and the docs source in [docs/src/content/docs/index.mdx](docs/src/content/docs/index.mdx).
+For more details, see [SPEC.md](SPEC.md), [PLAN.md](PLAN.md), and the docs source in [docs/src/content/docs/docs/index.mdx](docs/src/content/docs/docs/index.mdx).
 
 ## Getting Started
 
@@ -28,7 +28,7 @@ The easiest way to run the Karyon organism is using `make`. This ensures all bac
 - [Genetic Blueprint Guide](docs/OPERATIONS/GENETICS.md) — How to author cellular DNA.
 - [Metabolic Operations Playbook](docs/OPERATIONS/METABOLICS.md) — Monitoring, health, and apoptosis debugging.
 - [Developer & NIF Safety](docs/DEVELOPER/NIF_SAFETY.md) — FFI architecture and native extension guide.
-- [Documentation Index](docs/src/content/docs/index.mdx) — The current documentation entry point used by the Astro docs site.
+- [Documentation Index](docs/src/content/docs/docs/index.mdx) — The current documentation entry point used by the Astro docs site.
 
 ## Current Status
 
