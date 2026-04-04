@@ -18,6 +18,7 @@ export function runFromRecord(row: Record<string, unknown>): SdkRunEntity {
 		errorCategory: row.errorCategory !== undefined && row.errorCategory !== null ? String(row.errorCategory) : row.error_category !== undefined && row.error_category !== null ? String(row.error_category) : null,
 		handlerKind: row.handlerKind !== undefined && row.handlerKind !== null ? String(row.handlerKind) : row.handler_kind !== undefined && row.handler_kind !== null ? String(row.handler_kind) : null,
 		triggerKind: row.triggerKind !== undefined && row.triggerKind !== null ? String(row.triggerKind) : row.trigger_kind !== undefined && row.trigger_kind !== null ? String(row.trigger_kind) : null,
+		claimedMessageId: row.claimedMessageId !== undefined && row.claimedMessageId !== null ? Number(row.claimedMessageId) : row.claimed_message_id !== undefined && row.claimed_message_id !== null ? Number(row.claimed_message_id) : null,
 		commitSha: row.commitSha !== undefined && row.commitSha !== null ? String(row.commitSha) : row.commit_sha !== undefined && row.commit_sha !== null ? String(row.commit_sha) : null,
 		changedPaths: Array.isArray(row.changedPaths) ? row.changedPaths.map(String) : row.changed_paths ? JSON.parse(String(row.changed_paths)) : [],
 	};
@@ -27,7 +28,7 @@ export class RunStore extends SqliteStoreBase {
 	async record(request: SdkRecordRunRequest) {
 		const run = runFromRecord(request.run);
 		await this.execute(
-			`INSERT OR REPLACE INTO agent_runs (run_id, agent_slug, trigger_source, status, selected_item_key, selected_message_id, branch_name, pr_url, summary, error, started_at, finished_at) VALUES (${toSqlValue(run.runId)}, ${toSqlValue(run.agentSlug)}, ${toSqlValue(run.triggerSource)}, ${toSqlValue(run.status)}, ${toSqlValue(run.selectedItemKey)}, ${toSqlValue(run.selectedMessageId)}, ${toSqlValue(run.branchName)}, ${toSqlValue(run.prUrl)}, ${toSqlValue(run.summary)}, ${toSqlValue(run.error)}, ${toSqlValue(run.startedAt)}, ${toSqlValue(run.finishedAt)})`,
+			`INSERT OR REPLACE INTO agent_runs (run_id, agent_slug, handler_kind, trigger_kind, trigger_source, claimed_message_id, status, selected_item_key, selected_message_id, branch_name, pr_url, summary, error, error_category, commit_sha, changed_paths, started_at, finished_at) VALUES (${toSqlValue(run.runId)}, ${toSqlValue(run.agentSlug)}, ${toSqlValue(run.handlerKind ?? null)}, ${toSqlValue(run.triggerKind ?? null)}, ${toSqlValue(run.triggerSource)}, ${toSqlValue(run.claimedMessageId ?? null)}, ${toSqlValue(run.status)}, ${toSqlValue(run.selectedItemKey)}, ${toSqlValue(run.selectedMessageId)}, ${toSqlValue(run.branchName)}, ${toSqlValue(run.prUrl)}, ${toSqlValue(run.summary)}, ${toSqlValue(run.error)}, ${toSqlValue(run.errorCategory ?? null)}, ${toSqlValue(run.commitSha ?? null)}, ${toSqlValue(JSON.stringify(run.changedPaths ?? []))}, ${toSqlValue(run.startedAt)}, ${toSqlValue(run.finishedAt)})`,
 		);
 		return run;
 	}

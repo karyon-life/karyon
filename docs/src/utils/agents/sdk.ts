@@ -195,10 +195,14 @@ export class AgentSdk {
 		return this.envelope('objective', 'update', { count });
 	}
 
-	async listAgentSpecs() {
+	async listAgentSpecs(options?: { enabled?: boolean }) {
+		const filters =
+			typeof options?.enabled === 'boolean'
+				? [{ field: 'enabled', op: 'eq' as const, value: options.enabled }]
+				: [];
 		const response = await this.search({
 			model: 'agent',
-			filters: [{ field: 'enabled', op: 'eq', value: true }],
+			filters,
 			sort: [{ field: 'name', direction: 'asc' }],
 		});
 		return response.payload

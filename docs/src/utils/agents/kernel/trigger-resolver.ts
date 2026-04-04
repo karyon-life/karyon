@@ -34,6 +34,7 @@ export async function resolveTriggerDecision(input: TriggerResolverInput): Promi
 	}
 
 	const mode = input.mode ?? 'auto';
+	let messageUnavailableReason: string | undefined;
 	const messageTrigger = input.agent.triggers.find((trigger) => trigger.type === 'message');
 	if (messageTrigger) {
 		const claimed = await input.sdk.claimMessage({
@@ -53,18 +54,15 @@ export async function resolveTriggerDecision(input: TriggerResolverInput): Promi
 			};
 		}
 		if (messageTrigger.messageTypes?.length) {
-			return {
-				kind: 'no_message_available',
-				reason: `No matching messages for ${input.agent.slug}.`,
-			};
+			messageUnavailableReason = `No matching messages for ${input.agent.slug}.`;
 		}
 	}
 
 	const scheduleTrigger = input.agent.triggers.find((trigger) => trigger.type === 'schedule');
 	if (!scheduleTrigger) {
 		return {
-			kind: 'no_trigger_available',
-			reason: `No runnable triggers defined for ${input.agent.slug}.`,
+			kind: messageUnavailableReason ? 'no_message_available' : 'no_trigger_available',
+			reason: messageUnavailableReason ?? `No runnable triggers defined for ${input.agent.slug}.`,
 		};
 	}
 

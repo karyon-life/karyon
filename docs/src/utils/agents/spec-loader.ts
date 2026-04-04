@@ -2,6 +2,10 @@ import type { AgentRuntimeSpec } from '../../types/agents';
 import { AgentSdk } from './sdk.ts';
 
 export async function loadActiveAgentSpecs(sdk: AgentSdk) {
+	return sdk.listAgentSpecs({ enabled: true });
+}
+
+export async function loadAllAgentSpecs(sdk: AgentSdk) {
 	return sdk.listAgentSpecs();
 }
 

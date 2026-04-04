@@ -72,14 +72,20 @@ export interface SdkRunEntity {
 	[key: string]: unknown;
 	runId: string;
 	agentSlug: string;
+	handlerKind?: string | null;
+	triggerKind?: string | null;
 	triggerSource: string;
+	claimedMessageId?: number | null;
 	status: string;
 	selectedItemKey: string | null;
 	selectedMessageId: number | null;
 	branchName: string | null;
+	commitSha?: string | null;
+	changedPaths?: string[];
 	prUrl: string | null;
 	summary: string | null;
 	error: string | null;
+	errorCategory?: string | null;
 	startedAt: string;
 	finishedAt: string | null;
 }

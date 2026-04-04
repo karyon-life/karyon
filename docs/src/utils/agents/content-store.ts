@@ -19,21 +19,40 @@ import type { AgentDatabase } from './d1-store';
 import { GitRuntime } from './git-runtime.ts';
 
 async function walkMarkdownFiles(root: string): Promise<string[]> {
-	const entries = await readdir(root, { withFileTypes: true });
-	const files = await Promise.all(
-		entries.map(async (entry) => {
-			const fullPath = path.join(root, entry.name);
-			if (entry.isDirectory()) {
-				return walkMarkdownFiles(fullPath);
-			}
-			if (entry.isFile() && /\.(md|mdx)$/i.test(entry.name)) {
-				return [fullPath];
-			}
-			return [];
-		}),
+	try {
+		const entries = await readdir(root, { withFileTypes: true });
+		const files = await Promise.all(
+			entries.map(async (entry) => {
+				const fullPath = path.join(root, entry.name);
+				if (entry.isDirectory()) {
+					return walkMarkdownFiles(fullPath);
+				}
+				if (entry.isFile() && /\.(md|mdx)$/i.test(entry.name)) {
+					return [fullPath];
+				}
+				return [];
+			}),
+		);
+
+		return files.flat();
+	} catch {
+		return [];
+	}
+}
+
+async function findWorktreeRoots(root: string): Promise<string[]> {
+	const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
+	const names = new Set(entries.map((entry) => entry.name));
+	const nested = await Promise.all(
+		entries
+			.filter((entry) => entry.isDirectory())
+			.map((entry) => findWorktreeRoots(path.join(root, entry.name))),
 	);
 
-	return files.flat();
+	return [
+		...(names.has('.git') ? [root] : []),
+		...nested.flat(),
+	];
 }
 
 function inferSlug(filePath: string, root: string) {
@@ -41,11 +60,15 @@ function inferSlug(filePath: string, root: string) {
 	return relativePath.replace(/\.(md|mdx)$/i, '');
 }
 
-async function readContentEntry(definition: SdkModelDefinition, filePath: string): Promise<SdkContentEntry> {
+async function readContentEntry(
+	definition: SdkModelDefinition,
+	filePath: string,
+	contentDir: string,
+): Promise<SdkContentEntry> {
 	const source = await readFile(filePath, 'utf8');
 	const parsed = parseFrontmatterDocument(source);
 	const fileStats = await stat(filePath);
-	const slug = inferSlug(filePath, definition.contentDir!);
+	const slug = inferSlug(filePath, contentDir);
 
 	return {
 		id: slug,
@@ -102,8 +125,37 @@ export class ContentStore {
 			throw new Error(`Model "${model}" is not content-backed.`);
 		}
 
-		const files = await walkMarkdownFiles(definition.contentDir);
-		return Promise.all(files.map((filePath) => readContentEntry(definition, filePath)));
+		const roots = [
+			{
+				contentDir: definition.contentDir,
+			},
+		];
+		const worktreeRoot = path.join(this.repoRoot, '.agent-worktrees');
+		const worktrees = await findWorktreeRoots(worktreeRoot);
+		const relativeContentDir = path.relative(this.repoRoot, definition.contentDir);
+		for (const worktree of worktrees) {
+			roots.push({
+				contentDir: path.join(worktree, relativeContentDir),
+			});
+		}
+
+		const files = (
+			await Promise.all(roots.map((root) => walkMarkdownFiles(root.contentDir)))
+		).flat();
+		const entries = await Promise.all(
+			files.map(async (filePath) => {
+				const matchingRoot = roots.find((root) => filePath.startsWith(root.contentDir));
+				return readContentEntry(definition, filePath, matchingRoot?.contentDir ?? definition.contentDir!);
+			}),
+		);
+		const deduped = new Map<string, SdkContentEntry>();
+		for (const entry of entries) {
+			const existing = deduped.get(entry.id);
+			if (!existing || new Date(entry.updatedAt ?? 0).valueOf() >= new Date(existing.updatedAt ?? 0).valueOf()) {
+				deduped.set(entry.id, entry);
+			}
+		}
+		return [...deduped.values()];
 	}
 
 	async get(request: SdkGetRequest) {
@@ -179,6 +231,7 @@ export class ContentStore {
 		const body = typeof request.data.body === 'string' ? request.data.body : '';
 		const branchName = `${String(request.data.branchPrefix ?? 'agent')}/${definition.name}-${slug}`;
 		const worktreePath = await this.gitRuntime.ensureWorktree(branchName);
+		const contentDirInWorktree = path.join(worktreePath, path.relative(this.repoRoot, definition.contentDir));
 		const relativePath = path.relative(this.repoRoot, path.join(definition.contentDir, `${slug}${extension}`));
 		const filePath = path.join(worktreePath, relativePath);
 		const frontmatter = {
@@ -196,7 +249,7 @@ export class ContentStore {
 		);
 
 		return {
-			item: await readContentEntry(definition, filePath),
+			item: await readContentEntry(definition, filePath, contentDirInWorktree),
 			git,
 		};
 	}
@@ -228,7 +281,7 @@ export class ContentStore {
 		);
 
 		return {
-			item: await readContentEntry(definition, targetPath),
+			item: await readContentEntry(definition, targetPath, path.join(worktreePath, path.relative(this.repoRoot, definition.contentDir!))),
 			git,
 		};
 	}

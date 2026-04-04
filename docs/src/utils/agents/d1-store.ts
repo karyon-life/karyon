@@ -254,6 +254,14 @@ export class MemoryAgentDatabase implements AgentDatabase {
 		this.contentLeases.clear();
 		return count;
 	}
+
+	inspectRuns() {
+		return [...this.runs.values()];
+	}
+
+	inspectLeases() {
+		return [...this.contentLeases.values()];
+	}
 }
 
 export class CloudflareD1AgentDatabase implements AgentDatabase {

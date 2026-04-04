@@ -11,7 +11,7 @@ import type {
 import type { AgentRunTrace, AgentErrorCategory } from '../contracts/run.ts';
 import { AgentSdk } from '../sdk.ts';
 import { resolveTriggerDecision } from './trigger-resolver.ts';
-import { loadActiveAgentSpecs, summarizeAgentSpec } from '../spec-loader.ts';
+import { loadActiveAgentSpecs, loadAllAgentSpecs, summarizeAgentSpec } from '../spec-loader.ts';
 
 function nowIso() {
 	return new Date().toISOString();
@@ -36,8 +36,8 @@ export class AgentKernel {
 	}
 
 	async doctor() {
-		const agents = await loadActiveAgentSpecs(this.sdk);
-		for (const agent of agents) {
+		const agents = await loadAllAgentSpecs(this.sdk);
+		for (const agent of agents.filter((entry) => entry.enabled)) {
 			resolveAgentHandler(agent.handler);
 		}
 		return {

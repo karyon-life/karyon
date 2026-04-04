@@ -38,7 +38,7 @@ export function syncDevVars(overrides = {}) {
 }
 
 export function runLocalD1Migration(persistTo) {
-	for (const file of ['./migrations/0001_subscribers.sql', './migrations/0002_agent_runtime.sql']) {
+	for (const file of ['./migrations/0001_subscribers.sql', './migrations/0002_agent_runtime.sql', './migrations/0003_agent_run_trace.sql']) {
 		const args = [
 			'd1',
 			'execute',

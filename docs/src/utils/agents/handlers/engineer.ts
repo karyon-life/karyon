@@ -4,6 +4,7 @@ import {
 	parseAgentMessagePayload,
 	serializeAgentMessagePayload,
 } from '../contracts/messages.ts';
+import type { AgentErrorCategory } from '../contracts/run.ts';
 
 interface EngineerInputs {
 	messageId: number;
@@ -15,7 +16,9 @@ interface EngineerResult extends EngineerInputs {
 	status: 'completed' | 'failed' | 'waiting';
 	summary: string;
 	branchName: string | null;
+	commitSha: string | null;
 	changedPaths: string[];
+	errorCategory?: AgentErrorCategory | null;
 }
 
 export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
@@ -38,6 +41,17 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 				id: inputs.knowledgeId,
 			})
 			: null;
+		if (inputs.knowledgeId && !knowledge?.payload) {
+			return {
+				...inputs,
+				status: 'failed',
+				summary: `Knowledge ${inputs.knowledgeId} could not be loaded.`,
+				branchName: null,
+				commitSha: null,
+				changedPaths: [],
+				errorCategory: 'sdk_error',
+			};
+		}
 		const prompt = [
 			context.agent.systemPrompt,
 			'',
@@ -63,35 +77,50 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 				status: execution.status === 'waiting' ? 'waiting' : 'failed',
 				summary: execution.summary,
 				branchName: null,
+				commitSha: null,
 				changedPaths: [],
+				errorCategory: execution.status === 'failed' ? execution.errorCategory ?? 'execution_error' : null,
 			};
 		}
 
-		const artifact = await context.mutations.writeArtifact({
-			runId: context.runId,
-			agent: context.agent,
-			relativePath: path.join('.agent-artifacts', 'engineer', `${context.runId}.md`),
-			content: [
-				'# Engineer Run Artifact',
-				'',
-				`Run: ${context.runId}`,
-				`Objective: ${inputs.objectiveId ?? 'unknown'}`,
-				`Knowledge: ${inputs.knowledgeId ?? 'none'}`,
-				'',
-				'## Copilot Output',
-				'',
-				execution.stdout ?? '',
-			].join('\n'),
-			commitMessage: `agent(engineer): artifact ${context.runId}`,
-		});
+		try {
+			const artifact = await context.mutations.writeArtifact({
+				runId: context.runId,
+				agent: context.agent,
+				relativePath: path.join('.agent-artifacts', 'engineer', `${context.runId}.md`),
+				content: [
+					'# Engineer Run Artifact',
+					'',
+					`Run: ${context.runId}`,
+					`Objective: ${inputs.objectiveId ?? 'unknown'}`,
+					`Knowledge: ${inputs.knowledgeId ?? 'none'}`,
+					'',
+					'## Copilot Output',
+					'',
+					execution.stdout ?? '',
+				].join('\n'),
+				commitMessage: `agent(engineer): artifact ${context.runId}`,
+			});
 
-		return {
-			...inputs,
-			status: 'completed',
-			summary: 'Engineer created a local branch artifact.',
-			branchName: artifact.branchName,
-			changedPaths: artifact.changedPaths,
-		};
+			return {
+				...inputs,
+				status: 'completed',
+				summary: 'Engineer created a local branch artifact.',
+				branchName: artifact.branchName,
+				commitSha: artifact.commitSha,
+				changedPaths: artifact.changedPaths,
+			};
+		} catch (error) {
+			return {
+				...inputs,
+				status: 'failed',
+				summary: error instanceof Error ? error.message : String(error),
+				branchName: null,
+				commitSha: null,
+				changedPaths: [],
+				errorCategory: 'mutation_error',
+			};
+		}
 	},
 	async emitOutputs(context, result) {
 		const messageType =
@@ -124,8 +153,10 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 			summary: result.summary,
 			metadata: {
 				branchName: result.branchName,
+				commitSha: result.commitSha,
 				changedPaths: result.changedPaths,
 			},
+			errorCategory: result.errorCategory ?? null,
 		};
 	},
 };

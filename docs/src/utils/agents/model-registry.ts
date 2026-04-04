@@ -1,9 +1,15 @@
 import path from 'node:path';
 import type { SdkModelDefinition, SdkModelName } from './sdk-types';
 
-const contentRoot = path.resolve(process.cwd(), 'src', 'content');
+function contentRoot() {
+	return process.env.DOCS_AGENT_CONTENT_ROOT
+		? path.resolve(process.env.DOCS_AGENT_CONTENT_ROOT)
+		: path.resolve(process.cwd(), 'src', 'content');
+}
 
-export const MODEL_REGISTRY: Record<SdkModelName, SdkModelDefinition> = {
+export function buildModelRegistry(): Record<SdkModelName, SdkModelDefinition> {
+	const root = contentRoot();
+	return {
 	note: {
 		name: 'note',
 		aliases: ['notes'],
@@ -13,7 +19,7 @@ export const MODEL_REGISTRY: Record<SdkModelName, SdkModelDefinition> = {
 		sortableFields: ['title', 'date', 'updated'],
 		pickField: 'date',
 		contentCollection: 'notes',
-		contentDir: path.join(contentRoot, 'notes'),
+		contentDir: path.join(root, 'notes'),
 	},
 	question: {
 		name: 'question',
@@ -32,7 +38,7 @@ export const MODEL_REGISTRY: Record<SdkModelName, SdkModelDefinition> = {
 		sortableFields: ['title', 'date', 'updated'],
 		pickField: 'date',
 		contentCollection: 'questions',
-		contentDir: path.join(contentRoot, 'questions'),
+		contentDir: path.join(root, 'questions'),
 	},
 	book: {
 		name: 'book',
@@ -43,7 +49,7 @@ export const MODEL_REGISTRY: Record<SdkModelName, SdkModelDefinition> = {
 		sortableFields: ['title', 'order', 'updated'],
 		pickField: 'order',
 		contentCollection: 'books',
-		contentDir: path.join(contentRoot, 'books'),
+		contentDir: path.join(root, 'books'),
 	},
 	knowledge: {
 		name: 'knowledge',
@@ -54,7 +60,7 @@ export const MODEL_REGISTRY: Record<SdkModelName, SdkModelDefinition> = {
 		sortableFields: ['title', 'updated'],
 		pickField: 'updated',
 		contentCollection: 'docs',
-		contentDir: path.join(contentRoot, 'docs', 'docs'),
+		contentDir: path.join(root, 'docs', 'docs'),
 	},
 	objective: {
 		name: 'objective',
@@ -73,7 +79,7 @@ export const MODEL_REGISTRY: Record<SdkModelName, SdkModelDefinition> = {
 		sortableFields: ['title', 'date', 'updated'],
 		pickField: 'date',
 		contentCollection: 'objectives',
-		contentDir: path.join(contentRoot, 'objectives'),
+		contentDir: path.join(root, 'objectives'),
 	},
 	subscription: {
 		name: 'subscription',
@@ -102,18 +108,22 @@ export const MODEL_REGISTRY: Record<SdkModelName, SdkModelDefinition> = {
 		sortableFields: ['name', 'slug', 'updated'],
 		pickField: 'updated',
 		contentCollection: 'agents',
-		contentDir: path.join(contentRoot, 'agents'),
+		contentDir: path.join(root, 'agents'),
 	},
-};
+	};
+}
+
+export const MODEL_REGISTRY: Record<SdkModelName, SdkModelDefinition> = buildModelRegistry();
 
 export function resolveModelDefinition(model: string): SdkModelDefinition {
-	const directMatch = MODEL_REGISTRY[model as SdkModelName];
+	const registry = buildModelRegistry();
+	const directMatch = registry[model as SdkModelName];
 	if (directMatch) {
 		return directMatch;
 	}
 
 	const normalized = model.trim().toLowerCase();
-	const aliasMatch = Object.values(MODEL_REGISTRY).find(
+	const aliasMatch = Object.values(registry).find(
 		(definition) => definition.aliases.includes(normalized) || definition.name === normalized,
 	);
 	if (!aliasMatch) {
