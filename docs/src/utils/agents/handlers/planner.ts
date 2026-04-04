@@ -2,12 +2,18 @@ import type { AgentHandler } from '../runtime-types.ts';
 import { serializeAgentMessagePayload } from '../contracts/messages.ts';
 
 interface PlannerInputs {
-	objectiveId: string | null;
-	questionId: string | null;
+	objectiveIds: string[];
+	questionIds: string[];
 }
 
-interface PlannerResult extends PlannerInputs {
+interface PlannerPriorityResult {
+	id: string;
 	reason: string;
+}
+
+interface PlannerResult {
+	objectives: PlannerPriorityResult[];
+	questions: PlannerPriorityResult[];
 }
 
 export const plannerHandler: AgentHandler<PlannerInputs, PlannerResult> = {
@@ -25,35 +31,56 @@ export const plannerHandler: AgentHandler<PlannerInputs, PlannerResult> = {
 		});
 
 		return {
-			objectiveId: (objectives.payload[0] as { id?: string } | undefined)?.id ?? null,
-			questionId: (questions.payload[0] as { id?: string } | undefined)?.id ?? null,
+			objectiveIds: objectives.payload
+				.map((entry) => (entry as { id?: string }).id ?? null)
+				.filter((entry): entry is string => Boolean(entry))
+				.slice(0, 1),
+			questionIds: questions.payload
+				.map((entry) => (entry as { id?: string }).id ?? null)
+				.filter((entry): entry is string => Boolean(entry))
+				.slice(0, 1),
 		};
 	},
 	async execute(_context, inputs) {
 		return {
-			...inputs,
-			reason: inputs.objectiveId
-				? `Objective ${inputs.objectiveId} is the highest-value current target.`
-				: 'No objective was available to prioritize.',
+			objectives: inputs.objectiveIds.map((id) => ({
+				id,
+				reason: `Objective ${id} is the highest-value current target.`,
+			})),
+			questions: inputs.questionIds.map((id) => ({
+				id,
+				reason: `Question ${id} is the highest-value current research target.`,
+			})),
 		};
 	},
 	async emitOutputs(context, result) {
-		if (!result.objectiveId) {
+		if (!result.objectives.length && !result.questions.length) {
 			return {
 				status: 'waiting',
-				summary: 'Planner found no objective to prioritize.',
+				summary: 'Planner found no questions or objectives to prioritize.',
 			};
 		}
 
-		await context.sdk.createMessage({
-			type: 'priority_updated',
-			payload: serializeAgentMessagePayload('priority_updated', {
-				objectiveId: result.objectiveId,
-				questionId: result.questionId,
-				reason: result.reason,
-				plannerRunId: context.runId,
-			}),
-		});
+		for (const question of result.questions) {
+			await context.sdk.createMessage({
+				type: 'question_priority_updated',
+				payload: serializeAgentMessagePayload('question_priority_updated', {
+					questionId: question.id,
+					reason: question.reason,
+					plannerRunId: context.runId,
+				}),
+			});
+		}
+		for (const objective of result.objectives) {
+			await context.sdk.createMessage({
+				type: 'objective_priority_updated',
+				payload: serializeAgentMessagePayload('objective_priority_updated', {
+					objectiveId: objective.id,
+					reason: objective.reason,
+					plannerRunId: context.runId,
+				}),
+			});
+		}
 		await context.sdk.upsertCursor({
 			agentSlug: context.agent.slug,
 			cursorKey: 'last_priority_run_at',
@@ -61,7 +88,11 @@ export const plannerHandler: AgentHandler<PlannerInputs, PlannerResult> = {
 		});
 		return {
 			status: 'completed',
-			summary: `Planner prioritized objective ${result.objectiveId}.`,
+			summary: `Planner prioritized ${result.questions.length} question(s) and ${result.objectives.length} objective(s).`,
+			metadata: {
+				prioritizedQuestionIds: result.questions.map((entry) => entry.id),
+				prioritizedObjectiveIds: result.objectives.map((entry) => entry.id),
+			},
 		};
 	},
 };

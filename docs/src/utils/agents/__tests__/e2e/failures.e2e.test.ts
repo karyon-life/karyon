@@ -29,7 +29,7 @@ describe.sequential('agent failure e2e', () => {
 		expect(runs[0]).toMatchObject({
 			agentSlug: 'planner-agent',
 			status: 'waiting',
-			summary: 'Planner found no objective to prioritize.',
+			summary: 'Planner found no questions or objectives to prioritize.',
 		});
 	});
 
@@ -37,7 +37,7 @@ describe.sequential('agent failure e2e', () => {
 		runtime = await createAgentTestRuntime();
 		await runtime.seedMessages([
 			{
-				type: 'priority_updated',
+				type: 'objective_priority_updated',
 				payload: { objectiveId: '', reason: 'invalid', plannerRunId: 'planner-run-invalid' },
 			},
 		]);
@@ -47,7 +47,7 @@ describe.sequential('agent failure e2e', () => {
 		const runs = await runtime.readRunLogs();
 
 		expect(messages[0]).toMatchObject({
-			type: 'priority_updated',
+			type: 'objective_priority_updated',
 			status: 'failed',
 		});
 		expect(runs[0]).toMatchObject({
@@ -163,24 +163,17 @@ describe.sequential('agent failure e2e', () => {
 		});
 	});
 
-	it('returns waiting when objective lease contention prevents architect pick', async () => {
+	it('returns waiting when architect has no objective priority message to process', async () => {
 		runtime = await createAgentTestRuntime();
-		await runtime.clearModelContent('objective');
-		await runtime.seedObjectives([{ slug: 'lease-contention-objective' }]);
-		await runtime.claimObjectiveLease('lease-contention-objective');
 
 		const result = await runtime.runAgent('architecture-agent');
 		const messages = await runtime.readMessages();
-		const runs = await runtime.readRunLogs();
 
 		expect(result).toMatchObject({
 			status: 'waiting',
 		});
 		expect(messages).toEqual([]);
-		expect(runs[0]).toMatchObject({
-			agentSlug: 'architecture-agent',
-			status: 'waiting',
-		});
+		expect(await runtime.readRunLogs()).toEqual([]);
 	});
 
 	it('allows only one claimant for the same architecture_updated message', async () => {

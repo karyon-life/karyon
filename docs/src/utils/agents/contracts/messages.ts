@@ -1,6 +1,11 @@
-export interface PriorityUpdatedMessage {
+export interface QuestionPriorityUpdatedMessage {
+	questionId: string;
+	reason: string;
+	plannerRunId: string;
+}
+
+export interface ObjectivePriorityUpdatedMessage {
 	objectiveId: string;
-	questionId: string | null;
 	reason: string;
 	plannerRunId: string;
 }
@@ -9,6 +14,23 @@ export interface ArchitectureUpdatedMessage {
 	objectiveId: string;
 	knowledgeId: string;
 	architectRunId: string;
+}
+
+export interface SubscriberNotifiedMessage {
+	email: string;
+	itemCount: number;
+	notifierRunId: string;
+}
+
+export interface ResearchStartedMessage {
+	questionId: string;
+	researcherRunId: string;
+}
+
+export interface ResearchCompletedMessage {
+	questionId: string;
+	knowledgeId: string | null;
+	researcherRunId: string;
 }
 
 export interface TaskCompleteMessage {
@@ -27,12 +49,52 @@ export interface TaskFailedMessage {
 	engineerRunId: string;
 }
 
+export interface TaskVerifiedMessage {
+	branchName: string | null;
+	reviewerRunId: string;
+}
+
+export interface ReviewFailedMessage {
+	failureSummary: string;
+	reviewerRunId: string;
+}
+
+export interface ReviewWaitingMessage {
+	blockingReason: string;
+	reviewerRunId: string;
+}
+
+export interface ReleaseStartedMessage {
+	taskRunId: string | null;
+	releaserRunId: string;
+}
+
+export interface ReleaseCompletedMessage {
+	releaseSummary: string;
+	releaserRunId: string;
+}
+
+export interface ReleaseFailedMessage {
+	failureSummary: string;
+	releaserRunId: string;
+}
+
 export interface AgentMessageContracts {
-	priority_updated: PriorityUpdatedMessage;
+	question_priority_updated: QuestionPriorityUpdatedMessage;
+	objective_priority_updated: ObjectivePriorityUpdatedMessage;
 	architecture_updated: ArchitectureUpdatedMessage;
+	subscriber_notified: SubscriberNotifiedMessage;
+	research_started: ResearchStartedMessage;
+	research_completed: ResearchCompletedMessage;
 	task_complete: TaskCompleteMessage;
 	task_waiting: TaskWaitingMessage;
 	task_failed: TaskFailedMessage;
+	task_verified: TaskVerifiedMessage;
+	review_failed: ReviewFailedMessage;
+	review_waiting: ReviewWaitingMessage;
+	release_started: ReleaseStartedMessage;
+	release_completed: ReleaseCompletedMessage;
+	release_failed: ReleaseFailedMessage;
 }
 
 export type AgentMessageType = keyof AgentMessageContracts;
@@ -59,6 +121,13 @@ function ensureStringArray(value: unknown, label: string) {
 	return value.map((entry, index) => ensureString(entry, `${label}[${index}]`));
 }
 
+function ensureNumber(value: unknown, label: string) {
+	if (typeof value !== 'number' || Number.isNaN(value)) {
+		throw new Error(`Invalid ${label}: expected number.`);
+	}
+	return value;
+}
+
 export function parseAgentMessagePayload<TType extends AgentMessageType>(
 	type: TType,
 	payloadJson: string,
@@ -66,10 +135,15 @@ export function parseAgentMessagePayload<TType extends AgentMessageType>(
 	const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
 
 	switch (type) {
-		case 'priority_updated':
+		case 'question_priority_updated':
+			return {
+				questionId: ensureString(parsed.questionId, 'questionId'),
+				reason: ensureString(parsed.reason, 'reason'),
+				plannerRunId: ensureString(parsed.plannerRunId, 'plannerRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'objective_priority_updated':
 			return {
 				objectiveId: ensureString(parsed.objectiveId, 'objectiveId'),
-				questionId: ensureOptionalString(parsed.questionId, 'questionId'),
 				reason: ensureString(parsed.reason, 'reason'),
 				plannerRunId: ensureString(parsed.plannerRunId, 'plannerRunId'),
 			} as AgentMessagePayload<TType>;
@@ -78,6 +152,23 @@ export function parseAgentMessagePayload<TType extends AgentMessageType>(
 				objectiveId: ensureString(parsed.objectiveId, 'objectiveId'),
 				knowledgeId: ensureString(parsed.knowledgeId, 'knowledgeId'),
 				architectRunId: ensureString(parsed.architectRunId, 'architectRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'subscriber_notified':
+			return {
+				email: ensureString(parsed.email, 'email'),
+				itemCount: ensureNumber(parsed.itemCount, 'itemCount'),
+				notifierRunId: ensureString(parsed.notifierRunId, 'notifierRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'research_started':
+			return {
+				questionId: ensureString(parsed.questionId, 'questionId'),
+				researcherRunId: ensureString(parsed.researcherRunId, 'researcherRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'research_completed':
+			return {
+				questionId: ensureString(parsed.questionId, 'questionId'),
+				knowledgeId: ensureOptionalString(parsed.knowledgeId, 'knowledgeId'),
+				researcherRunId: ensureString(parsed.researcherRunId, 'researcherRunId'),
 			} as AgentMessagePayload<TType>;
 		case 'task_complete':
 			return {
@@ -94,6 +185,36 @@ export function parseAgentMessagePayload<TType extends AgentMessageType>(
 			return {
 				failureSummary: ensureString(parsed.failureSummary, 'failureSummary'),
 				engineerRunId: ensureString(parsed.engineerRunId, 'engineerRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'task_verified':
+			return {
+				branchName: ensureOptionalString(parsed.branchName, 'branchName'),
+				reviewerRunId: ensureString(parsed.reviewerRunId, 'reviewerRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'review_failed':
+			return {
+				failureSummary: ensureString(parsed.failureSummary, 'failureSummary'),
+				reviewerRunId: ensureString(parsed.reviewerRunId, 'reviewerRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'review_waiting':
+			return {
+				blockingReason: ensureString(parsed.blockingReason, 'blockingReason'),
+				reviewerRunId: ensureString(parsed.reviewerRunId, 'reviewerRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'release_started':
+			return {
+				taskRunId: ensureOptionalString(parsed.taskRunId, 'taskRunId'),
+				releaserRunId: ensureString(parsed.releaserRunId, 'releaserRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'release_completed':
+			return {
+				releaseSummary: ensureString(parsed.releaseSummary, 'releaseSummary'),
+				releaserRunId: ensureString(parsed.releaserRunId, 'releaserRunId'),
+			} as AgentMessagePayload<TType>;
+		case 'release_failed':
+			return {
+				failureSummary: ensureString(parsed.failureSummary, 'failureSummary'),
+				releaserRunId: ensureString(parsed.releaserRunId, 'releaserRunId'),
 			} as AgentMessagePayload<TType>;
 		default:
 			throw new Error(`Unsupported message type "${type}".`);

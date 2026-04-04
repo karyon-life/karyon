@@ -8,8 +8,10 @@ import type { AgentErrorCategory } from '../contracts/run.ts';
 
 interface EngineerInputs {
 	messageId: number;
+	messageType: string;
 	objectiveId: string | null;
 	knowledgeId: string | null;
+	contextSummary: string | null;
 }
 
 interface EngineerResult extends EngineerInputs {
@@ -27,11 +29,33 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 		if (!context.trigger.message) {
 			throw new Error('Engineer requires a claimed message trigger.');
 		}
-		const payload = parseAgentMessagePayload('architecture_updated', context.trigger.message.payloadJson);
+		if (context.trigger.message.type === 'architecture_updated') {
+			const payload = parseAgentMessagePayload('architecture_updated', context.trigger.message.payloadJson);
+			return {
+				messageId: context.trigger.message.id,
+				messageType: 'architecture_updated',
+				objectiveId: payload.objectiveId,
+				knowledgeId: payload.knowledgeId,
+				contextSummary: null,
+			};
+		}
+		if (context.trigger.message.type === 'review_failed') {
+			const payload = parseAgentMessagePayload('review_failed', context.trigger.message.payloadJson);
+			return {
+				messageId: context.trigger.message.id,
+				messageType: 'review_failed',
+				objectiveId: null,
+				knowledgeId: null,
+				contextSummary: payload.failureSummary,
+			};
+		}
+		const payload = parseAgentMessagePayload('release_failed', context.trigger.message.payloadJson);
 		return {
 			messageId: context.trigger.message.id,
-			objectiveId: payload.objectiveId,
-			knowledgeId: payload.knowledgeId,
+			messageType: 'release_failed',
+			objectiveId: null,
+			knowledgeId: null,
+			contextSummary: payload.failureSummary,
 		};
 	},
 	async execute(context, inputs) {
@@ -59,6 +83,8 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 			'',
 			`Objective: ${inputs.objectiveId ?? 'unknown'}`,
 			`Knowledge: ${inputs.knowledgeId ?? 'none'}`,
+			`Trigger: ${inputs.messageType}`,
+			inputs.contextSummary ? `Context: ${inputs.contextSummary}` : '',
 			'',
 			typeof knowledge?.payload === 'object' && knowledge?.payload && 'body' in knowledge.payload
 				? String((knowledge.payload as { body?: string }).body ?? '')

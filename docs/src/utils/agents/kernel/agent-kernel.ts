@@ -48,8 +48,12 @@ export class AgentKernel {
 	private sortAgents(agents: AgentRuntimeSpec[]) {
 		const priority: Record<string, number> = {
 			planner: 10,
-			architect: 20,
-			engineer: 30,
+			researcher: 20,
+			architect: 30,
+			engineer: 40,
+			reviewer: 50,
+			releaser: 60,
+			notifier: 70,
 		};
 		return [...agents].sort(
 			(left, right) => (priority[left.handler] ?? 100) - (priority[right.handler] ?? 100),

@@ -3,7 +3,7 @@ import { parseAgentMessagePayload, serializeAgentMessagePayload } from '../../co
 import type { AgentTestRuntime } from '../../testing/e2e-harness.ts';
 import { createAgentTestRuntime } from '../../testing/e2e-harness.ts';
 
-describe.sequential('architecture agent e2e', () => {
+describe.sequential('researcher agent e2e', () => {
 	let runtime: AgentTestRuntime | null = null;
 
 	afterEach(async () => {
@@ -11,47 +11,45 @@ describe.sequential('architecture agent e2e', () => {
 		runtime = null;
 	});
 
-	it('claims objective priority output, creates knowledge, and emits architecture_updated', async () => {
+	it('claims question priority output, creates research knowledge, and emits research messages', async () => {
 		runtime = await createAgentTestRuntime();
-		await runtime.seedObjectives([{ slug: 'architecture-e2e-objective' }]);
+		await runtime.seedQuestions([{ slug: 'researcher-e2e-question' }]);
 		await runtime.seedMessages([
 			{
-				type: 'objective_priority_updated',
-				payload: serializeAgentMessagePayload('objective_priority_updated', {
-					objectiveId: 'architecture-e2e-objective',
-					reason: 'Architecture should proceed.',
+				type: 'question_priority_updated',
+				payload: serializeAgentMessagePayload('question_priority_updated', {
+					questionId: 'researcher-e2e-question',
+					reason: 'Research should proceed.',
 					plannerRunId: 'planner-run-1',
 				}),
 			},
 		]);
 
-		const result = await runtime.runAgent('architecture-agent');
+		const result = await runtime.runAgent('researcher-agent');
 		const messages = await runtime.readMessages();
 		const runs = await runtime.readRunLogs();
-		const leases = await runtime.readContentLeases();
 
 		expect(result).toMatchObject({
 			status: 'completed',
 		});
-		expect(messages).toHaveLength(2);
+		expect(messages).toHaveLength(3);
 		expect(messages[0]).toMatchObject({
-			type: 'objective_priority_updated',
+			type: 'question_priority_updated',
 			status: 'completed',
 		});
-		expect(messages[1]?.type).toBe('architecture_updated');
-		expect(parseAgentMessagePayload('architecture_updated', messages[1]!.payloadJson)).toMatchObject({
-			objectiveId: 'architecture-e2e-objective',
+		expect(messages[1]?.type).toBe('research_started');
+		expect(messages[2]?.type).toBe('research_completed');
+		expect(parseAgentMessagePayload('research_completed', messages[2]!.payloadJson)).toMatchObject({
+			questionId: 'researcher-e2e-question',
 		});
 		expect(runs).toHaveLength(1);
 		expect(runs[0]).toMatchObject({
-			agentSlug: 'architecture-agent',
-			handlerKind: 'architect',
+			agentSlug: 'researcher-agent',
+			handlerKind: 'researcher',
 			triggerKind: 'message',
 			triggerSource: 'message',
 			claimedMessageId: messages[0]?.id ?? null,
 			status: 'completed',
 		});
-		expect(runs[0]?.summary).toContain('Architect created knowledge');
-		expect(leases).toEqual([]);
 	});
 });

@@ -75,7 +75,7 @@ describe('agent kernel', () => {
 		await expect(kernel.doctor()).rejects.toThrow('No runtime handler is registered');
 	});
 
-	it('runs the planner -> architect -> engineer MVP chain through the kernel', async () => {
+	it('runs the planner -> researcher -> architect -> engineer MVP chain through the kernel', async () => {
 		const objective = { id: 'build-the-research-hub-surface', date: '2026-04-01T00:00:00.000Z' };
 		const question = { id: 'how-should-objectives-shape-question-prioritization', date: '2026-04-01T00:00:00.000Z' };
 		const knowledge = new Map<string, { id: string; body: string }>();
@@ -87,20 +87,30 @@ describe('agent kernel', () => {
 			handler: 'planner',
 			triggers: [{ type: 'schedule', cron: '* * * * *', runOnStart: true }],
 			permissions: [
-				{ model: 'question', operations: ['search', 'get', 'create', 'update', 'pick'] },
+				{ model: 'question', operations: ['search', 'get', 'create', 'update'] },
 				{ model: 'objective', operations: ['search', 'get'] },
+				{ model: 'message', operations: ['create'] },
+			],
+		});
+		const researcher = makeAgent({
+			slug: 'researcher-agent',
+			handler: 'researcher',
+			triggers: [{ type: 'message', messageTypes: ['question_priority_updated'] }],
+			permissions: [
+				{ model: 'question', operations: ['search', 'get', 'create', 'update'] },
+				{ model: 'objective', operations: ['search', 'get'] },
+				{ model: 'book', operations: ['search', 'get'] },
+				{ model: 'knowledge', operations: ['search', 'get', 'create', 'update'] },
+				{ model: 'note', operations: ['create'] },
 				{ model: 'message', operations: ['search', 'get', 'pick', 'update', 'create'] },
 			],
 		});
 		const architect = makeAgent({
 			slug: 'architecture-agent',
 			handler: 'architect',
-			triggers: [
-				{ type: 'message', messageTypes: ['priority_updated'] },
-				{ type: 'schedule', cron: '* * * * *', runOnStart: true },
-			],
+			triggers: [{ type: 'message', messageTypes: ['objective_priority_updated'] }],
 			permissions: [
-				{ model: 'objective', operations: ['search', 'get', 'pick'] },
+				{ model: 'objective', operations: ['search', 'get'] },
 				{ model: 'knowledge', operations: ['search', 'get', 'create', 'update'] },
 				{ model: 'message', operations: ['search', 'get', 'pick', 'update', 'create'] },
 			],
@@ -116,7 +126,7 @@ describe('agent kernel', () => {
 		});
 
 		const sdk = {
-			listAgentSpecs: async () => [planner, architect, engineer],
+			listAgentSpecs: async () => [planner, researcher, architect, engineer],
 			scopeForAgent(_agent: AgentRuntimeSpec) {
 				return {
 					async search(request: SdkSearchRequest) {
@@ -144,7 +154,7 @@ describe('agent kernel', () => {
 						return { payload: { item: null, leaseToken: null } };
 					},
 					async create(request: { model: string; data: Record<string, unknown> }) {
-						if (request.model === 'knowledge') {
+						if (request.model === 'knowledge' || request.model === 'note') {
 							knowledge.set(String(request.data.slug), {
 								id: String(request.data.slug),
 								body: String(request.data.body ?? ''),
@@ -239,12 +249,15 @@ describe('agent kernel', () => {
 
 		expect(results.map((entry) => entry.slug)).toEqual([
 			'planner-agent',
+			'researcher-agent',
 			'architecture-agent',
 			'engineer-agent',
 		]);
-		expect(messages.some((entry) => entry.type === 'priority_updated')).toBe(true);
+		expect(messages.some((entry) => entry.type === 'question_priority_updated')).toBe(true);
+		expect(messages.some((entry) => entry.type === 'objective_priority_updated')).toBe(true);
+		expect(messages.some((entry) => entry.type === 'research_completed')).toBe(true);
 		expect(messages.some((entry) => entry.type === 'architecture_updated')).toBe(true);
 		expect(messages.some((entry) => entry.type === 'task_complete')).toBe(true);
-		expect(runs.length).toBeGreaterThanOrEqual(6);
+		expect(runs.length).toBeGreaterThanOrEqual(8);
 	});
 });

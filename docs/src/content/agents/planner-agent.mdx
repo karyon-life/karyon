@@ -31,17 +31,13 @@ triggers:
   - type: schedule
     cron: '*/30 * * * *'
     runOnStart: true
-  - type: message
-    messageTypes:
-      - research_completed
-      - architecture_updated
 permissions:
   - model: question
-    operations: [search, get, create, update, pick]
+    operations: [search, get, create, update]
   - model: objective
     operations: [search, get]
   - model: message
-    operations: [search, get, pick, update, create]
+    operations: [create]
 execution:
   maxConcurrency: 1
   timeoutSeconds: 900
@@ -51,7 +47,8 @@ execution:
   branchPrefix: planner
 outputs:
   messageTypes:
-    - priority_updated
+    - question_priority_updated
+    - objective_priority_updated
   modelMutations:
     - question:create
     - question:update

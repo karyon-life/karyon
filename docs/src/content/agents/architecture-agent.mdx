@@ -28,15 +28,12 @@ cli:
   allowTools:
     - shell(git)
 triggers:
-  - type: schedule
-    cron: '0 * * * *'
-    runOnStart: true
   - type: message
     messageTypes:
-      - priority_updated
+      - objective_priority_updated
 permissions:
   - model: objective
-    operations: [search, get, pick]
+    operations: [search, get]
   - model: book
     operations: [search, get]
   - model: knowledge

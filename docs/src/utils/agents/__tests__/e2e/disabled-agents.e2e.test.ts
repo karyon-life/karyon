@@ -20,7 +20,6 @@ describe.sequential('disabled agent contracts', () => {
 		expect(disabledAgents.map((entry) => entry.slug).sort()).toEqual([
 			'notifier-agent',
 			'releaser-agent',
-			'researcher-agent',
 			'reviewer-agent',
 		].sort());
 		expect(disabledAgents.every((entry) => typeof entry.handler === 'string' && entry.handler.length > 0)).toBe(true);

@@ -2,7 +2,7 @@
 name: Researcher Agent
 slug: researcher-agent
 handler: researcher
-enabled: false
+enabled: true
 description: Picks priority questions, gathers research, and writes back new knowledge and notes.
 summary: The researcher turns open questions into sourced knowledge updates, additional notes, and follow-on questions for the hub.
 operator: Karyon platform
@@ -30,12 +30,12 @@ cli:
     - shell(git)
     - web
 triggers:
-  - type: schedule
-    cron: '*/45 * * * *'
-    runOnStart: true
+  - type: message
+    messageTypes:
+      - question_priority_updated
 permissions:
   - model: question
-    operations: [search, get, pick, create, update]
+    operations: [search, get, create, update]
   - model: objective
     operations: [search, get]
   - model: book
@@ -45,7 +45,7 @@ permissions:
   - model: note
     operations: [create]
   - model: message
-    operations: [create]
+    operations: [search, get, pick, update, create]
 execution:
   maxConcurrency: 1
   timeoutSeconds: 1800
