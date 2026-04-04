@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveContactRecipientsFromMap } from '../routing-core';
+import { SITE_EMAIL_NOTIFICATIONS } from '../../site-config';
 
 describe('contact routing resolution', () => {
 	it('prefers a specific route over the default recipients', () => {
@@ -23,5 +24,14 @@ describe('contact routing resolution', () => {
 		);
 
 		expect(recipients).toEqual(['default@example.com']);
+	});
+
+	it('accepts the config.yaml routing map shape', () => {
+		const recipients = resolveContactRecipientsFromMap(
+			SITE_EMAIL_NOTIFICATIONS.contactRouting,
+			'collaboration',
+		);
+
+		expect(recipients).toEqual(['contact@karyon.life']);
 	});
 });

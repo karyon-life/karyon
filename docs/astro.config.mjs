@@ -1,11 +1,22 @@
 // @ts-check
 import { defineConfig, envField } from 'astro/config';
+import { readFileSync } from 'node:fs';
 import cloudflare from '@astrojs/cloudflare';
 import starlight from '@astrojs/starlight';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
 import tailwindcss from '@tailwindcss/vite';
+import { parseSiteConfig } from './src/utils/site-config-schema.js';
 import { getStarlightSidebarConfig } from './src/utils/starlight-nav.mjs';
+
+const siteConfig = parseSiteConfig(readFileSync(new URL('./src/config.yaml', import.meta.url), 'utf8'));
+
+/**
+ * @param {string} publicPath
+ */
+function toStarlightLogoSrc(publicPath) {
+	return publicPath.startsWith('/') ? `./public${publicPath}` : publicPath;
+}
 
 /**
  * Normalize common AI-exported LaTeX escaping inside math nodes so KaTeX can render it.
@@ -86,7 +97,7 @@ function rehypeNormalizeEscapedMath() {
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://karyon.life',
+	site: siteConfig.site.siteUrl,
 	adapter: cloudflare(),
 	vite: {
 		plugins: [/** @type {any} */ (tailwindcss())],
@@ -142,16 +153,6 @@ export default defineConfig({
 				access: 'secret',
 				optional: true,
 			}),
-			DOCS_CONTACT_ROUTING_JSON: envField.string({
-				context: 'server',
-				access: 'secret',
-				optional: true,
-			}),
-			DOCS_SUBSCRIBE_NOTIFY_RECIPIENTS: envField.string({
-				context: 'server',
-				access: 'secret',
-				optional: true,
-			}),
 			DOCS_FORM_TOKEN_SECRET: envField.string({
 				context: 'server',
 				access: 'secret',
@@ -193,10 +194,15 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			customCss: ['./src/styles/global.css'],
-			title: 'Karyon: Working towards a Cellular Graph Intelligence',
+			title: siteConfig.site.name,
 			logo: {
-        		src: './src/assets/logo.svg',
-      		},
+				src: toStarlightLogoSrc(siteConfig.site.logo.src),
+				alt: siteConfig.site.logo.alt,
+			},
+			social: [
+				{ icon: 'github', label: `${siteConfig.site.name} GitHub`, href: siteConfig.site.githubRepository },
+				{ icon: 'discord', label: `${siteConfig.site.name} Discord`, href: siteConfig.site.discordLink },
+			],
 			components: {
 				Footer: './src/components/docs/Footer.astro',
 				Header: './src/components/docs/Header.astro',

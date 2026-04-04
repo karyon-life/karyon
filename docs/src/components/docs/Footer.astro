@@ -1,21 +1,90 @@
 ---
 import DefaultFooter from '@astrojs/starlight/components/Footer.astro';
 import FooterSubscribeForm from '../forms/FooterSubscribeForm.astro';
+import { SITE } from '../../utils/seo';
+import { SITE_FOOTER_MENU } from '../../utils/site-config';
 ---
 
 <div class="docs-footer-shell">
 	<DefaultFooter {...Astro.props} />
+	<div class="docs-footer-meta">
+		<div class="docs-footer-panel">
+			<p class="docs-footer-title">{SITE.name}</p>
+			<p>{SITE.summary}</p>
+		</div>
+		<div class="docs-footer-panel">
+			<p class="docs-footer-heading">Project stage</p>
+			<p class="docs-footer-title">{SITE.projectStage}</p>
+			<p>{SITE.projectStageDetail}</p>
+		</div>
+		{SITE_FOOTER_MENU.map((group) => (
+			<div class="docs-footer-panel">
+				<p class="docs-footer-heading">{group.label}</p>
+				<div class="docs-footer-links">
+					{group.items.map((item) => (
+						<a href={item.href}>{item.label}</a>
+					))}
+				</div>
+			</div>
+		))}
+	</div>
 	<div class="docs-footer-subscribe">
 		<FooterSubscribeForm currentPath={Astro.url.pathname} />
 	</div>
 </div>
 
 <style>
+	@layer starlight.core {
 	.docs-footer-shell {
 		margin-top: 4rem;
 	}
 
+	.docs-footer-meta {
+		display: grid;
+		gap: 1.5rem;
+		margin-top: 2rem;
+		padding-top: 2rem;
+		border-top: 1px solid var(--sl-color-gray-5);
+		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+	}
+
+	.docs-footer-panel {
+		display: grid;
+		gap: 0.75rem;
+		color: var(--sl-color-gray-2);
+	}
+
+	.docs-footer-heading {
+		font-size: var(--sl-text-xs);
+		font-weight: 600;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--sl-color-text-accent);
+	}
+
+	.docs-footer-title {
+		font-size: var(--sl-text-lg);
+		font-weight: 600;
+		color: var(--sl-color-white);
+	}
+
+	.docs-footer-links {
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.docs-footer-links a {
+		color: var(--sl-color-gray-2);
+		text-decoration: none;
+	}
+
+	.docs-footer-links a:hover,
+	.docs-footer-links a:focus-visible {
+		color: var(--sl-color-white);
+	}
+
 	.docs-footer-subscribe {
 		padding-top: 1rem;
+	}
 	}
 </style>

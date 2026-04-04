@@ -1,5 +1,4 @@
 import {
-	DOCS_CONTACT_ROUTING_JSON,
 	DOCS_FORM_TOKEN_SECRET,
 	DOCS_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS,
 	DOCS_FORMS_LOCAL_BYPASS_TURNSTILE,
@@ -13,40 +12,10 @@ import {
 	DOCS_SMTP_PORT,
 	DOCS_SMTP_REPLY_TO,
 	DOCS_SMTP_USERNAME,
-	DOCS_SUBSCRIBE_NOTIFY_RECIPIENTS,
 	DOCS_TURNSTILE_SECRET_KEY,
 } from 'astro:env/server';
+import { SITE_EMAIL_NOTIFICATIONS } from '../site-config';
 import type { ContactRoutingMap, LocalDevMode } from '../../types/forms';
-
-function parseEmailList(value: string | undefined) {
-	return (value ?? '')
-		.split(',')
-		.map((entry) => entry.trim())
-		.filter(Boolean);
-}
-
-function parseRoutingMap(value: string | undefined): ContactRoutingMap {
-	if (!value) {
-		return {};
-	}
-
-	try {
-		const parsed = JSON.parse(value) as Record<string, unknown>;
-		return Object.fromEntries(
-			Object.entries(parsed).map(([key, rawValue]) => [
-				key,
-				Array.isArray(rawValue)
-					? rawValue
-							.map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
-							.filter(Boolean)
-					: [],
-			]),
-		);
-	} catch (error) {
-		console.error('Failed to parse DOCS_CONTACT_ROUTING_JSON', error);
-		return {};
-	}
-}
 
 export function getFormSecret() {
 	return DOCS_FORM_TOKEN_SECRET ?? '';
@@ -57,11 +26,11 @@ export function getTurnstileSecret() {
 }
 
 export function getContactRoutingMap() {
-	return parseRoutingMap(DOCS_CONTACT_ROUTING_JSON);
+	return SITE_EMAIL_NOTIFICATIONS.contactRouting as ContactRoutingMap;
 }
 
 export function getSubscribeRecipients() {
-	return parseEmailList(DOCS_SUBSCRIBE_NOTIFY_RECIPIENTS);
+	return SITE_EMAIL_NOTIFICATIONS.subscribeRecipients;
 }
 
 export function getSmtpConfig() {

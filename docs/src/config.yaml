@@ -1,0 +1,94 @@
+site:
+  logo:
+    src: /logo.png
+    alt: Karyon logo
+  name: Karyon
+  statement: Early-stage cellular AI architecture
+  siteUrl: https://karyon.life
+  githubRepository: https://github.com/karyon-life/karyon
+  discordLink: https://example.com/discord
+  headerMenu:
+    - label: Work
+      items:
+        - label: Architecture
+          href: /architecture/
+        - label: Docs
+          href: /docs/
+        - label: Contribute
+          href: /contribute/
+    - label: Thinking
+      items:
+        - label: Research Direction
+          href: /research-direction/
+        - label: Notes
+          href: /notes/
+    - label: Resources
+      items:
+        - label: Research Book
+          href: /docs/research/
+        - label: Architecture Book
+          href: /docs/architecture/
+        - label: Developer Book
+          href: /docs/developer/
+        - label: Operations Book
+          href: /docs/operations/
+    - label: About
+      items:
+        - label: Vision
+          href: /vision/
+        - label: Project Status
+          href: /status/
+        - label: Community
+          href: /community/
+  footerMenu:
+    - label: Explore
+      items:
+        - label: Vision
+          href: /vision/
+        - label: Project Status
+          href: /status/
+        - label: Research Direction
+          href: /research-direction/
+        - label: Community
+          href: /community/
+    - label: Build
+      items:
+        - label: Contribute
+          href: /contribute/
+        - label: Contact
+          href: /contact/
+        - label: GitHub Repository
+          href: https://github.com/karyon-life/karyon
+        - label: Discord
+          href: https://example.com/discord
+  emailNotifications:
+    contactRouting:
+      default:
+        - contact@karyon.life
+      question:
+        - contact@karyon.life
+      feedback:
+        - contact@karyon.life
+      collaboration:
+        - contact@karyon.life
+      issue:
+        - contact@karyon.life
+    subscribeRecipients:
+      - contact@karyon.life
+  summary: Karyon is an open research platform exploring new models of intelligence that could make learning, adaptation, and human agency more durable, inspectable, and safe.
+  projectStage: Founding stage
+  projectStageDetail: Framework-building, prototype-hardening, and documentation-first.
+models:
+  pages:
+    defaults:
+      pageLayout: article
+      stage: founding
+      audience: []
+  notes:
+    defaults:
+      author: Karyon Founding Team
+      draft: false
+      tags: []
+  docs:
+    defaults:
+      tags: []

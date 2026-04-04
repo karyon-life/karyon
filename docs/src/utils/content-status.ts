@@ -1,3 +1,5 @@
+import { SITE } from './site-config';
+
 export const CONTENT_STATUSES = ['live', 'in progress', 'exploratory', 'planned', 'speculative'] as const;
 
 export type ContentStatus = (typeof CONTENT_STATUSES)[number];
@@ -34,6 +36,6 @@ export const CONTENT_STATUS_META: Record<
 };
 
 export const PROJECT_STAGE = {
-	label: 'Founding stage',
-	description: 'Framework-building, prototype-hardening, and documentation-first.',
+	label: SITE.projectStage,
+	description: SITE.projectStageDetail,
 };

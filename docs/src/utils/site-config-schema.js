@@ -1,0 +1,217 @@
+import { parse as parseYaml } from 'yaml';
+
+/**
+ * @typedef {{ label: string, href: string }} SiteMenuItem
+ * @typedef {{ label: string, items: SiteMenuItem[] }} SiteMenuGroup
+ * @typedef {Partial<Record<'default' | 'question' | 'feedback' | 'collaboration' | 'issue', string[]>>} ContactRoutingMap
+ * @typedef {{
+ *   site: {
+ *     logo: { src: string, alt: string },
+ *     name: string,
+ *     statement: string,
+ *     siteUrl: string,
+ *     githubRepository: string,
+ *     discordLink: string,
+ *     headerMenu: SiteMenuGroup[],
+ *     footerMenu: SiteMenuGroup[],
+ *     emailNotifications: {
+ *       contactRouting: ContactRoutingMap,
+ *       subscribeRecipients: string[],
+ *     },
+ *     summary: string,
+ *     projectStage: string,
+ *     projectStageDetail: string,
+ *   },
+ *   models: {
+ *     pages: {
+ *       defaults: {
+ *         pageLayout?: string,
+ *         status?: string,
+ *         stage?: string,
+ *         audience?: string[],
+ *       },
+ *     },
+ *     notes: {
+ *       defaults: {
+ *         author?: string,
+ *         draft?: boolean,
+ *         tags?: string[],
+ *         status?: string,
+ *       },
+ *     },
+ *     docs: {
+ *       defaults: {
+ *         tags?: string[],
+ *       },
+ *     },
+ *   },
+ * }} SiteConfig
+ */
+
+function isRecord(value) {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function expectRecord(value, path) {
+	if (!isRecord(value)) {
+		throw new Error(`Expected ${path} to be an object.`);
+	}
+
+	return value;
+}
+
+function expectString(value, path) {
+	if (typeof value !== 'string' || value.trim().length === 0) {
+		throw new Error(`Expected ${path} to be a non-empty string.`);
+	}
+
+	return value.trim();
+}
+
+function optionalString(value, path) {
+	if (value === undefined || value === null || value === '') {
+		return undefined;
+	}
+
+	return expectString(value, path);
+}
+
+function optionalBoolean(value, path) {
+	if (value === undefined || value === null) {
+		return undefined;
+	}
+
+	if (typeof value !== 'boolean') {
+		throw new Error(`Expected ${path} to be a boolean.`);
+	}
+
+	return value;
+}
+
+function stringArray(value, path) {
+	if (value === undefined || value === null) {
+		return [];
+	}
+
+	if (!Array.isArray(value)) {
+		throw new Error(`Expected ${path} to be an array.`);
+	}
+
+	return value.map((entry, index) => expectString(entry, `${path}[${index}]`));
+}
+
+function parseMenuGroups(value, path) {
+	if (!Array.isArray(value)) {
+		throw new Error(`Expected ${path} to be an array.`);
+	}
+
+	return value.map((group, groupIndex) => {
+		const parsedGroup = expectRecord(group, `${path}[${groupIndex}]`);
+		const items = parsedGroup.items;
+		if (!Array.isArray(items) || items.length === 0) {
+			throw new Error(`Expected ${path}[${groupIndex}].items to contain at least one menu item.`);
+		}
+
+		return {
+			label: expectString(parsedGroup.label, `${path}[${groupIndex}].label`),
+			items: items.map((item, itemIndex) => {
+				const parsedItem = expectRecord(item, `${path}[${groupIndex}].items[${itemIndex}]`);
+				return {
+					label: expectString(
+						parsedItem.label,
+						`${path}[${groupIndex}].items[${itemIndex}].label`,
+					),
+					href: expectString(
+						parsedItem.href,
+						`${path}[${groupIndex}].items[${itemIndex}].href`,
+					),
+				};
+			}),
+		};
+	});
+}
+
+function parseContactRouting(value, path) {
+	const parsedValue = expectRecord(value ?? {}, path);
+	const keys = ['default', 'question', 'feedback', 'collaboration', 'issue'];
+
+	return Object.fromEntries(
+		keys.flatMap((key) => {
+			if (!(key in parsedValue)) {
+				return [];
+			}
+
+			return [[key, stringArray(parsedValue[key], `${path}.${key}`)]];
+		}),
+	);
+}
+
+/**
+ * @param {string} source
+ * @returns {SiteConfig}
+ */
+export function parseSiteConfig(source) {
+	const parsed = expectRecord(parseYaml(source), 'config');
+	const site = expectRecord(parsed.site, 'site');
+	const models = expectRecord(parsed.models ?? {}, 'models');
+	const pageModel = expectRecord(models.pages ?? {}, 'models.pages');
+	const noteModel = expectRecord(models.notes ?? {}, 'models.notes');
+	const docsModel = expectRecord(models.docs ?? {}, 'models.docs');
+	const pageDefaults = expectRecord(pageModel.defaults ?? {}, 'models.pages.defaults');
+	const noteDefaults = expectRecord(noteModel.defaults ?? {}, 'models.notes.defaults');
+	const docsDefaults = expectRecord(docsModel.defaults ?? {}, 'models.docs.defaults');
+	const logo = expectRecord(site.logo, 'site.logo');
+	const emailNotifications = expectRecord(site.emailNotifications, 'site.emailNotifications');
+
+	return {
+		site: {
+			logo: {
+				src: expectString(logo.src, 'site.logo.src'),
+				alt: expectString(logo.alt, 'site.logo.alt'),
+			},
+			name: expectString(site.name, 'site.name'),
+			statement: expectString(site.statement, 'site.statement'),
+			siteUrl: expectString(site.siteUrl, 'site.siteUrl'),
+			githubRepository: expectString(site.githubRepository, 'site.githubRepository'),
+			discordLink: expectString(site.discordLink, 'site.discordLink'),
+			headerMenu: parseMenuGroups(site.headerMenu, 'site.headerMenu'),
+			footerMenu: parseMenuGroups(site.footerMenu, 'site.footerMenu'),
+			emailNotifications: {
+				contactRouting: parseContactRouting(
+					emailNotifications.contactRouting,
+					'site.emailNotifications.contactRouting',
+				),
+				subscribeRecipients: stringArray(
+					emailNotifications.subscribeRecipients,
+					'site.emailNotifications.subscribeRecipients',
+				),
+			},
+			summary: expectString(site.summary, 'site.summary'),
+			projectStage: expectString(site.projectStage, 'site.projectStage'),
+			projectStageDetail: expectString(site.projectStageDetail, 'site.projectStageDetail'),
+		},
+		models: {
+			pages: {
+				defaults: {
+					pageLayout: optionalString(pageDefaults.pageLayout, 'models.pages.defaults.pageLayout'),
+					status: optionalString(pageDefaults.status, 'models.pages.defaults.status'),
+					stage: optionalString(pageDefaults.stage, 'models.pages.defaults.stage'),
+					audience: stringArray(pageDefaults.audience, 'models.pages.defaults.audience'),
+				},
+			},
+			notes: {
+				defaults: {
+					author: optionalString(noteDefaults.author, 'models.notes.defaults.author'),
+					draft: optionalBoolean(noteDefaults.draft, 'models.notes.defaults.draft'),
+					tags: stringArray(noteDefaults.tags, 'models.notes.defaults.tags'),
+					status: optionalString(noteDefaults.status, 'models.notes.defaults.status'),
+				},
+			},
+			docs: {
+				defaults: {
+					tags: stringArray(docsDefaults.tags, 'models.docs.defaults.tags'),
+				},
+			},
+		},
+	};
+}
