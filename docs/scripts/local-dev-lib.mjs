@@ -38,19 +38,21 @@ export function syncDevVars(overrides = {}) {
 }
 
 export function runLocalD1Migration(persistTo) {
-	const args = [
-		'd1',
-		'execute',
-		'karyon-docs-subscribers',
-		'--local',
-		'--file=./migrations/0001_subscribers.sql',
-	];
+	for (const file of ['./migrations/0001_subscribers.sql', './migrations/0002_agent_runtime.sql']) {
+		const args = [
+			'd1',
+			'execute',
+			'karyon-docs-subscribers',
+			'--local',
+			`--file=${file}`,
+		];
 
-	if (persistTo) {
-		args.push('--persist-to', persistTo);
+		if (persistTo) {
+			args.push('--persist-to', persistTo);
+		}
+
+		runStep('wrangler', args);
 	}
-
-	runStep('wrangler', args);
 }
 
 export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo } = {}) {

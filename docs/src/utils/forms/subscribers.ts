@@ -11,7 +11,7 @@ export async function upsertSubscriber(
 
 	await db
 		.prepare(
-			`INSERT INTO subscribers (email, name, status, source, consent_at, created_at, updated_at, ip_hash)
+			`INSERT INTO subscriptions (email, name, status, source, consent_at, created_at, updated_at, ip_hash)
 			 VALUES (?, ?, 'active', ?, ?, ?, ?, ?)
 			 ON CONFLICT(email) DO UPDATE SET
 			 	name = excluded.name,

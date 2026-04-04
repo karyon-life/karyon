@@ -124,7 +124,7 @@ async function submitSubscribeForm({ formToken, sessionId, cookieHeader }, email
 }
 
 async function querySubscribers() {
-	const query = `SELECT email, status, source FROM subscribers WHERE email = '${TEST_EMAIL}'`;
+	const query = `SELECT email, status, source FROM subscriptions WHERE email = '${TEST_EMAIL}'`;
 	const child = spawnProcess(
 		'wrangler',
 		[

@@ -18,6 +18,24 @@ const pageLayoutValues = ['article', 'bridge'] as const;
 const questionTypeValues = ['research', 'implementation', 'strategy', 'evaluation'] as const;
 const timeHorizonValues = ['near-term', 'mid-term', 'long-term'] as const;
 const runtimeStatusValues = ['active', 'experimental', 'dormant'] as const;
+const agentTriggerTypeValues = ['schedule', 'message', 'follow', 'startup'] as const;
+const agentHandlerValues = [
+	'planner',
+	'architect',
+	'engineer',
+	'notifier',
+	'researcher',
+	'reviewer',
+	'releaser',
+] as const;
+const agentPermissionOperationValues = [
+	'get',
+	'search',
+	'follow',
+	'pick',
+	'create',
+	'update',
+] as const;
 
 function withOptionalDefault<T extends z.ZodTypeAny>(
 	schema: T,
@@ -124,6 +142,45 @@ const profileLinkSchema = z.object({
 	href: z.string(),
 });
 
+const agentCliSchema = z.object({
+	model: z.string().optional(),
+	allowTools: z.array(z.string()).default([]),
+	additionalArgs: z.array(z.string()).default([]),
+});
+
+const agentTriggerSchema = z.object({
+	type: z.enum(agentTriggerTypeValues),
+	cron: z.string().optional(),
+	messageTypes: z.array(z.string()).default([]),
+	models: z.array(z.string()).default([]),
+	sinceField: z.string().optional(),
+	runOnStart: z.boolean().default(false),
+});
+
+const agentPermissionSchema = z.object({
+	model: z.string(),
+	operations: z.array(z.enum(agentPermissionOperationValues)).min(1),
+});
+
+const agentExecutionSchema = z.object({
+	maxConcurrency: z.number().int().positive().default(1),
+	timeoutSeconds: z.number().int().positive().default(900),
+	cooldownSeconds: z.number().int().nonnegative().default(30),
+	leaseSeconds: z.number().int().positive().default(300),
+	retryLimit: z.number().int().nonnegative().default(3),
+	branchPrefix: z.string().default('agent'),
+});
+
+const agentTriggerPolicySchema = z.object({
+	maxRunsPerCycle: z.number().int().positive().optional(),
+	messageBatchSize: z.number().int().positive().optional(),
+});
+
+const agentOutputSchema = z.object({
+	messageTypes: z.array(z.string()).default([]),
+	modelMutations: z.array(z.string()).default([]),
+});
+
 export const peopleSchema = z.object({
 	name: z.string(),
 	description: z.string(),
@@ -147,6 +204,9 @@ const people = defineCollection({
 
 export const agentSchema = z.object({
 	name: z.string(),
+	slug: z.string(),
+	handler: z.enum(agentHandlerValues),
+	enabled: z.boolean().default(true),
 	description: z.string(),
 	summary: z.string(),
 	operator: z.string(),
@@ -159,6 +219,14 @@ export const agentSchema = z.object({
 	links: z.array(profileLinkSchema).default([]),
 	relatedQuestions: z.array(reference('questions')).default([]),
 	relatedObjectives: z.array(reference('objectives')).default([]),
+	systemPrompt: z.string(),
+	persona: z.string(),
+	cli: agentCliSchema.default({ allowTools: [], additionalArgs: [] }),
+	triggers: z.array(agentTriggerSchema).min(1),
+	triggerPolicy: agentTriggerPolicySchema.optional(),
+	permissions: z.array(agentPermissionSchema).min(1),
+	execution: agentExecutionSchema.default({}),
+	outputs: agentOutputSchema.default({}),
 });
 
 const agents = defineCollection({

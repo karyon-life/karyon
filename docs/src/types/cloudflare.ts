@@ -10,10 +10,15 @@ export interface KvNamespaceLike {
 export interface D1PreparedStatementLike {
 	bind(...values: unknown[]): D1PreparedStatementLike;
 	run(): Promise<unknown>;
+	first<T = Record<string, unknown>>(): Promise<T | null>;
+	all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+	raw<T = unknown[]>(): Promise<T[]>;
 }
 
 export interface D1DatabaseLike {
 	prepare(query: string): D1PreparedStatementLike;
+	batch?(statements: D1PreparedStatementLike[]): Promise<unknown[]>;
+	exec?(query: string): Promise<unknown>;
 }
 
 export interface CloudflareRuntime {

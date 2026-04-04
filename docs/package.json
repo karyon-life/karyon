@@ -2,6 +2,9 @@
   "name": "docs",
   "type": "module",
   "version": "0.0.1",
+  "bin": {
+    "karyon-research-hub-agents": "./scripts/research-hub-agents.mjs"
+  },
   "scripts": {
     "predev": "node scripts/aggregate-book.mjs",
     "mailpit:ensure": "node scripts/ensure-mailpit.mjs",
@@ -9,7 +12,7 @@
     "mailpit:down": "docker compose -f compose.yml stop mailpit",
     "mailpit:logs": "docker compose -f compose.yml logs -f mailpit",
     "sync:devvars": "node scripts/sync-dev-vars.mjs",
-    "d1:migrate:local": "wrangler d1 execute karyon-docs-subscribers --local --file=./migrations/0001_subscribers.sql",
+    "d1:migrate:local": "wrangler d1 execute karyon-docs-subscribers --local --file=./migrations/0001_subscribers.sql && wrangler d1 execute karyon-docs-subscribers --local --file=./migrations/0002_agent_runtime.sql",
     "dev": "node scripts/local-dev.mjs",
     "start": "node scripts/local-dev.mjs",
     "prebuild": "node scripts/aggregate-book.mjs",
@@ -21,6 +24,7 @@
     "test:unit": "vitest run",
     "test:integration": "node scripts/test-cloudflare-local.mjs",
     "test": "npm run test:unit && npm run test:integration",
+    "agents": "node scripts/research-hub-agents.mjs",
     "astro": "astro"
   },
   "dependencies": {

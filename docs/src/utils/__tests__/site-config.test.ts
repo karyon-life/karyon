@@ -17,8 +17,8 @@ describe('site config parsing', () => {
 		expect(SITE_CONFIG.site.headerMenu.length).toBeGreaterThan(0);
 		expect(SITE_CONFIG.site.headerMenu[0].label).toBe('Thinking');
 		expect(SITE_CONFIG.site.headerMenu[0].items).toContainEqual({
-			label: 'Architecture',
-			href: '/architecture/',
+			label: 'Questions',
+			href: '/questions/',
 		});
 		expect(SITE_CONFIG.site.footerMenu.length).toBeGreaterThan(0);
 	});
