@@ -2,6 +2,7 @@ import { defineCollection, reference, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { docsLoader } from '@astrojs/starlight/loaders';
 import { docsSchema } from '@astrojs/starlight/schema';
+import { AGENT_CLI_ALLOW_TOOLS } from './types/agents';
 import {
 	AGENT_MODEL_DEFAULTS,
 	BOOK_MODEL_DEFAULTS,
@@ -144,7 +145,7 @@ const profileLinkSchema = z.object({
 
 const agentCliSchema = z.object({
 	model: z.string().optional(),
-	allowTools: z.array(z.string()).default([]),
+	allowTools: z.array(z.enum(AGENT_CLI_ALLOW_TOOLS)).default([]),
 	additionalArgs: z.array(z.string()).default([]),
 });
 

@@ -24,12 +24,18 @@ export const AGENT_HANDLER_KINDS = [
 	'reviewer',
 	'releaser',
 ] as const;
+export const AGENT_CLI_ALLOW_TOOLS = [
+	'shell(git)',
+	'shell(npm)',
+	'web',
+] as const;
 
 export type AgentTriggerKind = (typeof AGENT_TRIGGER_KINDS)[number];
 export type AgentPermissionOperation = (typeof AGENT_PERMISSION_OPERATIONS)[number];
 export type AgentMessageStatus = (typeof AGENT_MESSAGE_STATUSES)[number];
 export type AgentRunStatus = (typeof AGENT_RUN_STATUSES)[number];
 export type AgentHandlerKind = (typeof AGENT_HANDLER_KINDS)[number];
+export type AgentCliAllowTool = (typeof AGENT_CLI_ALLOW_TOOLS)[number];
 
 export interface AgentTriggerConfig {
 	type: AgentTriggerKind;
@@ -66,7 +72,7 @@ export interface AgentTriggerPolicy {
 
 export interface AgentCliOptions {
 	model?: string;
-	allowTools?: string[];
+	allowTools?: AgentCliAllowTool[];
 	additionalArgs?: string[];
 }
 

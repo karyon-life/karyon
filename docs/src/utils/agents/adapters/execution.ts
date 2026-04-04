@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { normalizeAgentCliOptions, buildCopilotAllowToolArgs } from '../cli-tools.ts';
 import type { AgentExecutionAdapter } from '../runtime-types.ts';
 
 const execFileAsync = promisify(execFile);
@@ -25,14 +26,13 @@ export class StubExecutionAdapter implements AgentExecutionAdapter {
 
 export class CopilotExecutionAdapter implements AgentExecutionAdapter {
 	async runTask(input: { agent: { cli?: { model?: string; allowTools?: string[]; additionalArgs?: string[] } }; prompt: string }) {
+		const cli = normalizeAgentCliOptions(input.agent.cli);
 		const args = ['copilot', '-p', input.prompt];
-		if (input.agent.cli?.model) {
-			args.push('--model', input.agent.cli.model);
+		if (cli.model) {
+			args.push('--model', cli.model);
 		}
-		for (const tool of input.agent.cli?.allowTools ?? []) {
-			args.push('--allow-tool', tool);
-		}
-		args.push(...(input.agent.cli?.additionalArgs ?? []));
+		args.push(...buildCopilotAllowToolArgs(cli.allowTools));
+		args.push(...(cli.additionalArgs ?? []));
 
 		try {
 			const { stdout, stderr } = await execFileAsync('gh', args, {

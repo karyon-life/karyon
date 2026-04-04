@@ -2,6 +2,7 @@ import type {
 	AgentPermissionConfig,
 	AgentRuntimeSpec,
 } from '../../types/agents';
+import { normalizeAgentCliOptions } from './cli-tools.ts';
 import { ContentStore } from './content-store.ts';
 import {
 	CloudflareD1AgentDatabase,
@@ -40,6 +41,7 @@ function normalizeAgentSpec(entry: Record<string, unknown> | null): AgentRuntime
 	return {
 		...(frontmatter as unknown as AgentRuntimeSpec),
 		slug: String(frontmatter.slug ?? entry.slug ?? ''),
+		cli: normalizeAgentCliOptions(frontmatter.cli),
 	};
 }
 
