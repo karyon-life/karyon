@@ -210,6 +210,11 @@ export interface SdkCursorRequest {
 	cursorValue: string;
 }
 
+export interface SdkGetCursorRequest {
+	agentSlug: string;
+	cursorKey: string;
+}
+
 export interface SdkLeaseReleaseRequest {
 	model: string;
 	itemKey: string;

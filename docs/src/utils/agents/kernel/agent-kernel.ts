@@ -1,12 +1,20 @@
 import type { AgentRuntimeSpec } from '../../../types/agents';
 import { createExecutionAdapter } from '../adapters/execution.ts';
 import { LocalBranchMutationAdapter } from '../adapters/mutations.ts';
+import { createNotificationAdapter } from '../adapters/notification.ts';
+import { createRepositoryInspectionAdapter } from '../adapters/repository.ts';
+import { createResearchAdapter } from '../adapters/research.ts';
+import { createVerificationAdapter } from '../adapters/verification.ts';
 import { resolveAgentHandler } from '../handlers/registry.ts';
 import type {
 	AgentContext,
 	AgentExecutionAdapter,
 	AgentMutationAdapter,
+	AgentNotificationAdapter,
+	AgentRepositoryInspectionAdapter,
+	AgentResearchAdapter,
 	AgentTriggerInvocation,
+	AgentVerificationAdapter,
 } from '../runtime-types.ts';
 import type { AgentRunTrace, AgentErrorCategory } from '../contracts/run.ts';
 import { AgentSdk } from '../sdk.ts';
@@ -20,6 +28,10 @@ function nowIso() {
 export class AgentKernel {
 	private readonly execution;
 	private readonly mutations;
+	private readonly repository;
+	private readonly verification;
+	private readonly notifications;
+	private readonly research;
 	private readonly activeRuns = new Set<string>();
 	private readonly lastRunAt = new Map<string, number>();
 
@@ -29,19 +41,34 @@ export class AgentKernel {
 		options?: {
 			execution?: AgentExecutionAdapter;
 			mutations?: AgentMutationAdapter;
+			repository?: AgentRepositoryInspectionAdapter;
+			verification?: AgentVerificationAdapter;
+			notifications?: AgentNotificationAdapter;
+			research?: AgentResearchAdapter;
 		},
 	) {
 		this.execution = options?.execution ?? createExecutionAdapter();
 		this.mutations = options?.mutations ?? new LocalBranchMutationAdapter(repoRoot);
+		this.repository = options?.repository ?? createRepositoryInspectionAdapter();
+		this.verification = options?.verification ?? createVerificationAdapter();
+		this.notifications = options?.notifications ?? createNotificationAdapter();
+		this.research = options?.research ?? createResearchAdapter();
 	}
 
 	async doctor() {
-		const agents = await loadAllAgentSpecs(this.sdk);
-		for (const agent of agents.filter((entry) => entry.enabled)) {
+		const { specs, diagnostics } = await loadAllAgentSpecs(this.sdk);
+		for (const agent of specs.filter((entry) => entry.enabled)) {
 			resolveAgentHandler(agent.handler);
 		}
+		const errors = diagnostics.filter((entry) => entry.severity === 'error');
+		if (errors.length) {
+			throw new Error(
+				`Agent spec validation failed: ${errors.map((entry) => `${entry.slug}:${entry.field}:${entry.message}`).join(' | ')}`,
+			);
+		}
 		return {
-			agents: agents.map(summarizeAgentSpec),
+			agents: specs.map(summarizeAgentSpec),
+			diagnostics,
 		};
 	}
 
@@ -142,6 +169,10 @@ export class AgentKernel {
 			trigger,
 			execution: this.execution,
 			mutations: this.mutations,
+			repository: this.repository,
+			verification: this.verification,
+			notifications: this.notifications,
+			research: this.research,
 		};
 
 		await this.recordRunTrace(this.buildTrace(agent, runId, trigger, {}));
@@ -204,7 +235,14 @@ export class AgentKernel {
 	}
 
 	async runAgent(slug: string, mode: 'auto' | 'manual' = 'manual') {
-		const agents = this.sortAgents(await loadActiveAgentSpecs(this.sdk));
+		const { specs, diagnostics } = await loadActiveAgentSpecs(this.sdk);
+		const errors = diagnostics.filter((entry) => entry.severity === 'error');
+		if (errors.length) {
+			throw new Error(
+				`Agent spec validation failed: ${errors.map((entry) => `${entry.slug}:${entry.field}:${entry.message}`).join(' | ')}`,
+			);
+		}
+		const agents = this.sortAgents(specs);
 		const agent = agents.find((entry) => entry.slug === slug);
 		if (!agent) {
 			throw new Error(`Unknown or disabled agent "${slug}".`);
@@ -220,17 +258,27 @@ export class AgentKernel {
 	}
 
 	async runCycle() {
-		const agents = this.sortAgents(await loadActiveAgentSpecs(this.sdk));
+		const { specs, diagnostics } = await loadActiveAgentSpecs(this.sdk);
+		const errors = diagnostics.filter((entry) => entry.severity === 'error');
+		if (errors.length) {
+			throw new Error(
+				`Agent spec validation failed: ${errors.map((entry) => `${entry.slug}:${entry.field}:${entry.message}`).join(' | ')}`,
+			);
+		}
+		const agents = this.sortAgents(specs);
 		const results = [];
 		for (const agent of agents) {
-			const trigger = await this.resolveTrigger(agent, 'auto');
-			if (!trigger) {
-				continue;
+			const runsThisCycle = agent.triggerPolicy?.maxRunsPerCycle ?? 1;
+			for (let index = 0; index < runsThisCycle; index += 1) {
+				const trigger = await this.resolveTrigger(agent, 'auto');
+				if (!trigger) {
+					break;
+				}
+				results.push({
+					slug: agent.slug,
+					result: await this.executeAgent(agent, trigger),
+				});
 			}
-			results.push({
-				slug: agent.slug,
-				result: await this.executeAgent(agent, trigger),
-			});
 		}
 		return results;
 	}
@@ -243,7 +291,14 @@ export class AgentKernel {
 	}
 
 	async drainMessages() {
-		const agents = this.sortAgents(await loadActiveAgentSpecs(this.sdk));
+		const { specs, diagnostics } = await loadActiveAgentSpecs(this.sdk);
+		const errors = diagnostics.filter((entry) => entry.severity === 'error');
+		if (errors.length) {
+			throw new Error(
+				`Agent spec validation failed: ${errors.map((entry) => `${entry.slug}:${entry.field}:${entry.message}`).join(' | ')}`,
+			);
+		}
+		const agents = this.sortAgents(specs);
 		const messageAgents = agents.filter((agent) =>
 			agent.triggers.some((trigger) => trigger.type === 'message'),
 		);

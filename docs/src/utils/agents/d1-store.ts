@@ -10,6 +10,7 @@ import type {
 	SdkFilterCondition,
 	SdkFollowRequest,
 	SdkGetRequest,
+	SdkGetCursorRequest,
 	SdkLeaseReleaseRequest,
 	SdkMessageEntity,
 	SdkMutationRequest,
@@ -37,6 +38,7 @@ export interface AgentDatabase {
 	ackMessage(request: SdkAckMessageRequest): Promise<void>;
 	createMessage(request: SdkCreateMessageRequest): Promise<SdkMessageEntity>;
 	recordRun(request: SdkRecordRunRequest): Promise<Record<string, unknown>>;
+	getCursor(request: SdkGetCursorRequest): Promise<string | null>;
 	upsertCursor(request: SdkCursorRequest): Promise<void>;
 	releaseLease(request: SdkLeaseReleaseRequest): Promise<void>;
 	tryClaimContentLease(input: TryClaimContentLeaseInput): Promise<string | null>;
@@ -223,6 +225,10 @@ export class MemoryAgentDatabase implements AgentDatabase {
 		return request.run;
 	}
 
+	async getCursor(request: SdkGetCursorRequest) {
+		return this.cursors.get(`${request.agentSlug}:${request.cursorKey}`) ?? null;
+	}
+
 	async upsertCursor(request: SdkCursorRequest) {
 		this.cursors.set(`${request.agentSlug}:${request.cursorKey}`, request.cursorValue);
 	}
@@ -358,6 +364,10 @@ export class CloudflareD1AgentDatabase implements AgentDatabase {
 
 	recordRun(request: SdkRecordRunRequest) {
 		return this.runs.record(request);
+	}
+
+	getCursor(request: SdkGetCursorRequest) {
+		return this.cursors.get(request);
 	}
 
 	upsertCursor(request: SdkCursorRequest) {

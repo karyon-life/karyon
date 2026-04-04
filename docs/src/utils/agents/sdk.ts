@@ -17,6 +17,7 @@ import type {
 	SdkCursorRequest,
 	SdkFollowRequest,
 	SdkGetRequest,
+	SdkGetCursorRequest,
 	SdkJsonEnvelope,
 	SdkLeaseReleaseRequest,
 	SdkMutationRequest,
@@ -182,6 +183,11 @@ export class AgentSdk {
 		return this.envelope('agent', 'update', payload);
 	}
 
+	async getCursor(request: SdkGetCursorRequest) {
+		const payload = await this.database.getCursor(request);
+		return this.envelope('agent', 'get', payload);
+	}
+
 	async upsertCursor(request: SdkCursorRequest) {
 		await this.database.upsertCursor(request);
 		return this.envelope('agent', 'update', request);
@@ -198,6 +204,13 @@ export class AgentSdk {
 	}
 
 	async listAgentSpecs(options?: { enabled?: boolean }) {
+		const rawEntries = await this.listRawAgentSpecs(options);
+		return rawEntries
+			.map((entry) => normalizeAgentSpec(entry as Record<string, unknown>))
+			.filter((entry): entry is AgentRuntimeSpec => Boolean(entry && entry.slug));
+	}
+
+	async listRawAgentSpecs(options?: { enabled?: boolean }) {
 		const filters =
 			typeof options?.enabled === 'boolean'
 				? [{ field: 'enabled', op: 'eq' as const, value: options.enabled }]
@@ -207,9 +220,7 @@ export class AgentSdk {
 			filters,
 			sort: [{ field: 'name', direction: 'asc' }],
 		});
-		return response.payload
-			.map((entry) => normalizeAgentSpec(entry as Record<string, unknown>))
-			.filter((entry): entry is AgentRuntimeSpec => Boolean(entry && entry.slug));
+		return response.payload;
 	}
 
 	scopeForAgent(agent: Pick<AgentRuntimeSpec, 'slug' | 'permissions'>) {
@@ -287,6 +298,10 @@ export class ScopedAgentSdk {
 
 	recordRun(request: SdkRecordRunRequest) {
 		return this.base.recordRun(request);
+	}
+
+	getCursor(request: SdkGetCursorRequest) {
+		return this.base.getCursor(request);
 	}
 
 	upsertCursor(request: SdkCursorRequest) {

@@ -6,7 +6,13 @@ interface NotifierInputs {
 	activityCount: number;
 }
 
-interface NotifierResult extends NotifierInputs {}
+interface NotifierResult extends NotifierInputs {
+	delivery: {
+		status: 'completed' | 'failed' | 'waiting';
+		summary: string;
+		deliveredCount: number;
+	};
+}
 
 const WATCHED_MODELS = ['note', 'question', 'objective', 'book', 'knowledge'] as const;
 
@@ -18,12 +24,16 @@ export const notifierHandler: AgentHandler<NotifierInputs, NotifierResult> = {
 			filters: [{ field: 'status', op: 'eq', value: 'active' }],
 			limit: 100,
 		});
-		const cursor = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+		const cursorResponse = await context.sdk.getCursor({
+			agentSlug: context.agent.slug,
+			cursorKey: 'last_notified_at',
+		});
+		const cursor = cursorResponse.payload ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 		const activity = await Promise.all(
 			WATCHED_MODELS.map((model) =>
 				context.sdk.follow({
 					model,
-					since: cursor,
+					since: String(cursor),
 				}),
 			),
 		);
@@ -33,8 +43,18 @@ export const notifierHandler: AgentHandler<NotifierInputs, NotifierResult> = {
 			activityCount: activity.reduce((count, response) => count + response.payload.items.length, 0),
 		};
 	},
-	async execute(_context, inputs) {
-		return inputs;
+	async execute(context, inputs) {
+		const delivery = await context.notifications.deliver({
+			agent: context.agent,
+			runId: context.runId,
+			recipients: inputs.subscriptions.map((subscription) => subscription.email),
+			subject: 'Research Hub updates',
+			body: `New activity count: ${inputs.activityCount}`,
+		});
+		return {
+			...inputs,
+			delivery,
+		};
 	},
 	async emitOutputs(context, result) {
 		if (!result.subscriptions.length) {
@@ -47,6 +67,13 @@ export const notifierHandler: AgentHandler<NotifierInputs, NotifierResult> = {
 			return {
 				status: 'waiting',
 				summary: 'Notifier found no new activity to announce.',
+			};
+		}
+		if (result.delivery.status !== 'completed') {
+			return {
+				status: result.delivery.status,
+				summary: result.delivery.summary,
+				errorCategory: result.delivery.status === 'failed' ? 'execution_error' : null,
 			};
 		}
 
@@ -68,6 +95,9 @@ export const notifierHandler: AgentHandler<NotifierInputs, NotifierResult> = {
 		return {
 			status: 'completed',
 			summary: `Notifier prepared ${result.subscriptions.length} subscriber notifications.`,
+			metadata: {
+				deliveredCount: result.delivery.deliveredCount,
+			},
 		};
 	},
 };

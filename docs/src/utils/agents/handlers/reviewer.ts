@@ -12,6 +12,8 @@ interface ReviewerInputs {
 
 interface ReviewerResult extends ReviewerInputs {
 	status: 'completed' | 'failed' | 'waiting';
+	changedPaths: string[];
+	commitSha: string | null;
 }
 
 export const reviewerHandler: AgentHandler<ReviewerInputs, ReviewerResult> = {
@@ -43,6 +45,8 @@ export const reviewerHandler: AgentHandler<ReviewerInputs, ReviewerResult> = {
 			return {
 				...inputs,
 				status: 'waiting',
+				changedPaths: [],
+				commitSha: null,
 			};
 		}
 		if (!inputs.branchName) {
@@ -50,12 +54,34 @@ export const reviewerHandler: AgentHandler<ReviewerInputs, ReviewerResult> = {
 				...inputs,
 				status: 'failed',
 				summary: 'Reviewer could not find a branch to verify.',
+				changedPaths: [],
+				commitSha: null,
+			};
+		}
+		const inspected = await _context.repository.inspectBranch({
+			repoRoot: _context.repoRoot,
+			branchName: inputs.branchName,
+		});
+		const verification = await _context.verification.runChecks({
+			agent: _context.agent,
+			runId: _context.runId,
+			commands: [],
+		});
+		if (verification.status === 'failed') {
+			return {
+				...inputs,
+				status: 'failed',
+				summary: verification.summary,
+				changedPaths: inspected.changedPaths,
+				commitSha: inspected.commitSha,
 			};
 		}
 		return {
 			...inputs,
 			status: 'completed',
 			summary: `Reviewer verified branch ${inputs.branchName}.`,
+			changedPaths: inspected.changedPaths,
+			commitSha: inspected.commitSha,
 		};
 	},
 	async emitOutputs(context, result) {
@@ -70,6 +96,11 @@ export const reviewerHandler: AgentHandler<ReviewerInputs, ReviewerResult> = {
 			return {
 				status: 'completed',
 				summary: result.summary,
+				metadata: {
+					branchName: result.branchName,
+					commitSha: result.commitSha,
+					changedPaths: result.changedPaths,
+				},
 			};
 		}
 

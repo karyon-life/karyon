@@ -13,6 +13,7 @@ interface ReleaserResult extends ReleaserInputs {
 	status: 'completed' | 'failed' | 'waiting';
 	knowledgeSlug: string | null;
 	summary: string;
+	verificationSummary?: string;
 }
 
 export const releaserHandler: AgentHandler<ReleaserInputs, ReleaserResult> = {
@@ -34,6 +35,21 @@ export const releaserHandler: AgentHandler<ReleaserInputs, ReleaserResult> = {
 				status: 'waiting',
 				knowledgeSlug: null,
 				summary: 'Releaser is waiting for a verified branch to prepare.',
+			};
+		}
+
+		const verification = await context.verification.runChecks({
+			agent: context.agent,
+			runId: context.runId,
+			commands: [],
+		});
+		if (verification.status === 'failed') {
+			return {
+				...inputs,
+				status: 'failed',
+				knowledgeSlug: null,
+				summary: verification.summary,
+				verificationSummary: verification.summary,
 			};
 		}
 
@@ -75,6 +91,7 @@ export const releaserHandler: AgentHandler<ReleaserInputs, ReleaserResult> = {
 			status: 'completed',
 			knowledgeSlug,
 			summary: `Releaser prepared release knowledge ${knowledgeSlug}.`,
+			verificationSummary: verification.summary,
 		};
 	},
 	async emitOutputs(context, result) {
@@ -97,6 +114,10 @@ export const releaserHandler: AgentHandler<ReleaserInputs, ReleaserResult> = {
 			return {
 				status: 'completed',
 				summary: result.summary,
+				metadata: {
+					knowledgeSlug: result.knowledgeSlug,
+					verificationSummary: result.verificationSummary ?? null,
+				},
 			};
 		}
 

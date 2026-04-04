@@ -72,7 +72,7 @@ describe('agent kernel', () => {
 			} as AgentMutationAdapter,
 		});
 
-		await expect(kernel.doctor()).rejects.toThrow('No runtime handler is registered');
+		await expect(kernel.doctor()).rejects.toThrow('Agent spec validation failed');
 	});
 
 	it('runs the planner -> researcher -> architect -> engineer MVP chain through the kernel', async () => {

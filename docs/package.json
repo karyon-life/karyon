@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.1",
   "bin": {
-    "karyon-research-hub-agents": "./scripts/research-hub-agents.mjs"
+    "research-hub-agents": "./scripts/research-hub-agents.mjs"
   },
   "scripts": {
     "predev": "node scripts/aggregate-book.mjs",

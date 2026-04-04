@@ -99,6 +99,23 @@ export interface AgentMessageContracts {
 
 export type AgentMessageType = keyof AgentMessageContracts;
 export type AgentMessagePayload<TType extends AgentMessageType> = AgentMessageContracts[TType];
+export const AGENT_MESSAGE_TYPES = [
+	'question_priority_updated',
+	'objective_priority_updated',
+	'architecture_updated',
+	'subscriber_notified',
+	'research_started',
+	'research_completed',
+	'task_complete',
+	'task_waiting',
+	'task_failed',
+	'task_verified',
+	'review_failed',
+	'review_waiting',
+	'release_started',
+	'release_completed',
+	'release_failed',
+] as const satisfies readonly AgentMessageType[];
 
 function ensureString(value: unknown, label: string) {
 	if (typeof value !== 'string' || value.trim().length === 0) {

@@ -9,10 +9,12 @@ import type { ScopedAgentSdk } from './sdk.ts';
 import type { SdkMessageEntity } from './sdk-types';
 
 export interface AgentTriggerInvocation {
-	kind: 'startup' | 'schedule' | 'message' | 'manual';
+	kind: 'startup' | 'schedule' | 'message' | 'manual' | 'follow';
 	source: string;
 	trigger: AgentTriggerConfig;
 	message?: SdkMessageEntity | null;
+	followModels?: string[];
+	cursorValue?: string | null;
 }
 
 export interface AgentExecutionResult {
@@ -30,6 +32,35 @@ export interface AgentMutationResult {
 	worktreePath: string | null;
 	commitSha: string | null;
 	changedPaths: string[];
+}
+
+export interface AgentRepositoryInspectionResult {
+	branchName: string | null;
+	changedPaths: string[];
+	commitSha: string | null;
+	summary: string;
+}
+
+export interface AgentVerificationResult {
+	status: 'completed' | 'failed' | 'waiting';
+	summary: string;
+	stdout?: string;
+	stderr?: string;
+	errorCategory?: AgentErrorCategory | null;
+}
+
+export interface AgentNotificationResult {
+	status: 'completed' | 'failed' | 'waiting';
+	summary: string;
+	deliveredCount: number;
+}
+
+export interface AgentResearchResult {
+	status: 'completed' | 'failed' | 'waiting';
+	summary: string;
+	markdown: string;
+	sources?: string[];
+	errorCategory?: AgentErrorCategory | null;
 }
 
 export interface AgentExecutionAdapter {
@@ -50,6 +81,40 @@ export interface AgentMutationAdapter {
 	}): Promise<AgentMutationResult>;
 }
 
+export interface AgentRepositoryInspectionAdapter {
+	inspectBranch(input: {
+		repoRoot: string;
+		branchName: string | null;
+	}): Promise<AgentRepositoryInspectionResult>;
+}
+
+export interface AgentVerificationAdapter {
+	runChecks(input: {
+		agent: AgentRuntimeSpec;
+		runId: string;
+		commands: string[];
+	}): Promise<AgentVerificationResult>;
+}
+
+export interface AgentNotificationAdapter {
+	deliver(input: {
+		agent: AgentRuntimeSpec;
+		runId: string;
+		recipients: string[];
+		subject: string;
+		body: string;
+	}): Promise<AgentNotificationResult>;
+}
+
+export interface AgentResearchAdapter {
+	research(input: {
+		agent: AgentRuntimeSpec;
+		runId: string;
+		questionId: string;
+		reason: string | null;
+	}): Promise<AgentResearchResult>;
+}
+
 export interface AgentContext {
 	runId: string;
 	repoRoot: string;
@@ -58,6 +123,10 @@ export interface AgentContext {
 	trigger: AgentTriggerInvocation;
 	execution: AgentExecutionAdapter;
 	mutations: AgentMutationAdapter;
+	repository: AgentRepositoryInspectionAdapter;
+	verification: AgentVerificationAdapter;
+	notifications: AgentNotificationAdapter;
+	research: AgentResearchAdapter;
 }
 
 export interface AgentHandler<TInputs = unknown, TResult = unknown> {

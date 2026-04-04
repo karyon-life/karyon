@@ -127,14 +127,18 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 				].join('\n'),
 				commitMessage: `agent(engineer): artifact ${context.runId}`,
 			});
+			const inspected = await context.repository.inspectBranch({
+				repoRoot: artifact.worktreePath ?? context.repoRoot,
+				branchName: artifact.branchName,
+			});
 
 			return {
 				...inputs,
 				status: 'completed',
-				summary: 'Engineer created a local branch artifact.',
-				branchName: artifact.branchName,
-				commitSha: artifact.commitSha,
-				changedPaths: artifact.changedPaths,
+				branchName: inspected.branchName ?? artifact.branchName,
+				commitSha: inspected.commitSha ?? artifact.commitSha,
+				changedPaths: inspected.changedPaths.length ? inspected.changedPaths : artifact.changedPaths,
+				summary: inspected.summary,
 			};
 		} catch (error) {
 			return {
