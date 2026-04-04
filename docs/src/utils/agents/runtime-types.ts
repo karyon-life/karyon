@@ -4,6 +4,7 @@ import type {
 	AgentRunStatus,
 	AgentTriggerConfig,
 } from '../../types/agents';
+import type { AgentErrorCategory } from './contracts/run.ts';
 import type { ScopedAgentSdk } from './sdk.ts';
 import type { SdkMessageEntity } from './sdk-types';
 
@@ -19,12 +20,15 @@ export interface AgentExecutionResult {
 	summary: string;
 	stdout?: string;
 	stderr?: string;
+	errorCategory?: AgentErrorCategory | null;
 	metadata?: Record<string, unknown>;
 }
 
 export interface AgentMutationResult {
 	branchName: string | null;
 	commitMessage: string | null;
+	worktreePath: string | null;
+	commitSha: string | null;
 	changedPaths: string[];
 }
 

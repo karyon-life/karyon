@@ -1,4 +1,8 @@
 import type { AgentHandler } from '../runtime-types.ts';
+import {
+	parseAgentMessagePayload,
+	serializeAgentMessagePayload,
+} from '../contracts/messages.ts';
 
 interface ArchitectInputs {
 	objectiveId: string | null;
@@ -12,8 +16,10 @@ interface ArchitectResult extends ArchitectInputs {
 export const architectHandler: AgentHandler<ArchitectInputs, ArchitectResult> = {
 	kind: 'architect',
 	async resolveInputs(context) {
-		const payload = context.trigger.message ? JSON.parse(context.trigger.message.payloadJson) as Record<string, unknown> : null;
-		if (typeof payload?.objectiveId === 'string') {
+		const payload = context.trigger.message
+			? parseAgentMessagePayload('priority_updated', context.trigger.message.payloadJson)
+			: null;
+		if (payload?.objectiveId) {
 			return {
 				objectiveId: payload.objectiveId,
 				leaseToken: null,
@@ -72,11 +78,11 @@ export const architectHandler: AgentHandler<ArchitectInputs, ArchitectResult> = 
 
 		await context.sdk.createMessage({
 			type: 'architecture_updated',
-			payload: {
+			payload: serializeAgentMessagePayload('architecture_updated', {
 				objectiveId: result.objectiveId,
 				knowledgeId: result.knowledgeSlug,
 				architectRunId: context.runId,
-			},
+			}),
 		});
 		if (result.leaseToken) {
 			await context.sdk.releaseLease({

@@ -1,5 +1,9 @@
 import path from 'node:path';
 import type { AgentHandler } from '../runtime-types.ts';
+import {
+	parseAgentMessagePayload,
+	serializeAgentMessagePayload,
+} from '../contracts/messages.ts';
 
 interface EngineerInputs {
 	messageId: number;
@@ -20,11 +24,11 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 		if (!context.trigger.message) {
 			throw new Error('Engineer requires a claimed message trigger.');
 		}
-		const payload = JSON.parse(context.trigger.message.payloadJson) as Record<string, unknown>;
+		const payload = parseAgentMessagePayload('architecture_updated', context.trigger.message.payloadJson);
 		return {
 			messageId: context.trigger.message.id,
-			objectiveId: typeof payload.objectiveId === 'string' ? payload.objectiveId : null,
-			knowledgeId: typeof payload.knowledgeId === 'string' ? payload.knowledgeId : null,
+			objectiveId: payload.objectiveId,
+			knowledgeId: payload.knowledgeId,
 		};
 	},
 	async execute(context, inputs) {
@@ -98,13 +102,22 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 					: 'task_failed';
 		await context.sdk.createMessage({
 			type: messageType,
-			payload: {
-				branchName: result.branchName,
-				changedTargets: result.changedPaths,
-				failureSummary: result.status === 'failed' ? result.summary : null,
-				blockingReason: result.status === 'waiting' ? result.summary : null,
-				engineerRunId: context.runId,
-			},
+			payload:
+				messageType === 'task_complete'
+					? serializeAgentMessagePayload('task_complete', {
+						branchName: result.branchName,
+						changedTargets: result.changedPaths,
+						engineerRunId: context.runId,
+					})
+					: messageType === 'task_waiting'
+						? serializeAgentMessagePayload('task_waiting', {
+							blockingReason: result.summary,
+							engineerRunId: context.runId,
+						})
+						: serializeAgentMessagePayload('task_failed', {
+							failureSummary: result.summary,
+							engineerRunId: context.runId,
+						}),
 		});
 		return {
 			status: result.status,

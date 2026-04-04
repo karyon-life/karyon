@@ -61,7 +61,15 @@ describe('agent kernel', () => {
 
 		const kernel = new AgentKernel(sdk, process.cwd(), {
 			execution: { runTask: async () => ({ status: 'completed', summary: 'ok' }) } as AgentExecutionAdapter,
-			mutations: { writeArtifact: async () => ({ branchName: null, commitMessage: null, changedPaths: [] }) } as AgentMutationAdapter,
+			mutations: {
+				writeArtifact: async () => ({
+					branchName: null,
+					commitMessage: null,
+					worktreePath: null,
+					commitSha: null,
+					changedPaths: [],
+				}),
+			} as AgentMutationAdapter,
 		});
 
 		await expect(kernel.doctor()).rejects.toThrow('No runtime handler is registered');
@@ -216,6 +224,8 @@ describe('agent kernel', () => {
 			writeArtifact: async ({ runId }) => ({
 				branchName: `engineer/${runId}`,
 				commitMessage: `artifact ${runId}`,
+				worktreePath: `.agent-worktrees/engineer/${runId}`,
+				commitSha: `commit-${runId}`,
 				changedPaths: [`.agent-artifacts/engineer/${runId}.md`],
 			}),
 		};

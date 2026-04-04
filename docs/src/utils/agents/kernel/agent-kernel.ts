@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import type { AgentRuntimeSpec } from '../../../types/agents';
 import { createExecutionAdapter } from '../adapters/execution.ts';
 import { LocalBranchMutationAdapter } from '../adapters/mutations.ts';
@@ -9,7 +8,9 @@ import type {
 	AgentMutationAdapter,
 	AgentTriggerInvocation,
 } from '../runtime-types.ts';
+import type { AgentRunTrace, AgentErrorCategory } from '../contracts/run.ts';
 import { AgentSdk } from '../sdk.ts';
+import { resolveTriggerDecision } from './trigger-resolver.ts';
 import { loadActiveAgentSpecs, summarizeAgentSpec } from '../spec-loader.ts';
 
 function nowIso() {
@@ -55,54 +56,66 @@ export class AgentKernel {
 		);
 	}
 
-	private canRunScheduledAgent(agent: AgentRuntimeSpec) {
-		const last = this.lastRunAt.get(agent.slug) ?? 0;
-		const cooldownMs = agent.execution.cooldownSeconds * 1000;
-		return Date.now() - last >= cooldownMs;
+	private async resolveTrigger(agent: AgentRuntimeSpec, mode: 'auto' | 'manual' = 'auto') {
+		const decision = await resolveTriggerDecision({
+			agent,
+			mode,
+			isRunning: this.activeRuns.has(agent.slug),
+			lastRunAt: this.lastRunAt.get(agent.slug),
+			sdk: this.sdk.scopeForAgent(agent),
+		});
+		return decision.kind === 'ready' ? decision.invocation ?? null : null;
 	}
 
-	private async resolveTrigger(agent: AgentRuntimeSpec, mode: 'auto' | 'manual' = 'auto') {
-		const startup = agent.triggers.find((trigger) => trigger.type === 'schedule' && trigger.runOnStart);
-		const messageTrigger = agent.triggers.find((trigger) => trigger.type === 'message');
+	private async recordRunTrace(trace: AgentRunTrace) {
+		await this.sdk.recordRun({ run: trace });
+	}
 
-		if (mode === 'manual' && startup) {
-			return {
-				kind: 'manual',
-				source: 'manual',
-				trigger: startup,
-			} satisfies AgentTriggerInvocation;
+	private buildTrace(
+		agent: AgentRuntimeSpec,
+		runId: string,
+		trigger: AgentTriggerInvocation,
+		overrides: Partial<AgentRunTrace>,
+	): AgentRunTrace {
+		return {
+			runId,
+			agentSlug: agent.slug,
+			handlerKind: agent.handler,
+			triggerKind: trigger.kind,
+			triggerSource: trigger.source,
+			claimedMessageId: trigger.message?.id ?? null,
+			selectedItemKey: null,
+			branchName: null,
+			commitSha: null,
+			changedPaths: [],
+			summary: null,
+			error: null,
+			errorCategory: null,
+			startedAt: nowIso(),
+			finishedAt: null,
+			status: 'running',
+			...overrides,
+		};
+	}
+
+	private categorizeError(error: unknown): AgentErrorCategory {
+		const message = error instanceof Error ? error.message : String(error);
+		if (message.includes('not allowed')) {
+			return 'permission_error';
 		}
-
-		if (messageTrigger) {
-			const claimed = await this.sdk
-				.scopeForAgent(agent)
-				.claimMessage({
-					workerId: `${agent.slug}-${crypto.randomUUID()}`,
-					messageTypes: messageTrigger.messageTypes ?? [],
-					leaseSeconds: agent.execution.leaseSeconds,
-				});
-			if (claimed.payload) {
-				return {
-					kind: 'message',
-					source: 'message',
-					trigger: messageTrigger,
-					message: claimed.payload,
-				} satisfies AgentTriggerInvocation;
-			}
+		if (message.includes('message')) {
+			return 'message_claim_error';
 		}
-
-		if (startup) {
-			if (mode === 'auto' && !this.canRunScheduledAgent(agent)) {
-				return null;
-			}
-			return {
-				kind: startup.runOnStart ? 'startup' : 'schedule',
-				source: startup.runOnStart ? 'startup' : 'schedule',
-				trigger: startup,
-			} satisfies AgentTriggerInvocation;
+		if (message.includes('lease')) {
+			return 'lease_error';
 		}
-
-		return null;
+		if (message.includes('commit') || message.includes('worktree') || message.includes('artifact')) {
+			return 'mutation_error';
+		}
+		if (message.includes('Copilot') || message.includes('execution')) {
+			return 'execution_error';
+		}
+		return 'sdk_error';
 	}
 
 	private async executeAgent(agent: AgentRuntimeSpec, trigger: AgentTriggerInvocation) {
@@ -127,22 +140,7 @@ export class AgentKernel {
 			mutations: this.mutations,
 		};
 
-		await this.sdk.recordRun({
-			run: {
-				runId,
-				agentSlug: agent.slug,
-				triggerSource: trigger.source,
-				status: 'running',
-				selectedItemKey: null,
-				selectedMessageId: trigger.message?.id ?? null,
-				branchName: null,
-				prUrl: null,
-				summary: null,
-				error: null,
-				startedAt: nowIso(),
-				finishedAt: null,
-			},
-		});
+		await this.recordRunTrace(this.buildTrace(agent, runId, trigger, {}));
 
 		try {
 			const inputs = await handler.resolveInputs(context);
@@ -161,22 +159,18 @@ export class AgentKernel {
 				});
 			}
 
-			await this.sdk.recordRun({
-				run: {
-					runId,
-					agentSlug: agent.slug,
-					triggerSource: trigger.source,
+			await this.recordRunTrace(
+				this.buildTrace(agent, runId, trigger, {
 					status: output.status,
-					selectedItemKey: null,
-					selectedMessageId: trigger.message?.id ?? null,
 					branchName: (output.metadata?.branchName as string | undefined) ?? null,
-					prUrl: null,
+					commitSha: (output.metadata?.commitSha as string | undefined) ?? null,
+					changedPaths: (output.metadata?.changedPaths as string[] | undefined) ?? [],
 					summary: output.summary,
 					error: output.status === 'failed' ? output.stderr ?? output.summary : null,
-					startedAt: nowIso(),
+					errorCategory: output.status === 'failed' ? output.errorCategory ?? 'execution_error' : null,
 					finishedAt: nowIso(),
-				},
-			});
+				}),
+			);
 			await this.sdk.upsertCursor({
 				agentSlug: agent.slug,
 				cursorKey: 'last_run_at',
@@ -191,22 +185,14 @@ export class AgentKernel {
 					status: 'failed',
 				});
 			}
-			await this.sdk.recordRun({
-				run: {
-					runId,
-					agentSlug: agent.slug,
-					triggerSource: trigger.source,
+			await this.recordRunTrace(
+				this.buildTrace(agent, runId, trigger, {
 					status: 'failed',
-					selectedItemKey: null,
-					selectedMessageId: trigger.message?.id ?? null,
-					branchName: null,
-					prUrl: null,
-					summary: null,
 					error: error instanceof Error ? error.message : String(error),
-					startedAt: nowIso(),
+					errorCategory: this.categorizeError(error),
 					finishedAt: nowIso(),
-				},
-			});
+				}),
+			);
 			throw error;
 		} finally {
 			this.activeRuns.delete(agent.slug);

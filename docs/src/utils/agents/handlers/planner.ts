@@ -1,4 +1,5 @@
 import type { AgentHandler } from '../runtime-types.ts';
+import { serializeAgentMessagePayload } from '../contracts/messages.ts';
 
 interface PlannerInputs {
 	objectiveId: string | null;
@@ -46,12 +47,12 @@ export const plannerHandler: AgentHandler<PlannerInputs, PlannerResult> = {
 
 		await context.sdk.createMessage({
 			type: 'priority_updated',
-			payload: {
+			payload: serializeAgentMessagePayload('priority_updated', {
 				objectiveId: result.objectiveId,
 				questionId: result.questionId,
 				reason: result.reason,
 				plannerRunId: context.runId,
-			},
+			}),
 		});
 		await context.sdk.upsertCursor({
 			agentSlug: context.agent.slug,

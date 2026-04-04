@@ -29,6 +29,8 @@ export class LocalBranchMutationAdapter implements AgentMutationAdapter {
 		return {
 			branchName: git.branchName,
 			commitMessage: git.commitMessage,
+			worktreePath: git.worktreePath,
+			commitSha: git.commitSha,
 			changedPaths: git.changedPaths,
 		};
 	}
