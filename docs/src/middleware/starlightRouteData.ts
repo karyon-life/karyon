@@ -52,7 +52,9 @@ export const onRequest = defineRouteMiddleware((context) => {
 	const route = context.locals.starlightRoute;
 	const currentPath = normalizeHref(context.url.pathname);
 
-	const activeBook = BOOKS.find((book) => currentPath.startsWith(normalizeHref(book.basePath)));
+	const activeBook = BOOKS.find((book: (typeof BOOKS)[number]) =>
+		currentPath.startsWith(normalizeHref(book.basePath)),
+	);
 	if (activeBook) {
 		const bookGroup = findTopLevelGroup(route.sidebar, activeBook.sectionLabel);
 		if (!bookGroup) return;

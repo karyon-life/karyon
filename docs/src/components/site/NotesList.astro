@@ -1,22 +1,18 @@
 ---
 import type { CollectionEntry } from 'astro:content';
-import StatusBadge from '../content/StatusBadge.astro';
+import ChronicleList from './ChronicleList.astro';
 
 const { notes } = Astro.props as { notes: CollectionEntry<'notes'>[] };
 ---
 
-<div class="grid gap-1">
-	{notes.map((note) => (
-		<a href={`/notes/${note.id}/`} class="block border-t border-[color:var(--site-border)] py-7 transition hover:border-[color:var(--site-border-strong)]">
-			<div class="flex flex-wrap items-center gap-4">
-				<StatusBadge status={note.data.status} />
-				<p class="text-sm font-medium text-[color:var(--site-text-soft)]">{note.data.date.toISOString().slice(0, 10)}</p>
-			</div>
-			<h3 class="mt-4 max-w-3xl text-2xl font-bold text-[color:var(--site-text)] md:text-3xl">{note.data.title}</h3>
-			<p class="mt-3 max-w-3xl text-lg leading-9 text-[color:var(--site-text-muted)]">{note.data.summary}</p>
-			{note.data.tags.length > 0 && (
-				<p class="mt-4 text-sm uppercase tracking-[0.14em] text-[color:var(--site-accent-strong)]">{note.data.tags.join(' / ')}</p>
-			)}
-		</a>
-	))}
-</div>
+<ChronicleList
+	items={notes.map((note) => ({
+		href: `/notes/${note.id}/`,
+		title: note.data.title,
+		summary: note.data.summary,
+		status: note.data.status,
+		date: note.data.date,
+		meta: note.data.author,
+		tags: note.data.tags,
+	}))}
+/>

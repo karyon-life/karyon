@@ -25,6 +25,11 @@ export const SITE_EMAIL_NOTIFICATIONS = SITE.emailNotifications;
 
 export const PAGE_MODEL_DEFAULTS = SITE_CONFIG.models.pages.defaults;
 export const NOTE_MODEL_DEFAULTS = SITE_CONFIG.models.notes.defaults;
+export const QUESTION_MODEL_DEFAULTS = SITE_CONFIG.models.questions.defaults;
+export const OBJECTIVE_MODEL_DEFAULTS = SITE_CONFIG.models.objectives.defaults;
+export const PEOPLE_MODEL_DEFAULTS = SITE_CONFIG.models.people.defaults;
+export const AGENT_MODEL_DEFAULTS = SITE_CONFIG.models.agents.defaults;
+export const BOOK_MODEL_DEFAULTS = SITE_CONFIG.models.books.defaults;
 export const DOCS_MODEL_DEFAULTS = SITE_CONFIG.models.docs.defaults;
 
 export function applyPageModelDefaults<
@@ -54,6 +59,68 @@ export function applyNoteModelDefaults<
 		...NOTE_MODEL_DEFAULTS,
 		...value,
 		tags: value.tags ?? NOTE_MODEL_DEFAULTS.tags ?? [],
+	};
+}
+
+export function applyQuestionModelDefaults<
+	T extends Partial<{
+		draft: boolean;
+		tags: string[];
+		status: string;
+	}>,
+>(value: T) {
+	return {
+		...QUESTION_MODEL_DEFAULTS,
+		...value,
+		tags: value.tags ?? QUESTION_MODEL_DEFAULTS.tags ?? [],
+	};
+}
+
+export function applyObjectiveModelDefaults<
+	T extends Partial<{
+		draft: boolean;
+		tags: string[];
+		status: string;
+	}>,
+>(value: T) {
+	return {
+		...OBJECTIVE_MODEL_DEFAULTS,
+		...value,
+		tags: value.tags ?? OBJECTIVE_MODEL_DEFAULTS.tags ?? [],
+	};
+}
+
+export function applyPeopleModelDefaults<
+	T extends Partial<{
+		status: string;
+		tags: string[];
+	}>,
+>(value: T) {
+	return {
+		...PEOPLE_MODEL_DEFAULTS,
+		...value,
+		tags: value.tags ?? PEOPLE_MODEL_DEFAULTS.tags ?? [],
+	};
+}
+
+export function applyAgentModelDefaults<
+	T extends Partial<{
+		runtimeStatus: string;
+		tags: string[];
+	}>,
+>(value: T) {
+	return {
+		...AGENT_MODEL_DEFAULTS,
+		...value,
+		tags: value.tags ?? AGENT_MODEL_DEFAULTS.tags ?? [],
+	};
+}
+
+export function applyBookModelDefaults<T extends Partial<{ tags: string[] }>>(value: T) {
+	return {
+		...BOOK_MODEL_DEFAULTS,
+		...value,
+		tags: value.tags ?? BOOK_MODEL_DEFAULTS.tags ?? [],
 	};
 }
 

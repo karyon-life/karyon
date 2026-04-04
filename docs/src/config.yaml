@@ -8,6 +8,16 @@ site:
   githubRepository: https://github.com/karyon-life/karyon
   discordLink: https://example.com/discord
   headerMenu:
+    - label: Thinking
+      items:
+        - label: Research Direction
+          href: /research-direction/
+        - label: Questions
+          href: /questions/
+        - label: Objectives
+          href: /objectives/
+        - label: Notes
+          href: /notes/
     - label: Work
       items:
         - label: Architecture
@@ -16,21 +26,17 @@ site:
           href: /docs/
         - label: Contribute
           href: /contribute/
-    - label: Thinking
-      items:
-        - label: Research Direction
-          href: /research-direction/
-        - label: Notes
-          href: /notes/
     - label: Resources
       items:
-        - label: Research Book
+        - label: Overview
+          href: /books/
+        - label: Research
           href: /docs/research/
-        - label: Architecture Book
+        - label: Architecture
           href: /docs/architecture/
-        - label: Developer Book
+        - label: Developer
           href: /docs/developer/
-        - label: Operations Book
+        - label: Operations
           href: /docs/operations/
     - label: About
       items:
@@ -40,6 +46,10 @@ site:
           href: /status/
         - label: Community
           href: /community/
+        - label: People
+          href: /people/
+        - label: Agents
+          href: /agents/
   footerMenu:
     - label: Explore
       items:
@@ -49,6 +59,10 @@ site:
           href: /status/
         - label: Research Direction
           href: /research-direction/
+        - label: Questions
+          href: /questions/
+        - label: Objectives
+          href: /objectives/
         - label: Community
           href: /community/
     - label: Build
@@ -57,7 +71,7 @@ site:
           href: /contribute/
         - label: Contact
           href: /contact/
-        - label: GitHub Repository
+        - label: GitHub
           href: https://github.com/karyon-life/karyon
         - label: Discord
           href: https://example.com/discord
@@ -88,6 +102,24 @@ models:
     defaults:
       author: Karyon Founding Team
       draft: false
+      tags: []
+  questions:
+    defaults:
+      draft: false
+      tags: []
+  objectives:
+    defaults:
+      draft: false
+      tags: []
+  people:
+    defaults:
+      status: live
+      tags: []
+  agents:
+    defaults:
+      tags: []
+  books:
+    defaults:
       tags: []
   docs:
     defaults:

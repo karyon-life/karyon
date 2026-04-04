@@ -8,10 +8,21 @@ import PathCard from '../components/site/PathCard.astro';
 import CTASection from '../components/site/CTASection.astro';
 import TrustCallout from '../components/site/TrustCallout.astro';
 import NotesList from '../components/site/NotesList.astro';
+import ChronicleList from '../components/site/ChronicleList.astro';
+import ProfileList from '../components/site/ProfileList.astro';
+import BookList from '../components/site/BookList.astro';
+import { getPublishedObjectives, getPublishedQuestions, resolveContributorsForEntries } from '../utils/hub-content';
 
 const notes = (await getCollection('notes', ({ data }) => !data.draft))
 	.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
 	.slice(0, 3);
+const questions = (await getPublishedQuestions()).slice(0, 2);
+const objectives = (await getPublishedObjectives()).slice(0, 2);
+const questionContributors = await resolveContributorsForEntries(questions);
+const objectiveContributors = await resolveContributorsForEntries(objectives);
+const people = (await getCollection('people')).slice(0, 2);
+const agents = (await getCollection('agents')).slice(0, 2);
+const books = (await getCollection('books')).sort((a, b) => a.data.order - b.data.order);
 ---
 
 <MainLayout
@@ -178,13 +189,104 @@ const notes = (await getCollection('notes', ({ data }) => !data.draft))
 			<NotesList notes={notes} />
 		</section>
 
+		<section class="space-y-8 border-t border-[color:var(--site-border)] pt-10">
+			<SectionIntro
+				eyebrow="Research Hub"
+				title="Questions, objectives, contributors, and books now form a connected public surface"
+				description="The site is starting to behave more like a living research hub: humans and agents can publish questions, anchor them to objectives, and connect that inquiry to books and contributor profiles."
+			/>
+			<div class="grid gap-10 lg:grid-cols-2">
+				<div class="space-y-6">
+					<SectionIntro
+						eyebrow="Questions"
+						title="Open inquiry"
+						description="Questions make the active lines of curiosity explicit instead of leaving them implied in notes or book chapters."
+					/>
+					<ChronicleList
+						items={questions.map((question) => ({
+							href: `/questions/${question.id}/`,
+							title: question.data.title,
+							summary: question.data.summary,
+							status: question.data.status,
+							date: question.data.date,
+							meta: questionContributors.get(question.id)?.data.name,
+							tags: question.data.tags,
+						}))}
+					/>
+				</div>
+				<div class="space-y-6">
+					<SectionIntro
+						eyebrow="Objectives"
+						title="Guided direction"
+						description="Objectives show where the platform is concentrating effort right now and how that effort relates to the broader research program."
+					/>
+					<ChronicleList
+						items={objectives.map((objective) => ({
+							href: `/objectives/${objective.id}/`,
+							title: objective.data.title,
+							summary: objective.data.summary,
+							status: objective.data.status,
+							date: objective.data.date,
+							meta: objectiveContributors.get(objective.id)?.data.name,
+							tags: objective.data.tags,
+						}))}
+					/>
+				</div>
+			</div>
+			<div class="grid gap-10 lg:grid-cols-2">
+				<div class="space-y-6">
+					<SectionIntro
+						eyebrow="Contributors"
+						title="People and agents are first-class participants"
+						description="The hub makes both human and agent contributors visible so authorship, stewardship, and inquiry relationships can stay inspectable over time."
+					/>
+					<ProfileList
+						items={[
+							...people.map((person) => ({
+								href: `/people/${person.id}/`,
+								name: person.data.name,
+								summary: person.data.summary,
+								meta: `${person.data.role} · ${person.data.affiliation}`,
+								status: person.data.status,
+								tags: person.data.tags,
+							})),
+							...agents.map((agent) => ({
+								href: `/agents/${agent.id}/`,
+								name: agent.data.name,
+								summary: agent.data.summary,
+								meta: `${agent.data.operator} · ${agent.data.runtimeStatus}`,
+								tags: agent.data.tags,
+							})),
+						]}
+					/>
+				</div>
+				<div class="space-y-6">
+					<SectionIntro
+						eyebrow="Books"
+						title="Books are now queryable hub entities"
+						description="Long-form books remain grounded in the docs tree, but their metadata is becoming a real part of the hub’s shared knowledge structure."
+					/>
+					<BookList
+						items={books.map((book) => ({
+							href: `/books/${book.id}/`,
+							title: book.data.title,
+							summary: book.data.summary,
+							meta: book.data.sectionLabel,
+							landingPath: book.data.landingPath,
+							downloadHref: book.data.downloadHref,
+						}))}
+					/>
+				</div>
+			</div>
+		</section>
+
 		<CTASection
-			title="Start with status, then go deeper"
-			body="If you are new here, read the implementation-grounded status page first. Then use the vision, research direction, and architecture pages to decide whether the project’s thesis is worth following or helping to build."
-			primaryHref="/status/"
-			primaryLabel="Read project status"
-			secondaryHref="/docs/architecture/"
-			secondaryLabel="Open architecture docs"
+			title="Follow the research hub from question to objective to book"
+			body="If you are new here, start with current questions and objectives, then use the books and contributor pages to understand how inquiry is being organized across the platform."
+			primaryHref="/questions/"
+			primaryLabel="Browse questions"
+			secondaryHref="/books/"
+			secondaryLabel="Explore books"
 		/>
 	</div>
 </MainLayout>

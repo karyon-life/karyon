@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { BOOKS, DOCS_LIBRARY_DOWNLOAD } from '../src/utils/starlight-nav.mjs';
+import { BOOKS, DOCS_LIBRARY_DOWNLOAD } from '../src/utils/books-data.mjs';
 
 const projectRoot = process.cwd();
 const outputDir = path.join(projectRoot, 'public', 'books');

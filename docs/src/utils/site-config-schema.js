@@ -39,6 +39,37 @@ import { parse as parseYaml } from 'yaml';
  *         status?: string,
  *       },
  *     },
+ *     questions: {
+ *       defaults: {
+ *         draft?: boolean,
+ *         tags?: string[],
+ *         status?: string,
+ *       },
+ *     },
+ *     objectives: {
+ *       defaults: {
+ *         draft?: boolean,
+ *         tags?: string[],
+ *         status?: string,
+ *       },
+ *     },
+ *     people: {
+ *       defaults: {
+ *         status?: string,
+ *         tags?: string[],
+ *       },
+ *     },
+ *     agents: {
+ *       defaults: {
+ *         tags?: string[],
+ *         runtimeStatus?: string,
+ *       },
+ *     },
+ *     books: {
+ *       defaults: {
+ *         tags?: string[],
+ *       },
+ *     },
  *     docs: {
  *       defaults: {
  *         tags?: string[],
@@ -156,9 +187,19 @@ export function parseSiteConfig(source) {
 	const models = expectRecord(parsed.models ?? {}, 'models');
 	const pageModel = expectRecord(models.pages ?? {}, 'models.pages');
 	const noteModel = expectRecord(models.notes ?? {}, 'models.notes');
+	const questionModel = expectRecord(models.questions ?? {}, 'models.questions');
+	const objectiveModel = expectRecord(models.objectives ?? {}, 'models.objectives');
+	const peopleModel = expectRecord(models.people ?? {}, 'models.people');
+	const agentModel = expectRecord(models.agents ?? {}, 'models.agents');
+	const bookModel = expectRecord(models.books ?? {}, 'models.books');
 	const docsModel = expectRecord(models.docs ?? {}, 'models.docs');
 	const pageDefaults = expectRecord(pageModel.defaults ?? {}, 'models.pages.defaults');
 	const noteDefaults = expectRecord(noteModel.defaults ?? {}, 'models.notes.defaults');
+	const questionDefaults = expectRecord(questionModel.defaults ?? {}, 'models.questions.defaults');
+	const objectiveDefaults = expectRecord(objectiveModel.defaults ?? {}, 'models.objectives.defaults');
+	const peopleDefaults = expectRecord(peopleModel.defaults ?? {}, 'models.people.defaults');
+	const agentDefaults = expectRecord(agentModel.defaults ?? {}, 'models.agents.defaults');
+	const bookDefaults = expectRecord(bookModel.defaults ?? {}, 'models.books.defaults');
 	const docsDefaults = expectRecord(docsModel.defaults ?? {}, 'models.docs.defaults');
 	const logo = expectRecord(site.logo, 'site.logo');
 	const emailNotifications = expectRecord(site.emailNotifications, 'site.emailNotifications');
@@ -205,6 +246,40 @@ export function parseSiteConfig(source) {
 					draft: optionalBoolean(noteDefaults.draft, 'models.notes.defaults.draft'),
 					tags: stringArray(noteDefaults.tags, 'models.notes.defaults.tags'),
 					status: optionalString(noteDefaults.status, 'models.notes.defaults.status'),
+				},
+			},
+			questions: {
+				defaults: {
+					draft: optionalBoolean(questionDefaults.draft, 'models.questions.defaults.draft'),
+					tags: stringArray(questionDefaults.tags, 'models.questions.defaults.tags'),
+					status: optionalString(questionDefaults.status, 'models.questions.defaults.status'),
+				},
+			},
+			objectives: {
+				defaults: {
+					draft: optionalBoolean(objectiveDefaults.draft, 'models.objectives.defaults.draft'),
+					tags: stringArray(objectiveDefaults.tags, 'models.objectives.defaults.tags'),
+					status: optionalString(objectiveDefaults.status, 'models.objectives.defaults.status'),
+				},
+			},
+			people: {
+				defaults: {
+					status: optionalString(peopleDefaults.status, 'models.people.defaults.status'),
+					tags: stringArray(peopleDefaults.tags, 'models.people.defaults.tags'),
+				},
+			},
+			agents: {
+				defaults: {
+					tags: stringArray(agentDefaults.tags, 'models.agents.defaults.tags'),
+					runtimeStatus: optionalString(
+						agentDefaults.runtimeStatus,
+						'models.agents.defaults.runtimeStatus',
+					),
+				},
+			},
+			books: {
+				defaults: {
+					tags: stringArray(bookDefaults.tags, 'models.books.defaults.tags'),
 				},
 			},
 			docs: {

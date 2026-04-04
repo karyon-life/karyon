@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+	applyAgentModelDefaults,
+	applyBookModelDefaults,
+	applyObjectiveModelDefaults,
 	SITE_CONFIG,
 	applyDocsModelDefaults,
 	applyNoteModelDefaults,
+	applyPeopleModelDefaults,
 	applyPageModelDefaults,
+	applyQuestionModelDefaults,
 } from '../site-config';
 import { parseSiteConfig } from '../site-config-schema.js';
 
@@ -60,6 +65,15 @@ models: {}
 		const note = applyNoteModelDefaults({
 			status: 'live',
 		});
+		const question = applyQuestionModelDefaults({
+			status: 'exploratory',
+		});
+		const objective = applyObjectiveModelDefaults({
+			status: 'in progress',
+		});
+		const person = applyPeopleModelDefaults({});
+		const agent = applyAgentModelDefaults({});
+		const book = applyBookModelDefaults({});
 		const docs = applyDocsModelDefaults({});
 
 		expect(page.pageLayout).toBe(SITE_CONFIG.models.pages.defaults.pageLayout);
@@ -68,6 +82,14 @@ models: {}
 		expect(note.author).toBe(SITE_CONFIG.models.notes.defaults.author);
 		expect(note.draft).toBe(SITE_CONFIG.models.notes.defaults.draft);
 		expect(note.tags).toEqual(SITE_CONFIG.models.notes.defaults.tags);
+		expect(question.draft).toBe(SITE_CONFIG.models.questions.defaults.draft);
+		expect(question.tags).toEqual(SITE_CONFIG.models.questions.defaults.tags);
+		expect(objective.draft).toBe(SITE_CONFIG.models.objectives.defaults.draft);
+		expect(objective.tags).toEqual(SITE_CONFIG.models.objectives.defaults.tags);
+		expect(person.status).toBe(SITE_CONFIG.models.people.defaults.status);
+		expect(person.tags).toEqual(SITE_CONFIG.models.people.defaults.tags);
+		expect(agent.tags).toEqual(SITE_CONFIG.models.agents.defaults.tags);
+		expect(book.tags).toEqual(SITE_CONFIG.models.books.defaults.tags);
 		expect(docs.tags).toEqual(SITE_CONFIG.models.docs.defaults.tags);
 	});
 
