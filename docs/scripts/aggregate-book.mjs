@@ -58,8 +58,31 @@ function stripMdxOnlySyntax(content) {
 		.trim();
 }
 
+function inferExportRootFromBasePath(book) {
+	const normalizedBasePath = String(book.basePath || '').trim();
+	const docsPrefix = '/docs/';
+	if (!normalizedBasePath.startsWith(docsPrefix)) {
+		throw new Error(`Book basePath must start with "${docsPrefix}" to infer exports: ${book.basePath}`);
+	}
+
+	const relativeDocsPath = normalizedBasePath.slice(docsPrefix.length).replace(/^\/+|\/+$/g, '');
+	if (!relativeDocsPath) {
+		throw new Error(`Book basePath must identify a docs directory: ${book.basePath}`);
+	}
+
+	return path.join('src', 'content', 'docs', 'docs', relativeDocsPath);
+}
+
+function resolveExportRoots(book) {
+	if (Array.isArray(book.exportRoots) && book.exportRoots.length > 0) {
+		return book.exportRoots;
+	}
+
+	return [inferExportRootFromBasePath(book)];
+}
+
 function resolveBookFiles(book) {
-	const files = book.exportRoots.flatMap((root) =>
+	const files = resolveExportRoots(book).flatMap((root) =>
 		collectMarkdownFiles(path.join(projectRoot, root)).sort((left, right) => {
 			const orderDelta = getSidebarOrder(left) - getSidebarOrder(right);
 			if (orderDelta !== 0) return orderDelta;

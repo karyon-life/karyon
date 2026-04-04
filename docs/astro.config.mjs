@@ -206,6 +206,8 @@ export default defineConfig({
 			components: {
 				Footer: './src/components/docs/Footer.astro',
 				Header: './src/components/docs/Header.astro',
+				PageFrame: './src/components/docs/PageFrame.astro',
+				PageSidebar: './src/components/docs/PageSidebar.astro',
 				Sidebar: './src/components/docs/Sidebar.astro',
 				SiteTitle: './src/components/SiteTitle.astro',
 				ThemeSelect: './src/components/docs/ThemeSelect.astro',

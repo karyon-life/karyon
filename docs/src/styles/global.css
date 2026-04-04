@@ -131,6 +131,12 @@ button:focus-visible {
 	background: transparent;
 }
 
+:root {
+	--docs-left-sidebar-width: var(--sl-sidebar-width);
+	--docs-right-sidebar-width: var(--sl-sidebar-width);
+	--docs-right-sidebar-padding: calc(2 * var(--sl-sidebar-pad-x));
+}
+
 .sidebar-pane {
 	background-color: color-mix(in srgb, var(--site-bg-elevated) 78%, white 22%) !important;
 }
@@ -236,6 +242,85 @@ button:focus-visible {
 .sl-markdown-content ul:not(:where(.not-content *)) {
 	list-style: disc outside;
 	padding-left: 1.45rem;
+}
+
+@media (min-width: 72rem) {
+	:root[data-has-sidebar] {
+		--docs-left-sidebar-width: 0rem;
+	}
+
+	:root[data-has-toc] {
+		--docs-right-sidebar-width: 0rem;
+	}
+
+	:root[data-docs-left-sidebar-expanded='true'] {
+		--docs-left-sidebar-width: var(--sl-sidebar-width);
+	}
+
+	:root[data-docs-right-sidebar-expanded='true'] {
+		--docs-right-sidebar-width: var(--sl-sidebar-width);
+	}
+
+	:root[data-has-sidebar] .main-frame {
+		padding-inline-start: var(--docs-left-sidebar-width);
+		transition: padding-inline-start 180ms ease;
+	}
+
+	:root[data-has-sidebar] .sidebar-pane {
+		width: var(--docs-left-sidebar-width);
+		visibility: visible;
+		overflow: hidden;
+		transition:
+			width 180ms ease,
+			border-color 180ms ease;
+	}
+
+	:root[data-has-sidebar]:not([data-docs-left-sidebar-expanded='true']) .sidebar-pane {
+		border-inline-end-color: transparent;
+	}
+
+	:root[data-has-sidebar]:not([data-docs-left-sidebar-expanded='true']) .sidebar-content {
+		visibility: hidden;
+		pointer-events: none;
+	}
+
+	:root .right-sidebar-container {
+		width: calc(
+			var(--docs-right-sidebar-width) +
+			(100% - var(--sl-content-width) - var(--docs-left-sidebar-width)) / 2
+		);
+		transition: width 180ms ease;
+	}
+
+	:root .right-sidebar {
+		border-inline-start-color: transparent;
+		transition: border-color 180ms ease;
+	}
+
+	:root[data-docs-right-sidebar-expanded='true'] .right-sidebar {
+		border-inline-start-color: var(--sl-color-hairline);
+	}
+
+	:root .right-sidebar-panel {
+		width: max(0rem, calc(var(--docs-right-sidebar-width) - var(--docs-right-sidebar-padding)));
+		overflow: hidden;
+		transition: width 180ms ease;
+	}
+
+	:root:not([data-docs-right-sidebar-expanded='true']) .right-sidebar-panel {
+		padding-inline: 0;
+	}
+
+	:root:not([data-docs-right-sidebar-expanded='true']) .right-sidebar-panel > * {
+		visibility: hidden;
+		pointer-events: none;
+	}
+
+	:root[data-has-sidebar][data-has-toc] .main-pane {
+		width: calc(
+			var(--sl-content-width) + (100% - var(--sl-content-width) - var(--docs-left-sidebar-width)) / 2
+		);
+	}
 }
 
 .sl-markdown-content ol:not(:where(.not-content *)) {

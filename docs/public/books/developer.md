@@ -2,228 +2,6 @@
 
 > This document is auto-generated from the Karyon docs source.
 
-This book is the contributor-facing companion to the architecture corpus. It is intentionally small for now, because much of the underlying source material still lives in repository documents that have not yet been fully normalized into the public docs surface.
-
-Use this book as the current entry point into the implementation-facing contracts, subsystem boundaries, and regression gates that keep the organism aligned with its architecture.
-
-    Start with the implementation contracts and subsystem boundaries. [Open NIF Safety](/docs/developer/nif-safety/)
-
-    Follow the maturation and operational guidance for building inside the platform. [Open Operational Maturity](/docs/developer/operational-maturity/)
-
-    Use the chapter gates as regression boundaries when changing behavior. [Open Chapter 1 Conformance](/docs/developer/chapter-1-conformance/)
-
-## What this book covers today
-
-- Core references for NIF safety, subsystem contracts, learning loops, monorepo execution, and lifecycle maturity.
-- Chapter-by-chapter conformance references that turn architecture claims into concrete regression boundaries.
-- Contributor-facing material that should be read alongside the architecture book and the repository source.
-
----
-
-# Developer Endpoints & NIF Safety
-
-Developing native Organelles for Karyon requires strict adherence to memory safety and BEAM scheduler sympathy.
-
-## FFI Architecture
-
-Karyon uses `Rustler` for FFI. The goal is to maximize performance without compromising the stability of the Erlang VM.
-
-### Resource Objects
-
-All persistent native state must be wrapped in `ResourceArc`.
-
-- **Safety**: Resource Objects are trackable by the BEAM Garbage Collector.
-- **Implementation**: See `app/rhizome/native/rhizome_nif/src/resource.rs`.
-
-### Cache Alignment & NUMA
-
-Native structs for the Rhizome must be cache-aligned to prevent false sharing and NUMA bus bottlenecks.
-
-```rust
-#[repr(C)]
-#[repr(align(64))]
-pub struct GraphPointer { ... }
-```
-
-## Scheduler Sympathy
-
-### Dirty Schedulers
-
-Any operation taking longer than 1ms (I/O, heavy math, graph traversals) MUST use a Dirty Scheduler.
-
-- **DirtyIo**: For database calls (Memgraph, XTDB).
-- **DirtyCpu**: For compute-heavy algorithms (Louvain, Tree-sitter parsing).
-
-```elixir
-#[rustler::nif(schedule = "DirtyIo")]
-pub fn native_operation() { ... }
-```
-
-## Integrating New Organelles
-
-To add a new native capability (e.g., a new Tree-sitter language):
-
-1. **Cargo.toml**: Add the grammar dependency.
-2. **lib.rs**: Export the language function in the `sensory_nif`.
-3. **native.ex**: Update the Elixir bridge signature.
-4. **Makefile**: Ensure the `build` target includes the new application directory.
-
-## Known Constraints
-
-- **Zero-Copy**: Favor sub-binary references for large code strings to avoid FFI serialization overhead.
-- **Memory Leaks**: Always run `make test-native` under Valgrind after significant NIF changes.
-
----
-
-# Subsystem Contracts
-
-This document captures the subsystem ownership model required by Part II Chapter 3 Section 1 of the Karyon book source at `docs/src/content/docs/part-2/chapter-3/1-introduction.md`.
-
-## Ownership
-
-- `core` is the nucleus and cytoplasm boundary.
-
-  It owns sterile planning contracts, actor lifecycle, DNA transcription, BEAM process-group boot, and metabolic coordination.
-
-- `rhizome` is the memory and organelle boundary.
-
-  It owns Rustler-backed graph and temporal memory operations, consolidation, optimization, and XTDB/Memgraph interfaces.
-
-- `sandbox` is the membrane boundary.
-
-  It owns Firecracker embodiment, VM provisioning, VMM supervision, and host isolation mechanics.
-
-- `nervous_system` is the nervous-system boundary.
-
-  It owns synaptic transport, endocrine signals, and nociception routing.
-
-- `dashboard` is observability only.
-
-  It must not take ownership of planning, memory mutation, or Firecracker embodiment.
-
-## Boundary Rules
-
-- The nucleus must not own Firecracker, dashboard routing, or direct memory-engine implementation details.
-- The membrane must not own planning, graph-memory mutation logic, or dashboard responsibilities.
-- The nervous system must not own planner logic or memory-optimizer logic.
-- Organelles must stay behind Rhizome boundaries and must not absorb sandbox or dashboard behavior.
-
-## Enforcement
-
-Local command:
-
-```bash
-cd /home/adrian/Projects/nexical/karyon/app && mix subsystem.contracts
-```
-
-The umbrella test `app/test/subsystem_contracts_test.exs` is the executable contract for this section.
-
----
-
-# Learning Loop Contract
-
-This document captures the explicit learning loop introduced for:
-
-- `docs/src/content/docs/part-3/chapter-6/1-introduction.md`
-
-The learning loop is now modeled as five ordered phases:
-
-1. `perception`
-2. `action_feedback`
-3. `prediction_error`
-4. `plasticity`
-5. `consolidation`
-
-The current implementation binds those phases across the organism like this:
-
-- `Core.StemCell` forms expectations and drives action execution.
-- `Rhizome.Memory` persists action outcomes and prediction errors into durable memory.
-- `NervousSystem.PainReceptor` emits typed nociception for structural failure.
-- `Core.StemCell` prunes or reinforces Rhizome pathways based on prediction error or success.
-- `Rhizome.ConsolidationManager` bridges working memory into the archive and performs the sleep-cycle consolidation pass.
-
-Local validation commands:
-
-```bash
-cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/learning_loop_contract_test.exs test/core/stem_cell_test.exs
-cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/pain_receptor_test.exs
-cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/consolidation_manager_test.exs
-```
-
----
-
-# Chapter 11 Monorepo Pipeline
-
-`Core.MonorepoPipeline` is the canonical engine-versus-target-workspace contract.
-
-Rules:
-
-- The repository root is the engine workspace and is treated as read-only control plane state.
-- Localized execution limbs must live outside the engine tree.
-- `.nexical/plan.yml` blueprints are only emitted into validated target workspaces.
-- `Sandbox.WRS` refuses `execute_plan` intents that omit a target workspace or point back at the engine tree.
-- Firecracker execution manifests now record both the engine manifest and the validated target workspace root.
-
-Validation entry points:
-
-```bash
-cd /home/adrian/Projects/nexical/karyon/app && mix compile
-cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/monorepo_pipeline_test.exs test/core/objective_manifest_test.exs
-cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/wrs_test.exs test/sandbox/executor_test.exs test/sandbox/provisioner_test.exs
-```
-
----
-
-# Chapter 11 Operational Maturity
-
-`Core.OperationalMaturity` is the canonical Chapter 11 introduction contract.
-
-It defines four explicit targets:
-
-- `build`: sterile engine boot evidence, preflight status, and release environment.
-- `deploy`: dependency readiness and admission posture for runnable releases.
-- `observe`: bounded operator visibility through the existing health and operator-output surface.
-- `distribute`: persistent objective ingestion and cross-workspace blueprint readiness.
-
-Validation entry points:
-
-```bash
-cd /home/adrian/Projects/nexical/karyon/app && mix compile
-cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/operational_maturity_test.exs test/core/service_health_test.exs
-cd /home/adrian/Projects/nexical/karyon/app/dashboard && env PATH=/tmp/protoc/bin:$PATH mix test test/dashboard_web/controllers/health_controller_test.exs
-```
-
-This contract is introductory on purpose. Later Chapter 11 and 12 phases should extend the evidence behind each target instead of inventing parallel maturity models.
-
----
-
-# Chapter 12 Maturation Lifecycle
-
-`Core.MaturationLifecycle` is the canonical Chapter 12 introduction contract.
-
-It defines four explicit maturation phases:
-
-- `baseline_diet`: deterministic structural curriculum from baseline artifacts and sensory parsing.
-- `execution_telemetry`: replayable execution evidence grounded in the learning loop and service-backed storage.
-- `synthetic_oracle`: teacher-guided refinement and synthetic exam generation.
-- `intent_drift`: correction of divergence between sovereign intent, evolving needs, values, and runtime behavior.
-
-Local validation:
-
-```bash
-cd /home/adrian/Projects/nexical/karyon/app && mix compile
-cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/maturation_lifecycle_test.exs
-```
-
-This contract is intentionally ahead of the current implementation. Later Chapter 12 phases should satisfy its blockers by adding:
-
-- real baseline diet ingestion and acceptance criteria
-- telemetry replay and curriculum tagging
-- teacher-daemon and synthetic oracle generation
-- intent-drift detection and correction tied to objective manifests and Rhizome memory
-
----
-
 # Chapter 1 Conformance
 
 This document captures the Chapter 1 conformance gate for:
@@ -648,3 +426,225 @@ This suite is expected to fail when:
 - Abstract intent stops emitting implementation-drift records from documentation and history evidence.
 
 The GitHub Actions workflow `chapter12-conformance.yml` must pass on pushes and pull requests.
+
+---
+
+This book is the contributor-facing companion to the architecture corpus. It is intentionally small for now, because much of the underlying source material still lives in repository documents that have not yet been fully normalized into the public docs surface.
+
+Use this book as the current entry point into the implementation-facing contracts, subsystem boundaries, and regression gates that keep the organism aligned with its architecture.
+
+    Start with the implementation contracts and subsystem boundaries. [Open NIF Safety](/docs/developer/nif-safety/)
+
+    Follow the maturation and operational guidance for building inside the platform. [Open Operational Maturity](/docs/developer/operational-maturity/)
+
+    Use the chapter gates as regression boundaries when changing behavior. [Open Chapter 1 Conformance](/docs/developer/chapter-1-conformance/)
+
+## What this book covers today
+
+- Core references for NIF safety, subsystem contracts, learning loops, monorepo execution, and lifecycle maturity.
+- Chapter-by-chapter conformance references that turn architecture claims into concrete regression boundaries.
+- Contributor-facing material that should be read alongside the architecture book and the repository source.
+
+---
+
+# Learning Loop Contract
+
+This document captures the explicit learning loop introduced for:
+
+- `docs/src/content/docs/part-3/chapter-6/1-introduction.md`
+
+The learning loop is now modeled as five ordered phases:
+
+1. `perception`
+2. `action_feedback`
+3. `prediction_error`
+4. `plasticity`
+5. `consolidation`
+
+The current implementation binds those phases across the organism like this:
+
+- `Core.StemCell` forms expectations and drives action execution.
+- `Rhizome.Memory` persists action outcomes and prediction errors into durable memory.
+- `NervousSystem.PainReceptor` emits typed nociception for structural failure.
+- `Core.StemCell` prunes or reinforces Rhizome pathways based on prediction error or success.
+- `Rhizome.ConsolidationManager` bridges working memory into the archive and performs the sleep-cycle consolidation pass.
+
+Local validation commands:
+
+```bash
+cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/learning_loop_contract_test.exs test/core/stem_cell_test.exs
+cd /home/adrian/Projects/nexical/karyon/app/nervous_system && mix test test/nervous_system/pain_receptor_test.exs
+cd /home/adrian/Projects/nexical/karyon/app/rhizome && mix test test/rhizome/consolidation_manager_test.exs
+```
+
+---
+
+# Chapter 12 Maturation Lifecycle
+
+`Core.MaturationLifecycle` is the canonical Chapter 12 introduction contract.
+
+It defines four explicit maturation phases:
+
+- `baseline_diet`: deterministic structural curriculum from baseline artifacts and sensory parsing.
+- `execution_telemetry`: replayable execution evidence grounded in the learning loop and service-backed storage.
+- `synthetic_oracle`: teacher-guided refinement and synthetic exam generation.
+- `intent_drift`: correction of divergence between sovereign intent, evolving needs, values, and runtime behavior.
+
+Local validation:
+
+```bash
+cd /home/adrian/Projects/nexical/karyon/app && mix compile
+cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/maturation_lifecycle_test.exs
+```
+
+This contract is intentionally ahead of the current implementation. Later Chapter 12 phases should satisfy its blockers by adding:
+
+- real baseline diet ingestion and acceptance criteria
+- telemetry replay and curriculum tagging
+- teacher-daemon and synthetic oracle generation
+- intent-drift detection and correction tied to objective manifests and Rhizome memory
+
+---
+
+# Chapter 11 Monorepo Pipeline
+
+`Core.MonorepoPipeline` is the canonical engine-versus-target-workspace contract.
+
+Rules:
+
+- The repository root is the engine workspace and is treated as read-only control plane state.
+- Localized execution limbs must live outside the engine tree.
+- `.nexical/plan.yml` blueprints are only emitted into validated target workspaces.
+- `Sandbox.WRS` refuses `execute_plan` intents that omit a target workspace or point back at the engine tree.
+- Firecracker execution manifests now record both the engine manifest and the validated target workspace root.
+
+Validation entry points:
+
+```bash
+cd /home/adrian/Projects/nexical/karyon/app && mix compile
+cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/monorepo_pipeline_test.exs test/core/objective_manifest_test.exs
+cd /home/adrian/Projects/nexical/karyon/app/sandbox && mix test test/sandbox/wrs_test.exs test/sandbox/executor_test.exs test/sandbox/provisioner_test.exs
+```
+
+---
+
+# Developer Endpoints & NIF Safety
+
+Developing native Organelles for Karyon requires strict adherence to memory safety and BEAM scheduler sympathy.
+
+## FFI Architecture
+
+Karyon uses `Rustler` for FFI. The goal is to maximize performance without compromising the stability of the Erlang VM.
+
+### Resource Objects
+
+All persistent native state must be wrapped in `ResourceArc`.
+
+- **Safety**: Resource Objects are trackable by the BEAM Garbage Collector.
+- **Implementation**: See `app/rhizome/native/rhizome_nif/src/resource.rs`.
+
+### Cache Alignment & NUMA
+
+Native structs for the Rhizome must be cache-aligned to prevent false sharing and NUMA bus bottlenecks.
+
+```rust
+#[repr(C)]
+#[repr(align(64))]
+pub struct GraphPointer { ... }
+```
+
+## Scheduler Sympathy
+
+### Dirty Schedulers
+
+Any operation taking longer than 1ms (I/O, heavy math, graph traversals) MUST use a Dirty Scheduler.
+
+- **DirtyIo**: For database calls (Memgraph, XTDB).
+- **DirtyCpu**: For compute-heavy algorithms (Louvain, Tree-sitter parsing).
+
+```elixir
+#[rustler::nif(schedule = "DirtyIo")]
+pub fn native_operation() { ... }
+```
+
+## Integrating New Organelles
+
+To add a new native capability (e.g., a new Tree-sitter language):
+
+1. **Cargo.toml**: Add the grammar dependency.
+2. **lib.rs**: Export the language function in the `sensory_nif`.
+3. **native.ex**: Update the Elixir bridge signature.
+4. **Makefile**: Ensure the `build` target includes the new application directory.
+
+## Known Constraints
+
+- **Zero-Copy**: Favor sub-binary references for large code strings to avoid FFI serialization overhead.
+- **Memory Leaks**: Always run `make test-native` under Valgrind after significant NIF changes.
+
+---
+
+# Chapter 11 Operational Maturity
+
+`Core.OperationalMaturity` is the canonical Chapter 11 introduction contract.
+
+It defines four explicit targets:
+
+- `build`: sterile engine boot evidence, preflight status, and release environment.
+- `deploy`: dependency readiness and admission posture for runnable releases.
+- `observe`: bounded operator visibility through the existing health and operator-output surface.
+- `distribute`: persistent objective ingestion and cross-workspace blueprint readiness.
+
+Validation entry points:
+
+```bash
+cd /home/adrian/Projects/nexical/karyon/app && mix compile
+cd /home/adrian/Projects/nexical/karyon/app/core && mix test test/core/operational_maturity_test.exs test/core/service_health_test.exs
+cd /home/adrian/Projects/nexical/karyon/app/dashboard && env PATH=/tmp/protoc/bin:$PATH mix test test/dashboard_web/controllers/health_controller_test.exs
+```
+
+This contract is introductory on purpose. Later Chapter 11 and 12 phases should extend the evidence behind each target instead of inventing parallel maturity models.
+
+---
+
+# Subsystem Contracts
+
+This document captures the subsystem ownership model required by Part II Chapter 3 Section 1 of the Karyon book source at `docs/src/content/docs/part-2/chapter-3/1-introduction.md`.
+
+## Ownership
+
+- `core` is the nucleus and cytoplasm boundary.
+
+  It owns sterile planning contracts, actor lifecycle, DNA transcription, BEAM process-group boot, and metabolic coordination.
+
+- `rhizome` is the memory and organelle boundary.
+
+  It owns Rustler-backed graph and temporal memory operations, consolidation, optimization, and XTDB/Memgraph interfaces.
+
+- `sandbox` is the membrane boundary.
+
+  It owns Firecracker embodiment, VM provisioning, VMM supervision, and host isolation mechanics.
+
+- `nervous_system` is the nervous-system boundary.
+
+  It owns synaptic transport, endocrine signals, and nociception routing.
+
+- `dashboard` is observability only.
+
+  It must not take ownership of planning, memory mutation, or Firecracker embodiment.
+
+## Boundary Rules
+
+- The nucleus must not own Firecracker, dashboard routing, or direct memory-engine implementation details.
+- The membrane must not own planning, graph-memory mutation logic, or dashboard responsibilities.
+- The nervous system must not own planner logic or memory-optimizer logic.
+- Organelles must stay behind Rhizome boundaries and must not absorb sandbox or dashboard behavior.
+
+## Enforcement
+
+Local command:
+
+```bash
+cd /home/adrian/Projects/nexical/karyon/app && mix subsystem.contracts
+```
+
+The umbrella test `app/test/subsystem_contracts_test.exs` is the executable contract for this section.

@@ -188,7 +188,7 @@ export const bookSchema = z.object({
 	downloadFileName: z.string(),
 	downloadHref: z.string(),
 	downloadTitle: z.string(),
-	exportRoots: z.array(z.string()).min(1),
+	exportRoots: z.array(z.string()).min(1).optional(),
 	sidebarItems: z.array(sidebarItemSchema).min(1),
 	tags: z.array(z.string()).default(BOOK_MODEL_DEFAULTS.tags ?? []),
 });

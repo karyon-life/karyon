@@ -5,11 +5,14 @@ import LanguageSelect from '@astrojs/starlight/components/LanguageSelect.astro';
 import Search from '@astrojs/starlight/components/Search.astro';
 import SiteTitle from '@astrojs/starlight/components/SiteTitle.astro';
 import SocialIcons from '@astrojs/starlight/components/SocialIcons.astro';
+import DesktopSidebarToggle from './DesktopSidebarToggle.astro';
 import DownloadBook from './DownloadBook.astro';
 import { SITE } from '../../utils/seo';
 
 const shouldRenderSearch =
 	config.pagefind || config.components.Search !== '@astrojs/starlight/components/Search.astro';
+const { hasSidebar, toc } = Astro.locals.starlightRoute;
+const hasToc = Boolean(toc);
 ---
 
 <div class="header">
@@ -17,6 +20,10 @@ const shouldRenderSearch =
 		<SiteTitle />
 	</div>
 	<div class="sl-hidden md:sl-flex print:hidden right-group">
+		<div class="desktop-sidebar-toggles" aria-label="Reading controls">
+			{hasSidebar && <DesktopSidebarToggle side="left" label="book contents" />}
+			{hasToc && <DesktopSidebarToggle side="right" label="page contents" />}
+		</div>
 		{shouldRenderSearch && <Search class="docs-header-search" />}
 		<DownloadBook />
 		<div class="sl-flex social-icons">
@@ -58,6 +65,10 @@ const shouldRenderSearch =
 		.right-group {
 			margin-inline-start: auto;
 			gap: 1.25rem;
+		}
+
+		.desktop-sidebar-toggles {
+			display: none;
 		}
 
 		.social-icons {
@@ -111,6 +122,14 @@ const shouldRenderSearch =
 				display: grid;
 				grid-template-columns: minmax(0, 1fr) auto;
 				align-content: center;
+			}
+		}
+
+		@media (min-width: 72rem) {
+			.desktop-sidebar-toggles {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.65rem;
 			}
 		}
 	}
