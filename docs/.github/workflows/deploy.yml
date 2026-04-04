@@ -27,14 +27,14 @@ jobs:
         run: npm ci
 
       - name: Check site
-        run: npm run docs:check
+        run: npm run check
 
       - name: Build site
-        run: npm run docs:build
+        run: npm run build
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy docs/dist --project-name=karyon-docs
+          command: pages deploy dist --project-name=karyon-docs

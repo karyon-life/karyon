@@ -2,6 +2,8 @@
 
 This site contains the architecture book and operator-facing documentation for Karyon.
 
+This repository is being prepared to stand on its own. Treat the `docs/` directory as the future root of the standalone docs repository even while it still lives inside the runtime monorepo.
+
 ## Current State
 
 The docs describe both the target organism and the codebase that exists today. Treat the codebase as the source of truth for runtime behavior:
@@ -10,7 +12,18 @@ The docs describe both the target organism and the codebase that exists today. T
 - the public site now combines editorial pages in `src/pages/` with Starlight docs under `src/content/docs/docs/`
 - `public/books/*.md` are generated book exports, not guaranteed checked-in artifacts
 - production-facing integrations such as XTDB, NATS, and Firecracker are still being hardened
-- use the root `PLAN.md` and `TASKS.md` to track readiness work
+- use the runtime repository's `PLAN.md` and `TASKS.md` to track readiness work while the docs still live inside the monorepo
+
+## Standalone-First Workflow
+
+Use docs-local commands from inside `docs/` as the default operating mode:
+
+```bash
+cd docs
+npm install
+```
+
+The current nested layout is temporary. Root-level `npm run docs:*` commands remain available only as a transitional wrapper until the docs are moved into their own repository.
 
 ## 🚀 Project Structure
 
@@ -44,7 +57,7 @@ Static assets, like favicons, can be placed in the `public/` directory.
 
 ## 🧞 Commands
 
-All commands are run from the root of the project, from a terminal:
+All commands below assume your shell is inside `docs/`:
 
 | Command                   | Action                                           |
 | :------------------------ | :----------------------------------------------- |
@@ -57,18 +70,20 @@ All commands are run from the root of the project, from a terminal:
 
 ## Build
 
-Run docs commands from the repo root via the workspace scripts, or from `docs/` directly if you prefer:
+Run docs commands directly from `docs/`:
 
 | Command | Action |
 | :------ | :----- |
-| `npm install` | Install workspace dependencies from the repo root |
-| `npm run docs:dev` | Start the docs site through local Wrangler with Cloudflare bindings |
-| `npm run docs:check` | Run Astro type/content checks |
-| `npm run docs:build` | Build the static docs output |
-| `npm run docs:test` | Run unit tests plus Cloudflare-local integration coverage |
-| `npm run docs:normalize -- <path>` | Normalize Markdown/MDX files before publishing |
+| `npm install` | Install docs dependencies |
+| `npm run dev` | Start the docs site through local Wrangler with Cloudflare bindings |
+| `npm run check` | Run Astro type/content checks |
+| `npm run build` | Build the static docs output |
+| `npm run test` | Run unit tests plus Cloudflare-local integration coverage |
+| `npm run cleanup:markdown -- <path>` | Normalize Markdown/MDX files before publishing |
 
 The optional aggregated markdown books can be produced with `node scripts/aggregate-book.mjs`.
+
+If you still need the nested monorepo wrappers before the split, the runtime repo currently exposes `npm run docs:*` aliases from its top-level `package.json`. Do not treat those wrappers as the long-term interface.
 
 ## Markdown Authoring
 
@@ -117,8 +132,8 @@ Commands:
 
 | Command | Action |
 | :------ | :----- |
-| `npm run cleanup:markdown --workspace docs -- <path>` | Normalize one file, many files, or a directory tree in place |
-| `npm run cleanup:markdown:check --workspace docs -- <path>` | Check whether files need cleanup without rewriting them |
+| `npm run cleanup:markdown -- <path>` | Normalize one file, many files, or a directory tree in place |
+| `npm run cleanup:markdown:check -- <path>` | Check whether files need cleanup without rewriting them |
 
 Defaults and guarantees:
 
@@ -130,43 +145,55 @@ Defaults and guarantees:
 
 ## Local Form Development
 
-The docs site now owns its local email testing workflow inside `docs/`.
+The docs site owns its local email testing workflow inside this directory.
 
-- `docs/compose.yml` runs a MailPit SMTP server and inbox UI for form testing
-- `docs/.env.local` is the canonical local config file for the docs site
+- `compose.yml` runs a MailPit SMTP server and inbox UI for form testing
+- `.env.local` is the canonical local config file for the docs site
 - every docs-site environment variable is prefixed with `DOCS_`
 
 ### Cloudflare-local mode
 
-Run from the repo root:
+Run from inside `docs/`:
 
 | Command | Action |
 | :------ | :----- |
-| `npm run docs:dev` | Starts MailPit, syncs local env into Wrangler, runs local D1 migration, builds the site, and launches `wrangler dev --local` |
+| `npm run dev` | Starts MailPit, syncs local env into Wrangler, runs local D1 migration, builds the site, and launches `wrangler dev --local` |
 
 Behavior:
 
 - MailPit listens on `127.0.0.1:1025`
 - the MailPit inbox UI is available at `http://127.0.0.1:8025`
-- local KV and D1 bindings come from `docs/wrangler.toml`
-- local Wrangler vars are generated from `docs/.env.local` into `docs/.dev.vars`
+- local KV and D1 bindings come from `wrangler.toml`
+- local Wrangler vars are generated from `.env.local` into `.dev.vars`
 - `DOCS_LOCAL_DEV_MODE=cloudflare` is the only supported local runtime mode
 - bypass flags such as `DOCS_FORMS_LOCAL_BYPASS_TURNSTILE` stay explicit, so local Cloudflare runs are production-like unless you opt into local shortcuts
 
 ## Local Test Parity
 
-`npm run docs:test` now validates both the fast unit-test layer and a Cloudflare-local integration flow.
+`npm run test` validates both the fast unit-test layer and a Cloudflare-local integration flow.
 
 Behavior:
 
 - integration coverage boots the Worker with `wrangler dev --local`
 - the harness runs the local D1 migration before issuing test requests
 - form token issuance, submission redirects, subscriber writes, nonce replay rejection, and rate limiting are exercised through HTTP against the local Worker
-- test-specific env overrides are written through `docs/.dev.vars` so the Worker sees the same style of bindings and secrets as local development
+- test-specific env overrides are written through `.dev.vars` so the Worker sees the same style of bindings and secrets as local development
+
+## Split Readiness
+
+The future standalone docs repository should own these deployment and runtime inputs:
+
+- GitHub Actions workflow at `.github/workflows/deploy.yml`
+- Cloudflare Pages deployment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
+- Wrangler bindings from `wrangler.toml` for `FORM_GUARD_KV`, `SESSION`, and `SUBSCRIBERS_DB`
+- docs-local runtime variables defined in `.env.local.example`
+- SQL migrations in `migrations/`
+
+When the split happens, promote this directory's `.gitignore`, `.github/workflows/`, `package.json`, `wrangler.toml`, scripts, and migrations to the root of the new repository without changing their ownership model.
 
 ### Troubleshooting
 
-- If Docker is not running, `npm run docs:dev` and `npm run docs:test` will fail early with a MailPit setup message.
-- If `docs/.env.local` is missing, copy `docs/.env.local.example` into place.
-- If local form emails do not appear, check `http://127.0.0.1:8025` and then `npm run mailpit:logs --workspace docs`.
-- If Cloudflare-local startup fails on bindings, rerun `npm run sync:devvars --workspace docs` and `npm run d1:migrate:local --workspace docs`.
+- If Docker is not running, `npm run dev` and `npm run test` will fail early with a MailPit setup message.
+- If `.env.local` is missing, copy `.env.local.example` into place.
+- If local form emails do not appear, check `http://127.0.0.1:8025` and then `npm run mailpit:logs`.
+- If Cloudflare-local startup fails on bindings, rerun `npm run sync:devvars` and `npm run d1:migrate:local`.

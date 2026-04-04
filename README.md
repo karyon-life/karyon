@@ -10,7 +10,7 @@ Karyon is a structurally discrete, biomimetic multi-agent ecosystem. It explicit
 *   **Organelles:** Optimized Rust NIFs for heavy computation.
 *   **DNA:** Declarative YAML schemas defining agent bounds.
 
-For more details, see [SPEC.md](SPEC.md), [PLAN.md](PLAN.md), and the docs source in [docs/src/content/docs/docs/index.mdx](docs/src/content/docs/docs/index.mdx).
+For more details, see [SPEC.md](SPEC.md), [PLAN.md](PLAN.md), and the canonical docs references below.
 
 ## Getting Started
 
@@ -25,10 +25,10 @@ The easiest way to run the Karyon organism is using `make`. This ensures all bac
 
 ## Operations & Documentation
 
-- [Genetic Blueprint Guide](docs/OPERATIONS/GENETICS.md) — How to author cellular DNA.
-- [Metabolic Operations Playbook](docs/OPERATIONS/METABOLICS.md) — Monitoring, health, and apoptosis debugging.
-- [Developer & NIF Safety](docs/DEVELOPER/NIF_SAFETY.md) — FFI architecture and native extension guide.
-- [Documentation Index](docs/src/content/docs/docs/index.mdx) — The current documentation entry point used by the Astro docs site.
+- Published docs URL: `https://docs.karyon.dev`
+- Planned standalone docs repository: `https://github.com/nexical/karyon-docs`
+- Treat published docs and the future standalone docs repo as canonical documentation locations after the split.
+- Until the split happens, the nested `docs/` directory is a transitional copy of that future standalone docs repository.
 
 ## Current Status
 
@@ -39,7 +39,7 @@ Karyon is currently an honest scaffold rather than a production-ready organism. 
 - The sandbox execution membrane is partially mocked outside explicitly configured test or mock environments.
 - Dashboard and operator surfaces are being brought in line with real telemetry rather than aspirational values.
 
-Use [PLAN.md](PLAN.md) and [TASKS.md](TASKS.md) as the execution source of truth for readiness work.
+Use [PLAN.md](PLAN.md) and [TASKS.md](TASKS.md) as the execution source of truth for runtime readiness work. Use the published docs URL and the future standalone docs repo for documentation references instead of repo-relative `docs/...` paths.
 
 ### Quick Start
 
