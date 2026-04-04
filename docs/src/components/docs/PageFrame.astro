@@ -1,11 +1,13 @@
 ---
 import MobileMenuToggle from '@astrojs/starlight/components/MobileMenuToggle.astro';
+import { getBookForPath } from '../../utils/starlight-nav.mjs';
 
 const { hasSidebar, toc } = Astro.locals.starlightRoute;
 const hasToc = Boolean(toc);
+const isBookPage = Boolean(getBookForPath(Astro.url.pathname));
 ---
 
-<div class="page sl-flex">
+<div class:list={['page sl-flex', isBookPage && 'page--book']}>
 	<header class="header"><slot name="header" /></header>
 	{
 		hasSidebar && (
@@ -20,14 +22,21 @@ const hasToc = Boolean(toc);
 		)
 	}
 	<div class="main-frame"><slot /></div>
+	<div class="docs-footer-host" data-docs-footer-host></div>
 </div>
 
-<script is:inline define:vars={{ hasSidebar, hasToc }}>
+<script is:inline define:vars={{ hasSidebar, hasToc, isBookPage }}>
 	const desktopQuery = window.matchMedia('(min-width: 72rem)');
 	const storageKey = 'docs.desktop-sidebar-state';
+	const bookFontScaleStorageKey = 'docs.book-font-scale';
+	const defaultBookFontScale = 1;
+	const minBookFontScale = 0.85;
+	const maxBookFontScale = 1.35;
 	const root = document.documentElement;
 	const leftSidebar = document.getElementById('starlight__sidebar');
 	const rightSidebar = document.getElementById('starlight__page-toc');
+	const pageFrame = document.querySelector('.page');
+	const footerHost = document.querySelector('[data-docs-footer-host]');
 
 	const getDefaultState = () => ({
 		left: !hasSidebar,
@@ -52,6 +61,40 @@ const hasToc = Boolean(toc);
 		} catch {
 			// Ignore storage failures and keep the UI functional.
 		}
+	};
+
+	const syncFooterOffset = () => {
+		if (!(footerHost instanceof HTMLElement) || !desktopQuery.matches) {
+			root.style.setProperty('--docs-footer-offset', '0px');
+			return;
+		}
+
+		const footerTop = footerHost.getBoundingClientRect().top;
+		const offset = Math.max(0, window.innerHeight - footerTop);
+		root.style.setProperty('--docs-footer-offset', `${offset}px`);
+	};
+
+	const clampBookFontScale = (value) =>
+		Math.min(maxBookFontScale, Math.max(minBookFontScale, value));
+
+	const readBookFontScale = () => {
+		try {
+			const rawValue = localStorage.getItem(bookFontScaleStorageKey);
+			const parsedValue = rawValue === null ? defaultBookFontScale : Number(rawValue);
+			return Number.isFinite(parsedValue) ? clampBookFontScale(parsedValue) : defaultBookFontScale;
+		} catch {
+			return defaultBookFontScale;
+		}
+	};
+
+	const applyBookFontState = () => {
+		root.dataset.docsBookPage = String(isBookPage);
+		if (!isBookPage) {
+			root.style.removeProperty('--docs-book-font-scale');
+			return;
+		}
+
+		root.style.setProperty('--docs-book-font-scale', String(readBookFontScale()));
 	};
 
 	const setExpanded = (side, expanded) => {
@@ -88,6 +131,7 @@ const hasToc = Boolean(toc);
 		setExpanded('left', hasSidebar ? state.left : false);
 		setExpanded('right', hasToc ? state.right : false);
 		syncAccessibility();
+		syncFooterOffset();
 	};
 
 	const toggleSide = (side) => {
@@ -103,8 +147,18 @@ const hasToc = Boolean(toc);
 	};
 
 	const initialize = () => {
+		applyBookFontState();
 		const state = readState();
 		applyState(state);
+
+		if (pageFrame instanceof HTMLElement && footerHost instanceof HTMLElement) {
+			const footerShell = pageFrame.querySelector('.docs-footer-shell');
+			if (footerShell instanceof HTMLElement && footerShell.parentElement !== footerHost) {
+				footerHost.append(footerShell);
+			}
+		}
+
+		syncFooterOffset();
 
 		for (const button of document.querySelectorAll('[data-docs-sidebar-toggle]')) {
 			if (!(button instanceof HTMLButtonElement) || button.dataset.docsSidebarBound === 'true') continue;
@@ -120,6 +174,9 @@ const hasToc = Boolean(toc);
 
 	initialize();
 	desktopQuery.addEventListener('change', syncAccessibility);
+	desktopQuery.addEventListener('change', syncFooterOffset);
+	window.addEventListener('scroll', syncFooterOffset, { passive: true });
+	window.addEventListener('resize', syncFooterOffset);
 </script>
 
 <style>
@@ -152,7 +209,7 @@ const hasToc = Boolean(toc);
 			visibility: var(--sl-sidebar-visibility, hidden);
 			position: fixed;
 			z-index: var(--sl-z-index-menu);
-			inset-block: var(--sl-nav-height) 0;
+			inset-block: var(--sl-nav-height) var(--docs-footer-offset, 0px);
 			inset-inline-start: 0;
 			width: 100%;
 			background-color: var(--sl-color-black);
@@ -183,6 +240,10 @@ const hasToc = Boolean(toc);
 			padding-inline-start: var(--sl-content-inline-start);
 		}
 
+		.docs-footer-host {
+			width: 100%;
+		}
+
 		@media (min-width: 50rem) {
 			:global([data-has-sidebar]) .header {
 				padding-inline-end: var(--sl-nav-pad-x);
@@ -192,6 +253,7 @@ const hasToc = Boolean(toc);
 				width: var(--sl-sidebar-width);
 				background-color: var(--sl-color-bg-sidebar);
 				border-inline-end: 1px solid var(--sl-color-hairline-shade);
+				overflow-y: auto;
 			}
 		}
 	}

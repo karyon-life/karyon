@@ -99,6 +99,11 @@ function rehypeNormalizeEscapedMath() {
 export default defineConfig({
 	site: siteConfig.site.siteUrl,
 	adapter: cloudflare(),
+	image: {
+		service: {
+			entrypoint: 'astro/assets/services/noop',
+		},
+	},
 	vite: {
 		plugins: [/** @type {any} */ (tailwindcss())],
 	},
@@ -159,7 +164,7 @@ export default defineConfig({
 				optional: true,
 			}),
 			DOCS_LOCAL_DEV_MODE: envField.enum({
-				values: ['astro', 'cloudflare'],
+				values: ['cloudflare'],
 				context: 'server',
 				access: 'secret',
 				optional: true,
@@ -206,6 +211,7 @@ export default defineConfig({
 			components: {
 				Footer: './src/components/docs/Footer.astro',
 				Header: './src/components/docs/Header.astro',
+				PageTitle: './src/components/docs/PageTitle.astro',
 				PageFrame: './src/components/docs/PageFrame.astro',
 				PageSidebar: './src/components/docs/PageSidebar.astro',
 				Sidebar: './src/components/docs/Sidebar.astro',

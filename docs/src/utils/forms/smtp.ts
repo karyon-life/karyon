@@ -8,14 +8,10 @@ interface EmailMessage {
 }
 
 export async function sendEmail(message: EmailMessage, runtime: FormRuntimeCapabilities) {
-	const shouldUseCloudflareTransport =
-		runtime.isCloudflareRuntime && runtime.localDevMode !== 'astro';
-
-	if (shouldUseCloudflareTransport) {
+	if (runtime.isCloudflareRuntime) {
 		const { sendEmailWithCloudflareSockets } = await import('./smtp-cloudflare');
 		return sendEmailWithCloudflareSockets(message);
 	}
 
-	const { sendEmailWithNode } = await import('./smtp-node');
-	return sendEmailWithNode(message);
+	throw new Error('Email delivery requires Cloudflare runtime bindings in this docs deployment.');
 }

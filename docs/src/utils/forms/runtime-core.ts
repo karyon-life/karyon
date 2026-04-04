@@ -16,12 +16,8 @@ export function deriveFormRuntimeCapabilities(input: RuntimeInputs): FormRuntime
 		isCloudflareRuntime: input.isCloudflareRuntime,
 		isLocalMode,
 		localDevMode: input.localDevMode ?? 'production',
-		bypassTurnstile: isLocalMode
-			? (input.bypassTurnstile ?? input.localDevMode === 'astro')
-			: false,
-		bypassCloudflareGuards: isLocalMode
-			? (input.bypassCloudflareGuards ?? input.localDevMode === 'astro')
-			: false,
-		useMailpit: isLocalMode ? input.useMailpit || input.localDevMode === 'astro' : false,
+		bypassTurnstile: isLocalMode ? (input.bypassTurnstile ?? false) : false,
+		bypassCloudflareGuards: isLocalMode ? (input.bypassCloudflareGuards ?? false) : false,
+		useMailpit: isLocalMode ? input.useMailpit : false,
 	};
 }

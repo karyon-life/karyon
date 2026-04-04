@@ -120,6 +120,26 @@ button:focus-visible {
 	border-top: 1px solid var(--site-border);
 }
 
+:root[data-docs-book-page='true'] .content-panel:has(.docs-page-title--book) {
+	position: sticky;
+	top: calc(var(--sl-nav-height) + var(--sl-mobile-toc-height));
+	z-index: calc(var(--sl-z-index-navbar) - 1);
+	padding-top: 0.95rem;
+	padding-bottom: 0.9rem;
+	background: color-mix(in srgb, var(--site-bg-soft) 94%, white 6%);
+	border-bottom: 1px solid var(--site-border);
+}
+
+:root[data-docs-book-page='true'] .content-panel:has(.docs-page-title--book) .sl-container {
+	max-width: var(--docs-book-panel-width);
+	margin-inline: auto;
+}
+
+:root[data-docs-book-page='true'] .content-panel:has(.docs-page-title--book) + .content-panel {
+	border-top: 0;
+	padding-top: 3.5rem;
+}
+
 .header {
 	backdrop-filter: blur(14px);
 }
@@ -135,6 +155,14 @@ button:focus-visible {
 	--docs-left-sidebar-width: var(--sl-sidebar-width);
 	--docs-right-sidebar-width: var(--sl-sidebar-width);
 	--docs-right-sidebar-padding: calc(2 * var(--sl-sidebar-pad-x));
+	--docs-book-font-scale: 1;
+	--docs-reading-content-width: 78ch;
+	--docs-book-reading-content-width: clamp(
+		72ch,
+		calc(78ch + (var(--docs-book-font-scale) - 1) * 24ch),
+		86ch
+	);
+	--docs-book-panel-width: min(100%, calc(var(--sl-content-width) + 12ch));
 }
 
 .sidebar-pane {
@@ -201,6 +229,17 @@ button:focus-visible {
 	box-shadow: none !important;
 }
 
+:root[data-docs-book-page='true'] .sl-markdown-content {
+	font-size: calc(1.08rem * var(--docs-book-font-scale));
+}
+
+@media (min-width: 72rem) {
+	:root[data-docs-book-page='true'] .sl-markdown-content {
+		max-width: var(--docs-book-panel-width);
+		margin-inline: auto;
+	}
+}
+
 .sl-markdown-content {
 	color: var(--site-text-muted);
 	font-size: 1.08rem;
@@ -218,12 +257,24 @@ button:focus-visible {
 	font-size: clamp(2.4rem, 5vw, 4rem);
 }
 
+:root[data-docs-book-page='true'] .sl-markdown-content h1:not(:where(.not-content *)) {
+	font-size: calc(clamp(2.4rem, 5vw, 4rem) * var(--docs-book-font-scale));
+}
+
 .sl-markdown-content h2:not(:where(.not-content *)) {
 	font-size: clamp(1.85rem, 2.8vw, 2.45rem);
 }
 
+:root[data-docs-book-page='true'] .sl-markdown-content h2:not(:where(.not-content *)) {
+	font-size: calc(clamp(1.85rem, 2.8vw, 2.45rem) * var(--docs-book-font-scale));
+}
+
 .sl-markdown-content h3:not(:where(.not-content *)) {
 	font-size: 1.35rem;
+}
+
+:root[data-docs-book-page='true'] .sl-markdown-content h3:not(:where(.not-content *)) {
+	font-size: calc(1.35rem * var(--docs-book-font-scale));
 }
 
 .sl-markdown-content :is(p, li, dd):not(:where(.not-content *)) {
@@ -261,6 +312,16 @@ button:focus-visible {
 		--docs-right-sidebar-width: var(--sl-sidebar-width);
 	}
 
+	:root[data-has-sidebar]:not([data-docs-left-sidebar-expanded='true']),
+	:root[data-has-toc]:not([data-docs-right-sidebar-expanded='true']) {
+		--sl-content-width: var(--docs-reading-content-width);
+	}
+
+	:root[data-docs-book-page='true'][data-has-sidebar]:not([data-docs-left-sidebar-expanded='true']),
+	:root[data-docs-book-page='true'][data-has-toc]:not([data-docs-right-sidebar-expanded='true']) {
+		--sl-content-width: var(--docs-book-reading-content-width);
+	}
+
 	:root[data-has-sidebar] .main-frame {
 		padding-inline-start: var(--docs-left-sidebar-width);
 		transition: padding-inline-start 180ms ease;
@@ -269,7 +330,11 @@ button:focus-visible {
 	:root[data-has-sidebar] .sidebar-pane {
 		width: var(--docs-left-sidebar-width);
 		visibility: visible;
-		overflow: hidden;
+		overflow-x: hidden;
+		overflow-y: auto;
+		max-height: calc(100vh - var(--sl-nav-height) - var(--docs-footer-offset, 0px));
+		border-bottom: 1px solid var(--sl-color-hairline-shade);
+		overscroll-behavior: contain;
 		transition:
 			width 180ms ease,
 			border-color 180ms ease;
@@ -294,16 +359,26 @@ button:focus-visible {
 
 	:root .right-sidebar {
 		border-inline-start-color: transparent;
+		border-bottom: 1px solid transparent;
 		transition: border-color 180ms ease;
+		top: var(--sl-nav-height);
+		bottom: var(--docs-footer-offset, 0px);
+		height: auto;
+		overflow-y: auto;
+		overscroll-behavior: contain;
 	}
 
 	:root[data-docs-right-sidebar-expanded='true'] .right-sidebar {
 		border-inline-start-color: var(--sl-color-hairline);
+		border-bottom-color: var(--sl-color-hairline);
 	}
 
 	:root .right-sidebar-panel {
 		width: max(0rem, calc(var(--docs-right-sidebar-width) - var(--docs-right-sidebar-padding)));
-		overflow: hidden;
+		overflow-x: hidden;
+		overflow-y: auto;
+		max-height: calc(100vh - var(--sl-nav-height) - var(--docs-footer-offset, 0px));
+		overscroll-behavior: contain;
 		transition: width 180ms ease;
 	}
 
@@ -321,6 +396,19 @@ button:focus-visible {
 			var(--sl-content-width) + (100% - var(--sl-content-width) - var(--docs-left-sidebar-width)) / 2
 		);
 	}
+
+	:root[data-docs-book-page='true'][data-has-sidebar][data-has-toc] .main-pane {
+		--sl-content-margin-inline: auto;
+	}
+
+	:root[data-docs-book-page='true'][data-has-sidebar][data-has-toc]:not([data-docs-left-sidebar-expanded='true']):not([data-docs-right-sidebar-expanded='true']) .right-sidebar-container {
+		width: 0;
+	}
+
+	:root[data-docs-book-page='true'][data-has-sidebar][data-has-toc]:not([data-docs-left-sidebar-expanded='true']):not([data-docs-right-sidebar-expanded='true']) .main-pane {
+		width: 100%;
+	}
+
 }
 
 .sl-markdown-content ol:not(:where(.not-content *)) {
@@ -388,6 +476,14 @@ button:focus-visible {
 .expressive-code :is(pre, code) {
 	font-size: 0.96rem;
 	line-height: 1.7;
+}
+
+:root[data-docs-book-page='true'] .expressive-code :is(pre, code) {
+	font-size: calc(0.96rem * var(--docs-book-font-scale));
+}
+
+:root[data-docs-book-page='true'] .sl-markdown-content .katex {
+	font-size: calc(1.04em * var(--docs-book-font-scale));
 }
 
 .expressive-code figcaption {

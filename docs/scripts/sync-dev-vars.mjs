@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 const envFilePath = resolve(process.cwd(), '.env.local');
 const outputPath = resolve(process.cwd(), '.dev.vars');
-const modeOverride = process.argv[2];
+const overrideEntries = process.argv.slice(2);
 
 function parseEnvFile(contents) {
 	return contents
@@ -27,8 +27,19 @@ try {
 	process.exit(1);
 }
 
-if (modeOverride) {
-	envMap.DOCS_LOCAL_DEV_MODE = modeOverride;
+for (const entry of overrideEntries) {
+	const separatorIndex = entry.indexOf('=');
+	if (separatorIndex === -1) {
+		continue;
+	}
+
+	const key = entry.slice(0, separatorIndex).trim();
+	const value = entry.slice(separatorIndex + 1);
+	if (!key) {
+		continue;
+	}
+
+	envMap[key] = value;
 }
 
 const docsEntries = Object.entries(envMap)

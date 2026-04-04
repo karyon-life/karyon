@@ -50,10 +50,6 @@ export function getLocalDevMode(): LocalDevMode | null {
 		return 'cloudflare';
 	}
 
-	if (DOCS_LOCAL_DEV_MODE === 'astro') {
-		return 'astro';
-	}
-
 	return null;
 }
 

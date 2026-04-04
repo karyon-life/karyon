@@ -15,7 +15,7 @@ import { parseSiteConfig } from '../site-config-schema.js';
 describe('site config parsing', () => {
 	it('loads grouped header and footer menus from config.yaml', () => {
 		expect(SITE_CONFIG.site.headerMenu.length).toBeGreaterThan(0);
-		expect(SITE_CONFIG.site.headerMenu[0].label).toBe('Work');
+		expect(SITE_CONFIG.site.headerMenu[0].label).toBe('Thinking');
 		expect(SITE_CONFIG.site.headerMenu[0].items).toContainEqual({
 			label: 'Architecture',
 			href: '/architecture/',

@@ -71,6 +71,11 @@ function normalizeBody(text: string) {
 		.join('\r\n');
 }
 
+function toEnvelopeAddress(value: string) {
+	const match = value.match(/<([^>]+)>/);
+	return (match?.[1] ?? value).trim();
+}
+
 function buildMessage({ to, subject, text, replyTo }: EmailMessage, from: string) {
 	const headers = [
 		`From: ${from}`,
@@ -109,8 +114,9 @@ function assertResponse(response: { code: number; raw: string }, acceptedCodes: 
 
 export async function sendEmailWithCloudflareSockets(message: EmailMessage) {
 	const smtp = getSmtpConfig();
+	const envelopeFrom = toEnvelopeAddress(smtp.from);
 
-	if (!smtp.host || !smtp.port || !smtp.from) {
+	if (!smtp.host || !smtp.port || !smtp.from || !envelopeFrom) {
 		throw new Error('SMTP is not fully configured for Cloudflare-compatible delivery.');
 	}
 
@@ -131,7 +137,7 @@ export async function sendEmailWithCloudflareSockets(message: EmailMessage) {
 		assertResponse(await sendCommand(context, btoa(smtp.password)), [235]);
 	}
 
-	assertResponse(await sendCommand(context, `MAIL FROM:<${smtp.from}>`), [250]);
+	assertResponse(await sendCommand(context, `MAIL FROM:<${envelopeFrom}>`), [250]);
 
 	for (const recipient of message.to) {
 		assertResponse(await sendCommand(context, `RCPT TO:<${recipient}>`), [250, 251]);

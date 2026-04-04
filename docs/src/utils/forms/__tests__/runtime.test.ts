@@ -2,35 +2,35 @@ import { describe, expect, it } from 'vitest';
 import { deriveFormRuntimeCapabilities } from '../runtime-core';
 
 describe('form runtime capabilities', () => {
-	it('defaults astro local mode to bypasses and MailPit', () => {
+	it('keeps Cloudflare local mode strict unless bypass flags are explicitly enabled', () => {
 		const runtime = deriveFormRuntimeCapabilities({
-			isCloudflareRuntime: false,
-			localDevMode: 'astro',
-			isDevServer: true,
+			isCloudflareRuntime: true,
+			localDevMode: 'cloudflare',
+			isDevServer: false,
 			bypassTurnstile: undefined,
 			bypassCloudflareGuards: undefined,
 			useMailpit: false,
 		});
 
 		expect(runtime.isLocalMode).toBe(true);
-		expect(runtime.bypassTurnstile).toBe(true);
-		expect(runtime.bypassCloudflareGuards).toBe(true);
-		expect(runtime.useMailpit).toBe(true);
+		expect(runtime.bypassTurnstile).toBe(false);
+		expect(runtime.bypassCloudflareGuards).toBe(false);
+		expect(runtime.useMailpit).toBe(false);
 	});
 
-	it('keeps cloudflare local mode production-like unless bypass flags are set', () => {
+	it('honors explicit local Cloudflare toggles', () => {
 		const runtime = deriveFormRuntimeCapabilities({
 			isCloudflareRuntime: true,
 			localDevMode: 'cloudflare',
 			isDevServer: false,
-			bypassTurnstile: false,
-			bypassCloudflareGuards: false,
+			bypassTurnstile: true,
+			bypassCloudflareGuards: true,
 			useMailpit: true,
 		});
 
 		expect(runtime.isLocalMode).toBe(true);
-		expect(runtime.bypassTurnstile).toBe(false);
-		expect(runtime.bypassCloudflareGuards).toBe(false);
+		expect(runtime.bypassTurnstile).toBe(true);
+		expect(runtime.bypassCloudflareGuards).toBe(true);
 		expect(runtime.useMailpit).toBe(true);
 	});
 

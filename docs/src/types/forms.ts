@@ -29,7 +29,7 @@ export interface SignedFormTokenPayload {
 
 export type ContactRoutingMap = Partial<Record<ContactType | 'default', string[]>>;
 
-export type LocalDevMode = 'astro' | 'cloudflare';
+export type LocalDevMode = 'cloudflare';
 
 export interface SubscriberRecordInput {
 	email: string;
