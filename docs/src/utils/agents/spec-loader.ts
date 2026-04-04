@@ -1,6 +1,6 @@
 import type { AgentRuntimeSpec } from '../../types/agents';
 import { AGENT_MESSAGE_TYPES } from './contracts/messages.ts';
-import { AGENT_HANDLER_REGISTRY } from './handlers/registry.ts';
+import { AGENT_HANDLER_REGISTRY } from '../../agents/registry.ts';
 import { AgentSdk } from './sdk.ts';
 import { normalizeAgentRuntimeSpec } from './spec-normalizer.ts';
 import type {

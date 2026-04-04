@@ -1,5 +1,5 @@
-import type { AgentHandlerKind } from '../../../types/agents';
-import type { AgentHandler } from '../runtime-types.ts';
+import type { AgentHandlerKind } from '../types/agents';
+import type { AgentHandler } from '../utils/agents/runtime-types.ts';
 import { architectHandler } from './architect.ts';
 import { engineerHandler } from './engineer.ts';
 import { notifierHandler } from './notifier.ts';

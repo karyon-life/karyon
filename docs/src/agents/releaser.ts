@@ -1,8 +1,8 @@
-import type { AgentHandler } from '../runtime-types.ts';
+import type { AgentHandler } from '../utils/agents/runtime-types.ts';
 import {
 	parseAgentMessagePayload,
 	serializeAgentMessagePayload,
-} from '../contracts/messages.ts';
+} from '../utils/agents/contracts/messages.ts';
 
 interface ReleaserInputs {
 	branchName: string | null;

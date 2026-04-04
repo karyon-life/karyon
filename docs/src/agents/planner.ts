@@ -1,5 +1,5 @@
-import type { AgentHandler } from '../runtime-types.ts';
-import { serializeAgentMessagePayload } from '../contracts/messages.ts';
+import type { AgentHandler } from '../utils/agents/runtime-types.ts';
+import { serializeAgentMessagePayload } from '../utils/agents/contracts/messages.ts';
 
 interface PlannerInputs {
 	objectiveIds: string[];

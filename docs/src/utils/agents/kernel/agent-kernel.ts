@@ -5,7 +5,7 @@ import { createNotificationAdapter } from '../adapters/notification.ts';
 import { createRepositoryInspectionAdapter } from '../adapters/repository.ts';
 import { createResearchAdapter } from '../adapters/research.ts';
 import { createVerificationAdapter } from '../adapters/verification.ts';
-import { resolveAgentHandler } from '../handlers/registry.ts';
+import { resolveAgentHandler } from '../../../agents/registry.ts';
 import type {
 	AgentContext,
 	AgentExecutionAdapter,

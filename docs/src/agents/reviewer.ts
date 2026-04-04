@@ -1,8 +1,8 @@
-import type { AgentHandler } from '../runtime-types.ts';
+import type { AgentHandler } from '../utils/agents/runtime-types.ts';
 import {
 	parseAgentMessagePayload,
 	serializeAgentMessagePayload,
-} from '../contracts/messages.ts';
+} from '../utils/agents/contracts/messages.ts';
 
 interface ReviewerInputs {
 	messageType: string;
@@ -40,7 +40,7 @@ export const reviewerHandler: AgentHandler<ReviewerInputs, ReviewerResult> = {
 			summary: `Architecture updated for ${payload.objectiveId}.`,
 		};
 	},
-	async execute(_context, inputs) {
+	async execute(context, inputs) {
 		if (inputs.messageType === 'architecture_updated') {
 			return {
 				...inputs,
@@ -58,13 +58,13 @@ export const reviewerHandler: AgentHandler<ReviewerInputs, ReviewerResult> = {
 				commitSha: null,
 			};
 		}
-		const inspected = await _context.repository.inspectBranch({
-			repoRoot: _context.repoRoot,
+		const inspected = await context.repository.inspectBranch({
+			repoRoot: context.repoRoot,
 			branchName: inputs.branchName,
 		});
-		const verification = await _context.verification.runChecks({
-			agent: _context.agent,
-			runId: _context.runId,
+		const verification = await context.verification.runChecks({
+			agent: context.agent,
+			runId: context.runId,
 			commands: [],
 		});
 		if (verification.status === 'failed') {

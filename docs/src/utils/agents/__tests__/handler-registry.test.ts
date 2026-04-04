@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AGENT_HANDLER_KINDS } from '../../../types/agents';
-import { AGENT_HANDLER_REGISTRY, resolveAgentHandler } from '../handlers/registry.ts';
+import { AGENT_HANDLER_REGISTRY, resolveAgentHandler } from '../../../agents/registry.ts';
 
 describe('agent handler registry', () => {
 	it('registers a runtime handler for every declared agent handler kind', () => {
