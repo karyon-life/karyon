@@ -1,7 +1,12 @@
 {
   "name": "karyon-docs",
+  "private": true,
   "type": "module",
   "version": "0.0.1",
+  "workspaces": [
+    "packages/core",
+    "packages/sdk"
+  ],
   "scripts": {
     "starlight:patch": "treeseed starlight:patch",
     "postinstall": "npm run starlight:patch",
@@ -21,13 +26,16 @@
     "d1:migrate:local": "treeseed d1:migrate:local",
     "cleanup:markdown": "treeseed cleanup:markdown",
     "cleanup:markdown:check": "treeseed cleanup:markdown:check",
-    "test:unit": "treeseed test:unit",
+    "test:unit": "node ./scripts/workspace-test-unit.mjs",
     "test:integration": "treeseed test:integration",
     "test:e2e": "treeseed test:e2e",
-    "test": "treeseed test",
-    "agents": "treeseed agents"
+    "test:release": "node ./scripts/release-verify.mjs",
+    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "agents": "treeseed agents",
+    "release:verify": "node ./scripts/release-verify.mjs",
+    "release:publish:changed": "node ./scripts/publish-changed-packages.mjs"
   },
   "dependencies": {
-    "@treeseed/core": "file:packages/core"
+    "@treeseed/core": "^0.0.1"
   }
 }

@@ -18,6 +18,11 @@ export function isEditablePackageWorkspace() {
 	return !isNodeModulesPath(packageRoot);
 }
 
+export function workspaceSdkRoot() {
+	const candidate = resolve(packageRoot, '..', 'sdk');
+	return existsSync(resolve(candidate, 'package.json')) ? candidate : null;
+}
+
 export function writeDevReloadStamp(projectRoot) {
 	const outputPath = resolve(projectRoot, DEV_RELOAD_FILE);
 	mkdirSync(dirname(outputPath), { recursive: true });
@@ -150,6 +155,9 @@ function classifyChanges(changedPaths, watchEntries) {
 
 	return {
 		changedPaths,
+		sdkChanged: changedPaths.some((filePath) =>
+			watchEntries.some((entry) => entry.kind === 'sdk' && matchesEntry(filePath, entry)),
+		),
 		packageChanged: changedPaths.some((filePath) =>
 			watchEntries.some((entry) => entry.kind === 'package' && matchesEntry(filePath, entry)),
 		),
@@ -183,6 +191,7 @@ export function createTenantWatchEntries(tenantRoot) {
 	];
 
 	if (isEditablePackageWorkspace()) {
+		const sdkRoot = workspaceSdkRoot();
 		entries.push(
 			{ kind: 'package', root: resolve(packageRoot, 'src') },
 			{ kind: 'package', root: resolve(packageRoot, 'scripts') },
@@ -190,6 +199,13 @@ export function createTenantWatchEntries(tenantRoot) {
 			{ kind: 'package', root: resolve(packageRoot, 'tsconfigs') },
 			{ kind: 'package', root: resolve(packageRoot, 'package.json') },
 		);
+		if (sdkRoot) {
+			entries.push(
+				{ kind: 'sdk', root: resolve(sdkRoot, 'src') },
+				{ kind: 'sdk', root: resolve(sdkRoot, 'scripts') },
+				{ kind: 'sdk', root: resolve(sdkRoot, 'package.json') },
+			);
+		}
 	}
 
 	return entries;

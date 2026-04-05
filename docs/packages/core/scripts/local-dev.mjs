@@ -10,6 +10,7 @@ import {
 	stopManagedProcess,
 	swapStagedBuildOutput,
 	writeDevReloadStamp,
+	workspaceSdkRoot,
 } from './watch-dev-lib.mjs';
 
 const cliArgs = process.argv.slice(2);
@@ -35,7 +36,17 @@ function runStep(command, args, { cwd = packageRoot, env = {}, fatal = true } = 
 	return result.status === 0;
 }
 
-function runFixtureBuildCycle({ includePackageBuild = false, fatal = true, stagedOutput = false } = {}) {
+function runFixtureBuildCycle({ includePackageBuild = false, includeSdkBuild = false, fatal = true, stagedOutput = false } = {}) {
+	if (includeSdkBuild) {
+		const sdkRoot = workspaceSdkRoot();
+		if (sdkRoot) {
+			const built = runStep('npm', ['run', 'build:dist'], { cwd: sdkRoot, fatal });
+			if (!built) {
+				return false;
+			}
+		}
+	}
+
 	if (includePackageBuild) {
 		const built = runStep('npm', ['run', 'build:dist'], { cwd: packageRoot, fatal });
 		if (!built) {
@@ -120,16 +131,16 @@ process.on('SIGTERM', () => {
 	void shutdownAndExit(143);
 });
 
-runFixtureBuildCycle({ includePackageBuild: true, fatal: true });
+runFixtureBuildCycle({ includeSdkBuild: true, includePackageBuild: true, fatal: true });
 startWrangler();
 
 if (watchMode) {
 	console.log('Starting fixture watch mode. Changes will rebuild the package fixture and refresh the browser.');
 	stopWatching = startPollingWatch({
 		watchEntries: createTenantWatchEntries(fixtureRoot),
-		onChange: async ({ changedPaths, packageChanged }) => {
+		onChange: async ({ changedPaths, packageChanged, sdkChanged }) => {
 			console.log(
-				`Detected ${changedPaths.length} change${changedPaths.length === 1 ? '' : 's'}; rebuilding ${packageChanged ? 'package and fixture' : 'fixture'} output...`,
+				`Detected ${changedPaths.length} change${changedPaths.length === 1 ? '' : 's'}; rebuilding ${sdkChanged ? 'sdk, core, and fixture' : packageChanged ? 'core and fixture' : 'fixture'} output...`,
 			);
 
 			isStoppingForRebuild = true;
@@ -137,7 +148,8 @@ if (watchMode) {
 			isStoppingForRebuild = false;
 
 			const ok = runFixtureBuildCycle({
-				includePackageBuild: packageChanged,
+				includeSdkBuild: sdkChanged,
+				includePackageBuild: packageChanged || sdkChanged,
 				fatal: false,
 				stagedOutput: false,
 			});

@@ -58,7 +58,7 @@ A typical tenant `package.json` is expected to expose Treeseed through scripts l
 }
 ```
 
-Inside this monorepo, the Karyon tenant currently uses a local `file:packages/core` dependency only as a temporary development convenience.
+Inside this monorepo, contributors develop through the npm workspace rooted at `docs/`. The Karyon tenant resolves `@treeseed/core` locally through workspace linking, but downstream consumers are still expected to install from npm.
 
 ## Tenant CLI
 
@@ -180,7 +180,18 @@ Tenant branding assets should live in `public/` and be referenced through public
 
 ## Package Development In This Repository
 
-While the package still lives here, run package-development commands from `docs/packages/core/`.
+While the package still lives here, the preferred contributor entrypoint is the workspace root at `docs/`.
+
+Use the workspace root when you need layered development or release verification:
+
+- `npm install`
+- `npm run dev`
+- `npm run dev:watch`
+- `npm run test:unit`
+- `npm run test:release`
+- `npm run release:publish:changed`
+
+Run package-local commands from `docs/packages/core/` when you need to focus on `core` in isolation.
 
 Useful commands:
 
@@ -194,6 +205,8 @@ Useful commands:
 - `npm run test:e2e`: package-owned end-to-end coverage
 - `npm run test:scaffold`: scaffold smoke test
 - `npm run release:verify`: release verification flow before publishing
+
+When `@treeseed/sdk` changes, the workspace dev loop rebuilds `sdk`, then `core`, then the tenant runtime so local testing stays close to hot reload without publishing intermediate artifacts.
 
 The fixture app under `fixture/` exists only for package development and verification. It is not part of the downstream tenant contract.
 
@@ -215,7 +228,7 @@ This package uses a `files` whitelist and generated `dist/` exports so downstrea
 A few repository details in this workspace are temporary and should not be treated as part of the long-term public interface:
 
 - the package source currently lives under `docs/packages/core/`
-- the Karyon tenant currently references the package through `file:packages/core`
+- the Karyon tenant currently resolves the package through the local npm workspace during contributor development
 - fixture and workspace scripts exist to help package development before extraction
 
 The long-term contract is npm-first: tenants install `@treeseed/core` and interact with it through the `treeseed` CLI and exported entrypoints.

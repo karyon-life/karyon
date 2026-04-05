@@ -10,11 +10,16 @@ describe('model registry', () => {
 	it('defines the expected public models', () => {
 		expect(Object.keys(MODEL_REGISTRY).sort()).toEqual([
 			'agent',
+			'agent_cursor',
+			'agent_run',
 			'book',
+			'content_lease',
 			'knowledge',
 			'message',
 			'note',
 			'objective',
+			'page',
+			'person',
 			'question',
 			'subscription',
 		]);

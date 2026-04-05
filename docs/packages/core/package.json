@@ -6,7 +6,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/treeseed-ai/core.git",
-    "directory": "docs/packages/core"
+    "directory": "."
   },
   "homepage": "https://treeseed.ai",
   "type": "module",
@@ -58,6 +58,7 @@
     "release:publish": "node ./scripts/publish-package.mjs"
   },
   "dependencies": {
+    "@treeseed/sdk": "^0.0.1",
     "@astrojs/check": "^0.9.8",
     "@astrojs/cloudflare": "^12.6.13",
     "@astrojs/starlight": "0.37.6",

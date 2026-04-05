@@ -2,7 +2,7 @@
 
 This directory is a Treeseed tenant site for Karyon.
 
-Treat it as if it were its own repository that installs `@treeseed/core` from npm. The current `file:packages/core` dependency is only a temporary monorepo convenience while the platform package and the Karyon tenant continue to evolve together.
+Treat it as if it were its own repository that installs `@treeseed/core` from npm. Contributors now develop it through the local npm workspace rooted at `docs/`, but the consumer contract remains npm-first.
 
 ## What Lives Here
 
@@ -59,21 +59,29 @@ cd docs
 npm install
 ```
 
-Even though this repo currently points to `file:packages/core`, the intended consumer workflow is the same as an npm-installed tenant.
+That install now sets up the local workspace for:
+
+- the tenant app in `docs/`
+- `@treeseed/core` in `docs/packages/core`
+- `@treeseed/sdk` in `docs/packages/sdk`
+
+Local contributors should treat `docs/` as the top-level orchestrator. Downstream consumers should still think of this as an npm-installed tenant.
 
 Main commands:
 
 | Command | Action |
 | :------ | :----- |
 | `npm run dev` | Start the unified local Treeseed environment: static site, tiny Worker, Mailpit, local D1/KV, and generated books |
-| `npm run dev:watch` | Start the same environment with rebuilds and browser refresh for active core development |
+| `npm run dev:watch` | Start the same environment with layered rebuilds and browser refresh across `sdk`, `core`, and the tenant |
 | `npm run build` | Build the static site and generated Worker artifacts |
 | `npm run check` | Run the package-owned validation flow for the tenant |
 | `npm run deploy` | Provision or reuse Cloudflare resources and deploy the site |
 | `npm run destroy` | Dangerously delete the site's Worker, D1 database, and KV namespaces after typed confirmation |
 | `npm run preview` | Preview the built site locally |
 | `npm run cleanup:markdown -- <path>` | Normalize Markdown/MDX files |
-| `npm run test` | Run tenant-facing unit and integration checks through Treeseed |
+| `npm run test:unit` | Run workspace unit tests in dependency order: `sdk`, then `core` |
+| `npm run test:release` | Run tarball-based release verification for the publishable packages |
+| `npm run test` | Run workspace unit tests plus Treeseed integration and end-to-end checks |
 
 Additional local helpers:
 
@@ -199,7 +207,7 @@ The intended steady-state boundary is:
 - tenant repo carries only payload, deploy config, migrations, and thin Astro entrypoints
 - Treeseed owns the runtime, CLI, build pipeline, deploy pipeline, forms runtime, and Worker implementation
 
-Because this package is still temporarily developed in the same repository, you will see local paths like `packages/core/`. Treat those as contributor-only details, not part of the long-term tenant contract.
+Because this package is still temporarily developed in the same repository, you will see local workspace paths like `packages/core/` and `packages/sdk/`. Treat those as contributor-only details, not part of the long-term tenant contract.
 
 ## Troubleshooting
 

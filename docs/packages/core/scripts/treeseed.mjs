@@ -16,7 +16,6 @@ const COMMAND_MAP = new Map([
 	['astro', packageScriptPath('tenant-astro-command')],
 	['sync:devvars', packageScriptPath('sync-dev-vars')],
 	['mailpit:up', packageScriptPath('ensure-mailpit')],
-	['mailpit:ensure', packageScriptPath('ensure-mailpit')],
 	['mailpit:down', packageScriptPath('stop-mailpit')],
 	['mailpit:logs', packageScriptPath('logs-mailpit')],
 	['d1:migrate:local', packageScriptPath('tenant-d1-migrate-local')],
@@ -25,7 +24,6 @@ const COMMAND_MAP = new Map([
 	['starlight:patch', packageScriptPath('patch-starlight-content-path')],
 	['agents', packageScriptPath('treeseed-agents')],
 	['init', packageScriptPath('scaffold-site')],
-	['scaffold', packageScriptPath('scaffold-site')],
 ]);
 
 const PACKAGE_SCRIPT_COMMANDS = new Set(['test', 'test:unit', 'test:integration', 'test:e2e', 'test:smoke']);

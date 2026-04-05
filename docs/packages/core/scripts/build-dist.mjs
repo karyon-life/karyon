@@ -31,7 +31,48 @@ function ensureDir(filePath) {
 }
 
 function rewriteRuntimeSpecifiers(contents) {
-	return contents.replace(/(['"`])(\.[^'"`\n]+)\.(mjs|ts)\1/g, '$1$2.js$1');
+	return contents
+		.replace(/(['"`])(\.[^'"`\n]+)\.(mjs|ts)\1/g, '$1$2.js$1')
+		.replaceAll('../../../../sdk/src/sdk.js', '@treeseed/sdk/sdk')
+		.replaceAll('../../../../sdk/src/sdk.ts', '@treeseed/sdk/sdk')
+		.replaceAll('../../../../sdk/src/sdk-types.js', '@treeseed/sdk/types')
+		.replaceAll('../../../../sdk/src/sdk-types.ts', '@treeseed/sdk/types')
+		.replaceAll('../../../../sdk/src/model-registry.js', '@treeseed/sdk/models')
+		.replaceAll('../../../../sdk/src/model-registry.ts', '@treeseed/sdk/models')
+		.replaceAll('../../../../sdk/src/d1-store.js', '@treeseed/sdk/d1-store')
+		.replaceAll('../../../../sdk/src/d1-store.ts', '@treeseed/sdk/d1-store')
+		.replaceAll('../../../../sdk/src/content-store.js', '@treeseed/sdk/content-store')
+		.replaceAll('../../../../sdk/src/content-store.ts', '@treeseed/sdk/content-store')
+		.replaceAll('../../../../sdk/src/frontmatter.js', '@treeseed/sdk/frontmatter')
+		.replaceAll('../../../../sdk/src/frontmatter.ts', '@treeseed/sdk/frontmatter')
+		.replaceAll('../../../../sdk/src/git-runtime.js', '@treeseed/sdk/git-runtime')
+		.replaceAll('../../../../sdk/src/git-runtime.ts', '@treeseed/sdk/git-runtime')
+		.replaceAll('../../../../sdk/src/sdk-filters.js', '@treeseed/sdk/sdk-filters')
+		.replaceAll('../../../../sdk/src/sdk-filters.ts', '@treeseed/sdk/sdk-filters')
+		.replaceAll('../../../../sdk/src/wrangler-d1.js', '@treeseed/sdk/wrangler-d1')
+		.replaceAll('../../../../sdk/src/wrangler-d1.ts', '@treeseed/sdk/wrangler-d1')
+		.replaceAll('../../../../../sdk/src/stores/helpers.js', '@treeseed/sdk/stores/helpers')
+		.replaceAll('../../../../../sdk/src/stores/helpers.ts', '@treeseed/sdk/stores/helpers')
+		.replaceAll('../../../../../sdk/src/stores/cursor-store.js', '@treeseed/sdk/stores/cursor-store')
+		.replaceAll('../../../../../sdk/src/stores/cursor-store.ts', '@treeseed/sdk/stores/cursor-store')
+		.replaceAll('../../../../../sdk/src/stores/lease-store.js', '@treeseed/sdk/stores/lease-store')
+		.replaceAll('../../../../../sdk/src/stores/lease-store.ts', '@treeseed/sdk/stores/lease-store')
+		.replaceAll('../../../../../sdk/src/stores/message-store.js', '@treeseed/sdk/stores/message-store')
+		.replaceAll('../../../../../sdk/src/stores/message-store.ts', '@treeseed/sdk/stores/message-store')
+		.replaceAll('../../../../../sdk/src/stores/run-store.js', '@treeseed/sdk/stores/run-store')
+		.replaceAll('../../../../../sdk/src/stores/run-store.ts', '@treeseed/sdk/stores/run-store')
+		.replaceAll('../../../../../sdk/src/stores/subscription-store.js', '@treeseed/sdk/stores/subscription-store')
+		.replaceAll('../../../../../sdk/src/stores/subscription-store.ts', '@treeseed/sdk/stores/subscription-store')
+		.replaceAll('../../../../sdk/src/types/agents.js', '@treeseed/sdk/types/agents')
+		.replaceAll('../../../../sdk/src/types/agents.ts', '@treeseed/sdk/types/agents')
+		.replaceAll('../../../sdk/src/types/agents.js', '@treeseed/sdk/types/agents')
+		.replaceAll('../../../sdk/src/types/agents.ts', '@treeseed/sdk/types/agents')
+		.replaceAll('../../../../sdk/src/types/cloudflare.js', '@treeseed/sdk/types/cloudflare')
+		.replaceAll('../../../../sdk/src/types/cloudflare.ts', '@treeseed/sdk/types/cloudflare')
+		.replaceAll('../../../../sdk/src/types/cloudflare', '@treeseed/sdk/types/cloudflare')
+		.replaceAll('../../../sdk/src/types/cloudflare.js', '@treeseed/sdk/types/cloudflare')
+		.replaceAll('../../../sdk/src/types/cloudflare.ts', '@treeseed/sdk/types/cloudflare')
+		.replaceAll('../../../sdk/src/types/cloudflare', '@treeseed/sdk/types/cloudflare');
 }
 
 function rewriteVendorImportSpecifiers(contents, importerFile) {

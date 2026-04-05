@@ -8,6 +8,8 @@ import { packageRoot, packageScriptPath } from './package-tools.mjs';
 
 const npmCacheDir = resolve(packageRoot, '.local', 'scaffold-npm-cache');
 const packageJson = JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'));
+const sdkPackageRoot = resolve(packageRoot, '..', 'sdk');
+const sdkPackageJson = JSON.parse(readFileSync(resolve(sdkPackageRoot, 'package.json'), 'utf8'));
 
 function resetNpmCache() {
 	rmSync(npmCacheDir, { recursive: true, force: true });
@@ -33,24 +35,26 @@ function createTempSiteRoot() {
 	return mkdtempSync(join(tmpdir(), 'treeseed-scaffold-'));
 }
 
-function rewriteScaffoldDependency(siteRoot, tarballPath) {
+function rewriteScaffoldDependency(siteRoot, tarballPath, sdkTarballPath) {
 	const packageJsonPath = resolve(siteRoot, 'package.json');
 	const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
 	packageJson.dependencies = packageJson.dependencies ?? {};
 	packageJson.dependencies['@treeseed/core'] = tarballPath;
+	packageJson.dependencies['@treeseed/sdk'] = sdkTarballPath;
 	writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8');
 }
 
-function createTarball() {
-	runStep('npm', ['run', 'build:dist']);
+function createTarball(root, pkg) {
+	runStep('npm', ['run', 'build:dist'], { cwd: root });
 	runStep('npm', ['pack', '--ignore-scripts', '--cache', npmCacheDir], {
+		cwd: root,
 		env: {
 			npm_config_cache: npmCacheDir,
 			NPM_CONFIG_CACHE: npmCacheDir,
 		},
 	});
-	const filename = `${packageJson.name.replace(/^@/, '').replaceAll('/', '-')}-${packageJson.version}.tgz`;
-	return resolve(packageRoot, filename);
+	const filename = `${pkg.name.replace(/^@/, '').replaceAll('/', '-')}-${pkg.version}.tgz`;
+	return resolve(root, filename);
 }
 
 function scaffoldSite(siteRoot) {
@@ -76,16 +80,25 @@ function runScaffoldChecks(siteRoot) {
 }
 
 const siteRoot = createTempSiteRoot();
+let tarballPath;
+let sdkTarballPath;
 
 try {
 	resetNpmCache();
-	const tarballPath = createTarball();
+	sdkTarballPath = createTarball(sdkPackageRoot, sdkPackageJson);
+	tarballPath = createTarball(packageRoot, packageJson);
 	scaffoldSite(siteRoot);
-	rewriteScaffoldDependency(siteRoot, tarballPath);
+	rewriteScaffoldDependency(siteRoot, tarballPath, sdkTarballPath);
 	installScaffold(siteRoot);
 	runScaffoldChecks(siteRoot);
 	console.log(`Scaffold smoke test passed in ${dirname(siteRoot) ? siteRoot : '.'}`);
 } finally {
 	rmSync(siteRoot, { recursive: true, force: true });
+	if (sdkTarballPath) {
+		rmSync(sdkTarballPath, { force: true });
+	}
+	if (tarballPath) {
+		rmSync(tarballPath, { force: true });
+	}
 	resetNpmCache();
 }

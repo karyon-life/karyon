@@ -7,6 +7,7 @@ import {
 	startPollingWatch,
 	stopManagedProcess,
 	writeDevReloadStamp,
+	workspaceSdkRoot,
 } from './watch-dev-lib.mjs';
 
 const tenantRoot = process.cwd();
@@ -37,10 +38,23 @@ function runNodeScript(scriptPath, args = [], options = {}) {
 	return runStep(process.execPath, [scriptPath, ...args], options);
 }
 
-function runTenantBuildCycle({ includePackageBuild = false, fatal = true } = {}) {
+function runTenantBuildCycle({ includePackageBuild = false, includeSdkBuild = false, fatal = true } = {}) {
 	const envOverrides = ['TREESEED_LOCAL_DEV_MODE=cloudflare'];
 	if (watchMode) {
 		envOverrides.push('TREESEED_PUBLIC_DEV_WATCH_RELOAD=true');
+	}
+
+	if (includeSdkBuild && isEditablePackageWorkspace()) {
+		const sdkRoot = workspaceSdkRoot();
+		if (sdkRoot) {
+			const sdkBuilt = runStep('npm', ['run', 'build:dist'], {
+				cwd: sdkRoot,
+				fatal,
+			});
+			if (!sdkBuilt) {
+				return false;
+			}
+		}
 	}
 
 	if (includePackageBuild && isEditablePackageWorkspace()) {
@@ -152,6 +166,7 @@ process.on('SIGTERM', () => {
 process.env.TREESEED_LOCAL_DEV_MODE = process.env.TREESEED_LOCAL_DEV_MODE ?? 'cloudflare';
 
 runTenantBuildCycle({
+	includeSdkBuild: isEditablePackageWorkspace(),
 	includePackageBuild: isEditablePackageWorkspace(),
 	fatal: true,
 });
@@ -162,9 +177,9 @@ if (watchMode) {
 	console.log('Starting unified Wrangler watch mode. Changes will rebuild the app and refresh the browser.');
 	stopWatching = startPollingWatch({
 		watchEntries: createTenantWatchEntries(tenantRoot),
-		onChange: async ({ changedPaths, packageChanged }) => {
+		onChange: async ({ changedPaths, packageChanged, sdkChanged }) => {
 			console.log(
-				`Detected ${changedPaths.length} change${changedPaths.length === 1 ? '' : 's'}; rebuilding ${packageChanged ? 'package and tenant' : 'tenant'} output...`,
+				`Detected ${changedPaths.length} change${changedPaths.length === 1 ? '' : 's'}; rebuilding ${sdkChanged ? 'sdk, core, and tenant' : packageChanged ? 'core and tenant' : 'tenant'} output...`,
 			);
 
 			isStoppingForRebuild = true;
@@ -172,7 +187,8 @@ if (watchMode) {
 			isStoppingForRebuild = false;
 
 			const ok = runTenantBuildCycle({
-				includePackageBuild: packageChanged,
+				includeSdkBuild: sdkChanged,
+				includePackageBuild: packageChanged || sdkChanged,
 				fatal: false,
 			});
 
