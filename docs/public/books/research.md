@@ -1,6 +1,6 @@
 # Karyon Research
 
-> This document is auto-generated from the Karyon docs source.
+> This document is auto-generated from the Karyon knowledge source.
 
 ## **Executive Summary**
 
@@ -6769,19 +6769,19 @@ This library collects the longer-form research reports that ground Karyon’s de
 
 The reports are organized by durable project topics such as learning, runtime, memory, execution, and observability. That keeps the research corpus useful even as the architecture book evolves and new books are added over time.
 
-If you want the lighter editorial framing for why these questions matter, start with the [Research Direction](/research-direction/) page. If you are ready to move from reports into thesis-level synthesis, continue into the [Architecture book](/docs/architecture/).
+If you want the lighter editorial framing for why these questions matter, start with the [Research Direction](/research-direction/) page. If you are ready to move from reports into thesis-level synthesis, continue into the [Architecture book](/knowledge/architecture/).
 
 ## How to use this library
 
 Use this library when you want the deeper reports behind a design claim, subsystem analogy, or implementation constraint. Shared docs search indexes these pages alongside the rest of the library, so you can discover reports by topic and then stay within the research categories for focused reading.
 
-    Begin with the reports on transformer limits, stateful cognition, and the broader paradigm shift. [Open Foundations](/docs/research/foundations/transformer-limitations-and-ai-architectures/)
+    Begin with the reports on transformer limits, stateful cognition, and the broader paradigm shift. [Open Foundations](/knowledge/research/foundations/transformer-limitations-and-ai-architectures/)
 
-    Read the reports that ground the nucleus, cytoplasm, concurrency, and communications model. [Open Runtime](/docs/research/runtime/karyon-architecture-research-synthesis/)
+    Read the reports that ground the nucleus, cytoplasm, concurrency, and communications model. [Open Runtime](/knowledge/research/runtime/karyon-architecture-research-synthesis/)
 
-    Follow the reports on graph memory, consolidation, abstraction, and temporal storage. [Open Memory](/docs/research/memory/ai-abstraction-memory-and-embodiment-research/)
+    Follow the reports on graph memory, consolidation, abstraction, and temporal storage. [Open Memory](/knowledge/research/memory/ai-abstraction-memory-and-embodiment-research/)
 
-    Follow the synthesized public thesis after reviewing the reports. [Open Architecture](/docs/architecture/)
+    Follow the synthesized public thesis after reviewing the reports. [Open Architecture](/knowledge/architecture/)
 
 ---
 

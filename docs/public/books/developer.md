@@ -1,16 +1,16 @@
 # Karyon Developer
 
-> This document is auto-generated from the Karyon docs source.
+> This document is auto-generated from the Karyon knowledge source.
 
 # Chapter 1 Conformance
 
 This document captures the Chapter 1 conformance gate for:
 
-- `docs/src/content/docs/part-1/chapter-1/1-introduction.md`
-- `docs/src/content/docs/part-1/chapter-1/2-the-statistical-dead-end.md`
-- `docs/src/content/docs/part-1/chapter-1/3-catastrophic-forgetting-and-hardware-economics.md`
-- `docs/src/content/docs/part-1/chapter-1/4-why-current-ai-fails-predictive-coding-and-active-inference.md`
-- `docs/src/content/docs/part-1/chapter-1/5-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-1/chapter-1/1-introduction.md`
+- `docs/src/content/knowledge/part-1/chapter-1/2-the-statistical-dead-end.md`
+- `docs/src/content/knowledge/part-1/chapter-1/3-catastrophic-forgetting-and-hardware-economics.md`
+- `docs/src/content/knowledge/part-1/chapter-1/4-why-current-ai-fails-predictive-coding-and-active-inference.md`
+- `docs/src/content/knowledge/part-1/chapter-1/5-chapter-wrap-up.md`
 
 Chapter 1 conformance requires these behaviors:
 
@@ -38,7 +38,7 @@ The GitHub Actions workflow `chapter1-conformance.yml` must pass on pushes and p
 
 # Chapter 2 Conformance
 
-This document defines the regression boundaries derived from Part 1 Chapter 2 of the Karyon book source at `docs/src/content/docs/part-1/chapter-2/**`.
+This document defines the regression boundaries derived from Part 1 Chapter 2 of the Karyon book source at `docs/src/content/knowledge/part-1/chapter-2/**`.
 
 ## Forbidden Regressions
 
@@ -78,13 +78,13 @@ CI requirement:
 
 This document captures the Chapter 3 conformance gate for:
 
-- `docs/src/content/docs/part-2/chapter-3/1-introduction.md`
-- `docs/src/content/docs/part-2/chapter-3/2-the-microkernel-philosophy.md`
-- `docs/src/content/docs/part-2/chapter-3/3-why-erlang-beam-is-the-perfect-cytoplasm.md`
-- `docs/src/content/docs/part-2/chapter-3/4-why-rust-nifs-are-the-perfect-organelles.md`
-- `docs/src/content/docs/part-2/chapter-3/5-the-membrane-firecracker-qemu-and-kvm.md`
-- `docs/src/content/docs/part-2/chapter-3/6-the-nervous-system-distributed-cognition.md`
-- `docs/src/content/docs/part-2/chapter-3/7-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-2/chapter-3/1-introduction.md`
+- `docs/src/content/knowledge/part-2/chapter-3/2-the-microkernel-philosophy.md`
+- `docs/src/content/knowledge/part-2/chapter-3/3-why-erlang-beam-is-the-perfect-cytoplasm.md`
+- `docs/src/content/knowledge/part-2/chapter-3/4-why-rust-nifs-are-the-perfect-organelles.md`
+- `docs/src/content/knowledge/part-2/chapter-3/5-the-membrane-firecracker-qemu-and-kvm.md`
+- `docs/src/content/knowledge/part-2/chapter-3/6-the-nervous-system-distributed-cognition.md`
+- `docs/src/content/knowledge/part-2/chapter-3/7-chapter-wrap-up.md`
 
 Chapter 3 conformance requires these behaviors:
 
@@ -118,11 +118,11 @@ The GitHub Actions workflow `chapter3-conformance.yml` must pass on pushes and p
 
 This document captures the Chapter 4 regulation gate for:
 
-- `docs/src/content/docs/part-2/chapter-4/1-introduction.md`
-- `docs/src/content/docs/part-2/chapter-4/2-declarative-genetics.md`
-- `docs/src/content/docs/part-2/chapter-4/3-the-epigenetic-supervisor.md`
-- `docs/src/content/docs/part-2/chapter-4/4-apoptosis-digital-torpor.md`
-- `docs/src/content/docs/part-2/chapter-4/5-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-2/chapter-4/1-introduction.md`
+- `docs/src/content/knowledge/part-2/chapter-4/2-declarative-genetics.md`
+- `docs/src/content/knowledge/part-2/chapter-4/3-the-epigenetic-supervisor.md`
+- `docs/src/content/knowledge/part-2/chapter-4/4-apoptosis-digital-torpor.md`
+- `docs/src/content/knowledge/part-2/chapter-4/5-chapter-wrap-up.md`
 
 Chapter 4 conformance requires these behaviors:
 
@@ -153,11 +153,11 @@ The GitHub Actions workflow `chapter4-conformance.yml` must pass on pushes and p
 
 This document captures the Chapter 5 temporal graph gate for:
 
-- `docs/src/content/docs/part-3/chapter-5/1-introduction.md`
-- `docs/src/content/docs/part-3/chapter-5/2-graph-vs-matrix.md`
-- `docs/src/content/docs/part-3/chapter-5/3-working-memory-vs-archive.md`
-- `docs/src/content/docs/part-3/chapter-5/4-multi-version-concurrency-control.md`
-- `docs/src/content/docs/part-3/chapter-5/5-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-3/chapter-5/1-introduction.md`
+- `docs/src/content/knowledge/part-3/chapter-5/2-graph-vs-matrix.md`
+- `docs/src/content/knowledge/part-3/chapter-5/3-working-memory-vs-archive.md`
+- `docs/src/content/knowledge/part-3/chapter-5/4-multi-version-concurrency-control.md`
+- `docs/src/content/knowledge/part-3/chapter-5/5-chapter-wrap-up.md`
 
 Chapter 5 conformance requires these behaviors:
 
@@ -189,11 +189,11 @@ The GitHub Actions workflow `chapter5-conformance.yml` must pass on pushes and p
 
 This document captures the Chapter 6 adaptive-map gate for:
 
-- `docs/src/content/docs/part-3/chapter-6/1-introduction.md`
-- `docs/src/content/docs/part-3/chapter-6/2-hebbian-wiring-spatial-pooling.md`
-- `docs/src/content/docs/part-3/chapter-6/3-the-pain-receptor.md`
-- `docs/src/content/docs/part-3/chapter-6/4-the-sleep-cycle-memory-consolidation.md`
-- `docs/src/content/docs/part-3/chapter-6/5-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-3/chapter-6/1-introduction.md`
+- `docs/src/content/knowledge/part-3/chapter-6/2-hebbian-wiring-spatial-pooling.md`
+- `docs/src/content/knowledge/part-3/chapter-6/3-the-pain-receptor.md`
+- `docs/src/content/knowledge/part-3/chapter-6/4-the-sleep-cycle-memory-consolidation.md`
+- `docs/src/content/knowledge/part-3/chapter-6/5-chapter-wrap-up.md`
 
 Chapter 6 conformance requires these behaviors:
 
@@ -224,11 +224,11 @@ The GitHub Actions workflow `chapter6-conformance.yml` must pass on pushes and p
 
 This document captures the Chapter 7 sensory gate for:
 
-- `docs/src/content/docs/part-4/chapter-7/1-introduction.md`
-- `docs/src/content/docs/part-4/chapter-7/2-the-eyes-deterministic-parsing.md`
-- `docs/src/content/docs/part-4/chapter-7/3-the-ears-telemetry-events.md`
-- `docs/src/content/docs/part-4/chapter-7/4-the-skin-spatial-poolers.md`
-- `docs/src/content/docs/part-4/chapter-7/5-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-4/chapter-7/1-introduction.md`
+- `docs/src/content/knowledge/part-4/chapter-7/2-the-eyes-deterministic-parsing.md`
+- `docs/src/content/knowledge/part-4/chapter-7/3-the-ears-telemetry-events.md`
+- `docs/src/content/knowledge/part-4/chapter-7/4-the-skin-spatial-poolers.md`
+- `docs/src/content/knowledge/part-4/chapter-7/5-chapter-wrap-up.md`
 
 Chapter 7 conformance requires these behaviors:
 
@@ -260,11 +260,11 @@ The GitHub Actions workflow `chapter7-conformance.yml` must pass on pushes and p
 
 This document captures the Chapter 8 action gate for:
 
-- `docs/src/content/docs/part-4/chapter-8/1-introduction.md`
-- `docs/src/content/docs/part-4/chapter-8/2-linguistic-motor-cells.md`
-- `docs/src/content/docs/part-4/chapter-8/3-the-sandbox.md`
-- `docs/src/content/docs/part-4/chapter-8/4-friction-mirror-neurons.md`
-- `docs/src/content/docs/part-4/chapter-8/5-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-4/chapter-8/1-introduction.md`
+- `docs/src/content/knowledge/part-4/chapter-8/2-linguistic-motor-cells.md`
+- `docs/src/content/knowledge/part-4/chapter-8/3-the-sandbox.md`
+- `docs/src/content/knowledge/part-4/chapter-8/4-friction-mirror-neurons.md`
+- `docs/src/content/knowledge/part-4/chapter-8/5-chapter-wrap-up.md`
 
 Chapter 8 conformance requires these behaviors:
 
@@ -294,11 +294,11 @@ The GitHub Actions workflow `chapter8-conformance.yml` must pass on pushes and p
 
 This document captures the Chapter 9 drive gate for:
 
-- `docs/src/content/docs/part-5/chapter-9/1-introduction.md`
-- `docs/src/content/docs/part-5/chapter-9/2-the-atp-analogue.md`
-- `docs/src/content/docs/part-5/chapter-9/3-epistemic-foraging-curiosity.md`
-- `docs/src/content/docs/part-5/chapter-9/4-the-simulation-daemon-dreams.md`
-- `docs/src/content/docs/part-5/chapter-9/5-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-5/chapter-9/1-introduction.md`
+- `docs/src/content/knowledge/part-5/chapter-9/2-the-atp-analogue.md`
+- `docs/src/content/knowledge/part-5/chapter-9/3-epistemic-foraging-curiosity.md`
+- `docs/src/content/knowledge/part-5/chapter-9/4-the-simulation-daemon-dreams.md`
+- `docs/src/content/knowledge/part-5/chapter-9/5-chapter-wrap-up.md`
 
 Chapter 9 conformance requires these behaviors:
 
@@ -328,11 +328,11 @@ The GitHub Actions workflow `chapter9-conformance.yml` must pass on pushes and p
 
 This document captures the Chapter 10 sovereignty gate for:
 
-- `docs/src/content/docs/part-5/chapter-10/1-introduction.md`
-- `docs/src/content/docs/part-5/chapter-10/2-sovereign-directives.md`
-- `docs/src/content/docs/part-5/chapter-10/3-defiance-and-homeostasis.md`
-- `docs/src/content/docs/part-5/chapter-10/4-the-cross-workspace-architect.md`
-- `docs/src/content/docs/part-5/chapter-10/5-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-5/chapter-10/1-introduction.md`
+- `docs/src/content/knowledge/part-5/chapter-10/2-sovereign-directives.md`
+- `docs/src/content/knowledge/part-5/chapter-10/3-defiance-and-homeostasis.md`
+- `docs/src/content/knowledge/part-5/chapter-10/4-the-cross-workspace-architect.md`
+- `docs/src/content/knowledge/part-5/chapter-10/5-chapter-wrap-up.md`
 
 Chapter 10 conformance requires these behaviors:
 
@@ -362,11 +362,11 @@ The GitHub Actions workflow `chapter10-conformance.yml` must pass on pushes and 
 
 This document captures the Chapter 11 genesis gate for:
 
-- `docs/src/content/docs/part-6/chapter-11/1-introduction.md`
-- `docs/src/content/docs/part-6/chapter-11/2-the-monorepo-pipeline.md`
-- `docs/src/content/docs/part-6/chapter-11/3-visualizing-the-rhizome.md`
-- `docs/src/content/docs/part-6/chapter-11/4-the-distributed-experience-engram.md`
-- `docs/src/content/docs/part-6/chapter-11/5-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-6/chapter-11/1-introduction.md`
+- `docs/src/content/knowledge/part-6/chapter-11/2-the-monorepo-pipeline.md`
+- `docs/src/content/knowledge/part-6/chapter-11/3-visualizing-the-rhizome.md`
+- `docs/src/content/knowledge/part-6/chapter-11/4-the-distributed-experience-engram.md`
+- `docs/src/content/knowledge/part-6/chapter-11/5-chapter-wrap-up.md`
 
 Chapter 11 conformance requires these behaviors:
 
@@ -396,12 +396,12 @@ The GitHub Actions workflow `chapter11-conformance.yml` must pass on pushes and 
 
 This document captures the Chapter 12 maturation gate for:
 
-- `docs/src/content/docs/part-6/chapter-12/1-introduction.md`
-- `docs/src/content/docs/part-6/chapter-12/2-the-baseline-diet.md`
-- `docs/src/content/docs/part-6/chapter-12/3-execution-telemetry.md`
-- `docs/src/content/docs/part-6/chapter-12/4-the-synthetic-oracle-curriculum-the-teacher-daemon.md`
-- `docs/src/content/docs/part-6/chapter-12/5-abstract-intent.md`
-- `docs/src/content/docs/part-6/chapter-12/6-chapter-wrap-up.md`
+- `docs/src/content/knowledge/part-6/chapter-12/1-introduction.md`
+- `docs/src/content/knowledge/part-6/chapter-12/2-the-baseline-diet.md`
+- `docs/src/content/knowledge/part-6/chapter-12/3-execution-telemetry.md`
+- `docs/src/content/knowledge/part-6/chapter-12/4-the-synthetic-oracle-curriculum-the-teacher-daemon.md`
+- `docs/src/content/knowledge/part-6/chapter-12/5-abstract-intent.md`
+- `docs/src/content/knowledge/part-6/chapter-12/6-chapter-wrap-up.md`
 
 Chapter 12 conformance requires these behaviors:
 
@@ -433,11 +433,11 @@ This book is the contributor-facing companion to the architecture corpus. It is 
 
 Use this book as the current entry point into the implementation-facing contracts, subsystem boundaries, and regression gates that keep the organism aligned with its architecture.
 
-    Start with the implementation contracts and subsystem boundaries. [Open NIF Safety](/docs/developer/nif-safety/)
+    Start with the implementation contracts and subsystem boundaries. [Open NIF Safety](/knowledge/developer/nif-safety/)
 
-    Follow the maturation and operational guidance for building inside the platform. [Open Operational Maturity](/docs/developer/operational-maturity/)
+    Follow the maturation and operational guidance for building inside the platform. [Open Operational Maturity](/knowledge/developer/operational-maturity/)
 
-    Use the chapter gates as regression boundaries when changing behavior. [Open Chapter 1 Conformance](/docs/developer/chapter-1-conformance/)
+    Use the chapter gates as regression boundaries when changing behavior. [Open Chapter 1 Conformance](/knowledge/developer/chapter-1-conformance/)
 
 ## What this book covers today
 
@@ -451,7 +451,7 @@ Use this book as the current entry point into the implementation-facing contract
 
 This document captures the explicit learning loop introduced for:
 
-- `docs/src/content/docs/part-3/chapter-6/1-introduction.md`
+- `docs/src/content/knowledge/part-3/chapter-6/1-introduction.md`
 
 The learning loop is now modeled as five ordered phases:
 
@@ -608,7 +608,7 @@ This contract is introductory on purpose. Later Chapter 11 and 12 phases should 
 
 # Subsystem Contracts
 
-This document captures the subsystem ownership model required by Part II Chapter 3 Section 1 of the Karyon book source at `docs/src/content/docs/part-2/chapter-3/1-introduction.md`.
+This document captures the subsystem ownership model required by Part II Chapter 3 Section 1 of the Karyon book source at `docs/src/content/knowledge/part-2/chapter-3/1-introduction.md`.
 
 ## Ownership
 

@@ -1,6 +1,6 @@
 # Karyon Architecture
 
-> This document is auto-generated from the Karyon docs source.
+> This document is auto-generated from the Karyon knowledge source.
 
 # Architecture
 
@@ -8,11 +8,11 @@ The architecture section is the deepest current public asset in the project. It 
 
 This section is intentionally paired with the public status pages elsewhere on the site. Read it as a serious architecture corpus, but not as proof that every subsystem has already been validated in production.
 
-    Start with the structure of the book before diving into chapters. [Open the outline](/docs/architecture/topic-outline/)
+    Start with the structure of the book before diving into chapters. [Open the outline](/knowledge/architecture/topic-outline/)
 
-    Read the framing for the biological and systems argument. [Start Part I](/docs/architecture/part-1/chapter-1/1-introduction/)
+    Read the framing for the biological and systems argument. [Start Part I](/knowledge/architecture/part-1/chapter-1/1-introduction/)
 
-    Follow the deeper technical walkthrough across runtime, memory, perception, and training. [Jump into Part II](/docs/architecture/part-2/chapter-3/1-introduction/)
+    Follow the deeper technical walkthrough across runtime, memory, perception, and training. [Jump into Part II](/knowledge/architecture/part-2/chapter-3/1-introduction/)
 
 ---
 

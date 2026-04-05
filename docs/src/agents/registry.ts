@@ -1,5 +1,9 @@
-import type { AgentHandlerKind } from '../types/agents';
-import type { AgentHandler } from '../utils/agents/runtime-types.ts';
+import type { AgentHandlerKind } from '@treeseed/core/types/agents';
+import type { AgentHandler } from '@treeseed/core/utils/agents/runtime-types';
+import {
+	defineAgentHandlerRegistry,
+	resolveAgentHandlerFromRegistry,
+} from '@treeseed/core/agents/registry-helper';
 import { architectHandler } from './architect.ts';
 import { engineerHandler } from './engineer.ts';
 import { notifierHandler } from './notifier.ts';
@@ -8,7 +12,8 @@ import { releaserHandler } from './releaser.ts';
 import { researcherHandler } from './researcher.ts';
 import { reviewerHandler } from './reviewer.ts';
 
-export const AGENT_HANDLER_REGISTRY: Partial<Record<AgentHandlerKind, AgentHandler>> = {
+export const AGENT_HANDLER_REGISTRY: Partial<Record<AgentHandlerKind, AgentHandler>> =
+	defineAgentHandlerRegistry({
 	planner: plannerHandler,
 	architect: architectHandler,
 	engineer: engineerHandler,
@@ -16,12 +21,8 @@ export const AGENT_HANDLER_REGISTRY: Partial<Record<AgentHandlerKind, AgentHandl
 	researcher: researcherHandler,
 	reviewer: reviewerHandler,
 	releaser: releaserHandler,
-};
+	});
 
 export function resolveAgentHandler(kind: AgentHandlerKind) {
-	const handler = AGENT_HANDLER_REGISTRY[kind];
-	if (!handler) {
-		throw new Error(`No runtime handler is registered for agent handler "${kind}".`);
-	}
-	return handler;
+	return resolveAgentHandlerFromRegistry(AGENT_HANDLER_REGISTRY, kind);
 }

@@ -1,5 +1,5 @@
-import type { AgentHandler } from '../utils/agents/runtime-types.ts';
-import { serializeAgentMessagePayload } from '../utils/agents/contracts/messages.ts';
+import type { AgentHandler } from '@treeseed/core/utils/agents/runtime-types';
+import { serializeAgentMessagePayload } from '@treeseed/core/utils/agents/contracts/messages';
 
 interface NotifierInputs {
 	subscriptions: Array<{ email: string }>;
@@ -48,7 +48,7 @@ export const notifierHandler: AgentHandler<NotifierInputs, NotifierResult> = {
 			agent: context.agent,
 			runId: context.runId,
 			recipients: inputs.subscriptions.map((subscription) => subscription.email),
-			subject: 'Research Hub updates',
+			subject: 'Treeseed updates',
 			body: `New activity count: ${inputs.activityCount}`,
 		});
 		return {

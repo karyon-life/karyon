@@ -1,10 +1,10 @@
 import path from 'node:path';
-import type { AgentHandler } from '../utils/agents/runtime-types.ts';
+import type { AgentHandler } from '@treeseed/core/utils/agents/runtime-types';
 import {
 	parseAgentMessagePayload,
 	serializeAgentMessagePayload,
-} from '../utils/agents/contracts/messages.ts';
-import type { AgentErrorCategory } from '../utils/agents/contracts/run.ts';
+} from '@treeseed/core/utils/agents/contracts/messages';
+import type { AgentErrorCategory } from '@treeseed/core/utils/agents/contracts/run';
 
 interface EngineerInputs {
 	messageId: number;

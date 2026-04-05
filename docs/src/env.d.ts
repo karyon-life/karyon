@@ -1,10 +1,14 @@
-import type { CloudflareRuntime } from './types/cloudflare';
+import type {
+	CloudflareRuntime,
+	D1DatabaseLike,
+	KvNamespaceLike,
+} from '@treeseed/core/types/cloudflare';
 
 declare global {
 	interface Env {
-		FORM_GUARD_KV: import('./types/cloudflare').KvNamespaceLike;
-		SUBSCRIBERS_DB: import('./types/cloudflare').D1DatabaseLike;
-		SESSION: import('./types/cloudflare').KvNamespaceLike;
+		FORM_GUARD_KV: KvNamespaceLike;
+		SUBSCRIBERS_DB: D1DatabaseLike;
+		SESSION: KvNamespaceLike;
 	}
 }
 

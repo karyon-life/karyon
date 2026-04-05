@@ -13,10 +13,10 @@ summary: "This page helps readers approach the architecture corpus with the righ
 updated: 2026-04-03
 ---
 
-import SectionIntro from '../../components/site/SectionIntro.astro';
-import PathCard from '../../components/site/PathCard.astro';
-import TrustCallout from '../../components/site/TrustCallout.astro';
-import ContentStatusLegend from '../../components/content/ContentStatusLegend.astro';
+import SectionIntro from '@treeseed/core/components/site/SectionIntro.astro';
+import PathCard from '@treeseed/core/components/site/PathCard.astro';
+import TrustCallout from '@treeseed/core/components/site/TrustCallout.astro';
+import ContentStatusLegend from '@treeseed/core/components/content/ContentStatusLegend.astro';
 
 <SectionIntro
 	eyebrow="Architecture"
@@ -50,9 +50,9 @@ import ContentStatusLegend from '../../components/content/ContentStatusLegend.as
 </div>
 
 <div class="border-b border-[color:var(--site-border)]">
-	<PathCard href="/docs/architecture/" title="Architecture docs" meta="Book and thesis" description="Start with the architecture book if you want the fullest statement of the intended organism and the project’s conceptual structure." />
-	<PathCard href="/docs/developer/" title="Developer book" meta="Contributor references" description="Use the developer book to compare the architecture thesis with current implementation intent, contracts, and source-guided notes." />
-	<PathCard href="/docs/operations/" title="Operations book" meta="Operational constraints" description="Review the operations book for readiness concerns and practical constraints shaping how the organism is expected to run." />
+	<PathCard href="/knowledge/architecture/" title="Architecture docs" meta="Book and thesis" description="Start with the architecture book if you want the fullest statement of the intended organism and the project’s conceptual structure." />
+	<PathCard href="/knowledge/developer/" title="Developer book" meta="Contributor references" description="Use the developer book to compare the architecture thesis with current implementation intent, contracts, and source-guided notes." />
+	<PathCard href="/knowledge/operations/" title="Operations book" meta="Operational constraints" description="Review the operations book for readiness concerns and practical constraints shaping how the organism is expected to run." />
 </div>
 
 <TrustCallout

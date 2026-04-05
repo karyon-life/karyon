@@ -1,15 +1,26 @@
-# Karyon Docs
+# Karyon Knowledge Hub
 
 This site contains the architecture book and operator-facing documentation for Karyon.
 
 This repository is being prepared to stand on its own. Treat the `docs/` directory as the future root of the standalone docs repository even while it still lives inside the runtime monorepo.
 
+## Core vs Payload
+
+The docs app now uses a package-first split:
+
+- `packages/core/`: the main shared Astro site, Starlight integration, components, layouts, routes, middleware, scripts, forms runtime, and generic agent runtime/framework.
+- `src/manifest.yaml`: the project tenant manifest.
+- `src/content/**`, `src/config.yaml`, `public/`, `prompts/`, and `src/agents/**`: Karyon-owned payload.
+- `src/content.config.ts` and `astro.config.mjs`: thin local entrypoints that mount the shared package from the project repo.
+
+The intended steady state is that almost all app/framework code lives in `@treeseed/core`, while project repos mostly carry tenant data, concrete agent definitions/handlers, and tiny entrypoints.
+
 ## Current State
 
 The docs describe both the target organism and the codebase that exists today. Treat the codebase as the source of truth for runtime behavior:
 
-- the docs book is maintained in `src/content/docs/`
-- the public site now combines editorial pages in `src/pages/` with Starlight docs under `src/content/docs/docs/`
+- the project-owned knowledge source lives in `src/content/knowledge/`
+- the public site routes are injected from `node_modules//core/src/pages/`, while the platform package patches Starlight to treat `src/content/knowledge/` as the docs collection root
 - `public/books/*.md` are generated book exports, not guaranteed checked-in artifacts
 - production-facing integrations such as XTDB, NATS, and Firecracker are still being hardened
 - use the runtime repository's `PLAN.md` and `TASKS.md` to track readiness work while the docs still live inside the monorepo
@@ -32,24 +43,25 @@ Inside of your Astro + Starlight project, you'll see the following folders and f
 ```
 .
 ├── public/
+├── packages/
+│   └── treeseed-app/
 ├── src/
 │   ├── assets/
-│   ├── components/
 │   ├── content/
-│   │   ├── docs/
+│   │   ├── knowledge/
 │   │   ├── notes/
 │   │   └── pages/
-│   ├── layouts/
-│   ├── pages/
-│   ├── styles/
-│   └── utils/
+│   ├── agents/
+│   ├── manifest.yaml
 │   └── content.config.ts
 ├── astro.config.mjs
 ├── package.json
 └── tsconfig.json
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. The public docs namespace now lives under `src/content/docs/docs/`, which renders at `/docs/...`.
+Starlight’s `docs` collection is patched by the platform package to resolve to `src/content/knowledge/`. That keeps `src/content/knowledge/` as the only real project-owned corpus while the public knowledge namespace continues to render at `/knowledge/...`.
+
+The tenant manifest owns the package-facing path and feature contract. Site identity, branding, links, menus, and model defaults live in `src/config.yaml`. Package-owned routes and runtime code consume those boundaries instead of living in the project tree.
 
 Images can be added to `src/assets/` and embedded in Markdown with a relative link.
 
@@ -81,7 +93,7 @@ Run docs commands directly from `docs/`:
 | `npm run test` | Run unit tests plus Cloudflare-local integration coverage |
 | `npm run cleanup:markdown -- <path>` | Normalize Markdown/MDX files before publishing |
 
-The optional aggregated markdown books can be produced with `node scripts/aggregate-book.mjs`.
+The optional aggregated markdown books can be produced with `node ./node_modules//core/scripts/aggregate-book.mjs`.
 
 If you still need the nested monorepo wrappers before the split, the runtime repo currently exposes `npm run docs:*` aliases from its top-level `package.json`. Do not treat those wrappers as the long-term interface.
 

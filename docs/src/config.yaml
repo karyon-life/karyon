@@ -24,8 +24,8 @@ site:
       items:
         - label: Architecture
           href: /architecture/
-        - label: Docs
-          href: /docs/
+        - label: Knowledge
+          href: /knowledge/
         - label: Contribute
           href: /contribute/
     - label: Resources
@@ -33,13 +33,13 @@ site:
         - label: Overview
           href: /books/
         - label: Research
-          href: /docs/research/
+          href: /knowledge/research/
         - label: Architecture
-          href: /docs/architecture/
+          href: /knowledge/architecture/
         - label: Developer
-          href: /docs/developer/
+          href: /knowledge/developer/
         - label: Operations
-          href: /docs/operations/
+          href: /knowledge/operations/
     - label: About
       items:
         - label: Vision

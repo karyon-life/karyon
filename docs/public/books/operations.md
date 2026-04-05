@@ -1,6 +1,6 @@
 # Karyon Operations
 
-> This document is auto-generated from the Karyon docs source.
+> This document is auto-generated from the Karyon knowledge source.
 
 # Phase 6 Baseline Measurements
 
@@ -380,11 +380,11 @@ This book is the operational companion to the architecture and developer materia
 
 Use this book as a bridge into that material while the public docs surface matures.
 
-    Start with the runtime health surfaces and response posture. [Open health](/docs/operations/health/)
+    Start with the runtime health surfaces and response posture. [Open health](/knowledge/operations/health/)
 
-    Review the current validated operating envelope and benchmark posture. [Open capacity](/docs/operations/capacity/)
+    Review the current validated operating envelope and benchmark posture. [Open capacity](/knowledge/operations/capacity/)
 
-    Use the release workflow and genetic blueprint references when shipping or tuning the organism. [Open releases](/docs/operations/releases/)
+    Use the release workflow and genetic blueprint references when shipping or tuning the organism. [Open releases](/knowledge/operations/releases/)
 
 ## What this book covers today
 

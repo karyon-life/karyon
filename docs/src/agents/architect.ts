@@ -1,8 +1,8 @@
-import type { AgentHandler } from '../utils/agents/runtime-types.ts';
+import type { AgentHandler } from '@treeseed/core/utils/agents/runtime-types';
 import {
 	parseAgentMessagePayload,
 	serializeAgentMessagePayload,
-} from '../utils/agents/contracts/messages.ts';
+} from '@treeseed/core/utils/agents/contracts/messages';
 
 interface ArchitectInputs {
 	objectiveId: string | null;

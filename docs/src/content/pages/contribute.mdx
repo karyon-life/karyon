@@ -13,8 +13,8 @@ summary: The best contributions right now improve clarity, critique, implementat
 updated: 2026-04-02
 ---
 
-import CTASection from '../../components/site/CTASection.astro';
-import { SITE } from '../../utils/seo';
+import CTASection from '@treeseed/core/components/site/CTASection.astro';
+import { SITE } from '@treeseed/core/utils/seo';
 
 This page exists to turn interest into realistic action. Karyon is still early enough that broad declarations of support are less useful than precise, well-scoped help. The project benefits most from contributions that make its ideas clearer, its implementation more inspectable, and its public framing more honest.
 
@@ -55,7 +55,7 @@ One of the best ways to help is to make claims easier to verify. Strengthen test
 
 ## How to get oriented first
 
-Start by reading the [project status](/status/) page and the [architecture](/architecture/) bridge so you have both the reality check and the conceptual map. After that, browse the [docs](/docs/), the repository, and any current issues or discussion threads that point to active work.
+Start by reading the [project status](/status/) page and the [architecture](/architecture/) bridge so you have both the reality check and the conceptual map. After that, browse the [docs](/knowledge/), the repository, and any current issues or discussion threads that point to active work.
 
 If you are trying to decide where to enter, prefer one concrete question over a general desire to help. Karyon is easier to contribute to when the problem is narrow enough to inspect.
 
@@ -76,7 +76,7 @@ A good first contribution is small, source-linked, and easy to evaluate. It migh
 
 ## What feedback is most useful here
 
-The best feedback on this page is practical. Are the contribution lanes clear enough? Do they make the project feel accessible without pretending it is simpler than it is? If you are still deciding whether the project’s direction fits you, read the [community](/community/) page next. If you want the deepest technical material before contributing, go to the [docs](/docs/).
+The best feedback on this page is practical. Are the contribution lanes clear enough? Do they make the project feel accessible without pretending it is simpler than it is? If you are still deciding whether the project’s direction fits you, read the [community](/community/) page next. If you want the deepest technical material before contributing, go to the [knowledge base](/knowledge/).
 
 <div class="mt-10">
 	<CTASection
@@ -84,7 +84,7 @@ The best feedback on this page is practical. Are the contribution lanes clear en
 		body="If you are new to the project, the best first contributions usually improve clarity, reduce drift between code and docs, or harden a concrete runtime boundary."
 		primaryHref={SITE.githubRepository}
 		primaryLabel="View the repo"
-		secondaryHref="/docs/"
-		secondaryLabel="Read the docs"
+		secondaryHref="/knowledge/"
+		secondaryLabel="Browse the knowledge base"
 	/>
 </div>

@@ -1,0 +1,41 @@
+{
+  "name": "@treeseed/core",
+  "version": "0.1.0",
+  "type": "module",
+  "types": "./src/index.d.ts",
+  "bin": {
+    "treeseed-agents": "./scripts/treeseed-agents.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.mjs"
+    },
+    "./site": {
+      "types": "./src/site.d.ts",
+      "default": "./src/site.mjs"
+    },
+    "./content": {
+      "types": "./src/content.d.ts",
+      "default": "./src/content.mjs"
+    },
+    "./tenant": "./src/tenant/bridge.mjs",
+    "./tenant-config": {
+      "types": "./src/tenant/config.d.ts",
+      "default": "./src/tenant/config.mjs"
+    },
+    "./contracts": "./src/contracts.ts",
+    "./types/agents": "./src/types/agents.ts",
+    "./types/cloudflare": "./src/types/cloudflare.ts",
+    "./agents/registry-helper": "./src/agents/registry-helper.ts",
+    "./utils/seo": "./src/utils/seo.ts",
+    "./utils/agents/runtime-types": "./src/utils/agents/runtime-types.ts",
+    "./utils/agents/contracts/messages": "./src/utils/agents/contracts/messages.ts",
+    "./utils/agents/contracts/run": "./src/utils/agents/contracts/run.ts",
+    "./components/site/CTASection.astro": "./src/components/site/CTASection.astro",
+    "./components/site/SectionIntro.astro": "./src/components/site/SectionIntro.astro",
+    "./components/site/PathCard.astro": "./src/components/site/PathCard.astro",
+    "./components/site/TrustCallout.astro": "./src/components/site/TrustCallout.astro",
+    "./components/content/ContentStatusLegend.astro": "./src/components/content/ContentStatusLegend.astro"
+  }
+}

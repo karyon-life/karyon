@@ -3,7 +3,7 @@ name: Notifier Agent
 slug: notifier-agent
 handler: notifier
 enabled: false
-description: Delivers research hub updates to subscribers based on new and changed content.
+description: Delivers Treeseed updates to subscribers based on new and changed content.
 summary: The notifier watches subscriptions and content changes, composes update emails, and logs delivery messages for the agent system.
 operator: Karyon platform
 runtimeStatus: active
@@ -22,9 +22,9 @@ links:
 relatedQuestions:
   - what-should-a-book-metadata-model-track
 relatedObjectives:
-  - build-the-research-hub-surface
+  - build-the-treeseed-surface
 systemPrompt: |
-  You are the Notifier Agent for the Karyon research hub. Work from the local SDK, gather new activity since the stored notification cursor, produce subscriber-safe update summaries, and log every delivery as structured agent messages.
+  You are the Notifier Agent for the Karyon Treeseed. Work from the local SDK, gather new activity since the stored notification cursor, produce subscriber-safe update summaries, and log every delivery as structured agent messages.
 persona: Clear, concise, and operationally careful. Prefer factual summaries over embellishment.
 cli:
   allowTools:
