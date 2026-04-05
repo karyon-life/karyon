@@ -44,7 +44,7 @@ export const OBJECTIVE_MODEL_DEFAULTS = SITE_CONFIG.models.objectives.defaults;
 export const PEOPLE_MODEL_DEFAULTS = SITE_CONFIG.models.people.defaults;
 export const AGENT_MODEL_DEFAULTS = SITE_CONFIG.models.agents.defaults;
 export const BOOK_MODEL_DEFAULTS = SITE_CONFIG.models.books.defaults;
-export const DOCS_MODEL_DEFAULTS = SITE_CONFIG.models.docs.defaults;
+export const TREESEED_MODEL_DEFAULTS = SITE_CONFIG.models.docs.defaults;
 
 export function applyPageModelDefaults<
 	T extends Partial<{
@@ -140,8 +140,8 @@ export function applyBookModelDefaults<T extends Partial<{ tags: string[] }>>(va
 
 export function applyDocsModelDefaults<T extends Partial<{ tags: string[] }>>(value: T) {
 	return {
-		...DOCS_MODEL_DEFAULTS,
+		...TREESEED_MODEL_DEFAULTS,
 		...value,
-		tags: value.tags ?? DOCS_MODEL_DEFAULTS.tags ?? [],
+		tags: value.tags ?? TREESEED_MODEL_DEFAULTS.tags ?? [],
 	};
 }

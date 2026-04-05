@@ -100,7 +100,7 @@ Local development uses:
 
 Important notes:
 
-- local bypass flags such as `DOCS_FORMS_LOCAL_BYPASS_TURNSTILE` are for local development only
+- local bypass flags such as `TREESEED_FORMS_LOCAL_BYPASS_TURNSTILE` are for local development only
 - production builds explicitly clear local-only bypass flags
 - the tenant no longer owns a `compose.yml`; Mailpit is managed by the package CLI
 
@@ -127,6 +127,18 @@ Use a dry run first when changing deploy behavior:
 ```bash
 npm run deploy -- --dry-run
 ```
+
+The GitHub Actions workflow at [deploy.yml](/home/adrian/Projects/nexical/karyon/docs/.github/workflows/deploy.yml) now uses that same `npm run deploy` path from `docs/`, so CI deploys the same Cloudflare Worker, D1 database, KV namespaces, generated Wrangler config, and static assets as local deploys.
+
+For automated deploys, keep these secrets in GitHub Actions:
+
+- `CLOUDFLARE_API_TOKEN`
+- `TREESEED_FORM_TOKEN_SECRET`
+- `TREESEED_PUBLIC_TURNSTILE_SITE_KEY`
+- `TREESEED_TURNSTILE_SECRET_KEY`
+- SMTP secrets when SMTP is enabled
+
+Treeseed deploy now treats Turnstile as part of the standard production contract, so production deploys should always provide the public site key and the secret key.
 
 Generated deployment state is written to:
 

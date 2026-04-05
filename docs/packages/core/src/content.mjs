@@ -5,7 +5,7 @@ import { AGENT_CLI_ALLOW_TOOLS } from './types/agents';
 import {
 	AGENT_MODEL_DEFAULTS,
 	BOOK_MODEL_DEFAULTS,
-	DOCS_MODEL_DEFAULTS,
+	TREESEED_MODEL_DEFAULTS,
 	NOTE_MODEL_DEFAULTS,
 	OBJECTIVE_MODEL_DEFAULTS,
 	PAGE_MODEL_DEFAULTS,
@@ -199,7 +199,7 @@ export function createTreeseedCollections(tenantConfig, { docsLoader, docsSchema
 	});
 
 	const docsExtensionSchema = z.object({
-		tags: z.array(z.string()).default(DOCS_MODEL_DEFAULTS.tags ?? []),
+		tags: z.array(z.string()).default(TREESEED_MODEL_DEFAULTS.tags ?? []),
 	});
 
 	return {

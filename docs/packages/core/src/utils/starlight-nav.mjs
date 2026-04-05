@@ -33,14 +33,14 @@ export function getBookForPathFromRuntime(runtime, pathname) {
 }
 
 /**
- * @param {{ DOCS_LINKS: { home: string }, DOCS_LIBRARY_DOWNLOAD: any, BOOKS: any[] }} runtime
+ * @param {{ TREESEED_LINKS: { home: string }, TREESEED_LIBRARY_DOWNLOAD: any, BOOKS: any[] }} runtime
  * @param {string} pathname
  */
 export function getDocsDownloadForPathFromRuntime(runtime, pathname) {
 	const normalizedPath = normalizeHref(pathname);
 
-	if (normalizedPath === normalizeHref(runtime.DOCS_LINKS.home)) {
-		return runtime.DOCS_LIBRARY_DOWNLOAD;
+	if (normalizedPath === normalizeHref(runtime.TREESEED_LINKS.home)) {
+		return runtime.TREESEED_LIBRARY_DOWNLOAD;
 	}
 
 	const book = getBookForPathFromRuntime(runtime, normalizedPath);
@@ -55,11 +55,11 @@ export function getDocsDownloadForPathFromRuntime(runtime, pathname) {
 	};
 }
 
-import { BOOKS, BOOKS_LINK, DOCS_LIBRARY_DOWNLOAD, DOCS_LINKS } from './books-data.mjs';
+import { BOOKS, BOOKS_LINK, TREESEED_LIBRARY_DOWNLOAD, TREESEED_LINKS } from './books-data.mjs';
 
-export { BOOKS, BOOKS_LINK, DOCS_LIBRARY_DOWNLOAD, DOCS_LINKS };
+export { BOOKS, BOOKS_LINK, TREESEED_LIBRARY_DOWNLOAD, TREESEED_LINKS };
 
-const runtime = { BOOKS, BOOKS_LINK, DOCS_LIBRARY_DOWNLOAD, DOCS_LINKS };
+const runtime = { BOOKS, BOOKS_LINK, TREESEED_LIBRARY_DOWNLOAD, TREESEED_LINKS };
 
 export function buildBookSidebar(bookSlug) {
 	return buildBookSidebarFromRuntime(runtime, bookSlug);

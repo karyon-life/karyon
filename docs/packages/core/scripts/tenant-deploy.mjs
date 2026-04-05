@@ -3,10 +3,12 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import {
+	collectMissingDeployInputs,
 	ensureGeneratedWranglerConfig,
 	finalizeDeploymentState,
 	printDeploySummary,
 	provisionCloudflareResources,
+	promptForMissingDeployInputs,
 	runRemoteD1Migrations,
 	syncCloudflareSecrets,
 	validateDeployPrerequisites,
@@ -86,7 +88,28 @@ if (options.name) {
 }
 
 if (needsRemoteAccess) {
-	validateDeployPrerequisites(tenantRoot, { requireRemote: true });
+	const { prompted, provided } = await promptForMissingDeployInputs(tenantRoot);
+	if (prompted && provided.length > 0) {
+		console.log(`Captured ${provided.length} missing deploy value(s) for this run.`);
+	}
+}
+
+if (needsRemoteAccess) {
+	try {
+		validateDeployPrerequisites(tenantRoot, { requireRemote: true });
+	} catch (error) {
+		const missing = collectMissingDeployInputs(tenantRoot);
+		if (missing.length > 0 && (!process.stdin.isTTY || !process.stdout.isTTY)) {
+			console.error('Treeseed deploy is missing required values and cannot prompt in this environment.');
+			console.error('Provide them through environment variables or CI secrets before retrying:');
+			for (const item of missing) {
+				console.error(`- ${item.key}`);
+			}
+		}
+		const message = error instanceof Error ? error.message : String(error);
+		console.error(message);
+		process.exit(1);
+	}
 }
 
 const { wranglerPath } = ensureGeneratedWranglerConfig(tenantRoot);

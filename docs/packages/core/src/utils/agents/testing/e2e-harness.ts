@@ -34,8 +34,8 @@ function resolveDocsRoot() {
 }
 
 async function resolveWranglerBin() {
-	if (process.env.DOCS_AGENT_WRANGLER_BIN) {
-		return path.resolve(process.env.DOCS_AGENT_WRANGLER_BIN);
+	if (process.env.TREESEED_AGENT_WRANGLER_BIN) {
+		return path.resolve(process.env.TREESEED_AGENT_WRANGLER_BIN);
 	}
 	const docsLocal = path.resolve(resolveDocsRoot(), 'node_modules', '.bin', 'wrangler');
 	const workspaceLocal = path.resolve(resolveDocsRoot(), '..', 'node_modules', '.bin', 'wrangler');
@@ -185,8 +185,8 @@ export async function createAgentTestRuntime(options?: {
 	const repoRoot = path.join(rootDir, 'docs');
 	const persistTo = path.join(rootDir, '.wrangler-state');
 	const docsRoot = resolveDocsRoot();
-	const previousContentRoot = process.env.DOCS_AGENT_CONTENT_ROOT;
-	const previousExecutionMode = process.env.DOCS_AGENT_EXECUTION_MODE;
+	const previousContentRoot = process.env.TREESEED_AGENT_CONTENT_ROOT;
+	const previousExecutionMode = process.env.TREESEED_AGENT_EXECUTION_MODE;
 
 	await cp(docsRoot, repoRoot, {
 		recursive: true,
@@ -206,8 +206,8 @@ export async function createAgentTestRuntime(options?: {
 		},
 	});
 
-	process.env.DOCS_AGENT_CONTENT_ROOT = path.join(repoRoot, 'src', 'content');
-	process.env.DOCS_AGENT_EXECUTION_MODE = options?.executionMode ?? 'stub';
+	process.env.TREESEED_AGENT_CONTENT_ROOT = path.join(repoRoot, 'src', 'content');
+	process.env.TREESEED_AGENT_EXECUTION_MODE = options?.executionMode ?? 'stub';
 
 	await mkdir(persistTo, { recursive: true });
 	await initializeSandboxRepo(repoRoot);
@@ -363,14 +363,14 @@ export async function createAgentTestRuntime(options?: {
 		},
 		async cleanup() {
 			if (previousContentRoot === undefined) {
-				delete process.env.DOCS_AGENT_CONTENT_ROOT;
+				delete process.env.TREESEED_AGENT_CONTENT_ROOT;
 			} else {
-				process.env.DOCS_AGENT_CONTENT_ROOT = previousContentRoot;
+				process.env.TREESEED_AGENT_CONTENT_ROOT = previousContentRoot;
 			}
 			if (previousExecutionMode === undefined) {
-				delete process.env.DOCS_AGENT_EXECUTION_MODE;
+				delete process.env.TREESEED_AGENT_EXECUTION_MODE;
 			} else {
-				process.env.DOCS_AGENT_EXECUTION_MODE = previousExecutionMode;
+				process.env.TREESEED_AGENT_EXECUTION_MODE = previousExecutionMode;
 			}
 			await rm(rootDir, { recursive: true, force: true });
 		},

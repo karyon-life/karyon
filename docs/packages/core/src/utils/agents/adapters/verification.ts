@@ -62,7 +62,7 @@ export class LocalVerificationAdapter implements AgentVerificationAdapter {
 }
 
 export function createVerificationAdapter() {
-	return String(process.env.DOCS_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase() !== 'copilot'
+	return String(process.env.TREESEED_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase() !== 'copilot'
 		? new StubVerificationAdapter()
 		: new LocalVerificationAdapter();
 }

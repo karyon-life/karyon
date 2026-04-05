@@ -19,20 +19,20 @@ interface WorkerEnv {
 	SITE_DATA_DB: D1DatabaseLike;
 	SESSION: KvNamespaceLike;
 	ASSETS: CloudflareRuntimeAssets;
-	DOCS_FORM_TOKEN_SECRET?: string;
-	DOCS_TURNSTILE_SECRET_KEY?: string;
-	DOCS_SMTP_HOST?: string;
-	DOCS_SMTP_PORT?: string;
-	DOCS_SMTP_USERNAME?: string;
-	DOCS_SMTP_PASSWORD?: string;
-	DOCS_SMTP_FROM?: string;
-	DOCS_SMTP_REPLY_TO?: string;
-	DOCS_LOCAL_DEV_MODE?: string;
-	DOCS_FORMS_LOCAL_BYPASS_TURNSTILE?: string;
-	DOCS_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS?: string;
-	DOCS_FORMS_LOCAL_USE_MAILPIT?: string;
-	DOCS_MAILPIT_SMTP_HOST?: string;
-	DOCS_MAILPIT_SMTP_PORT?: string;
+	TREESEED_FORM_TOKEN_SECRET?: string;
+	TREESEED_TURNSTILE_SECRET_KEY?: string;
+	TREESEED_SMTP_HOST?: string;
+	TREESEED_SMTP_PORT?: string;
+	TREESEED_SMTP_USERNAME?: string;
+	TREESEED_SMTP_PASSWORD?: string;
+	TREESEED_SMTP_FROM?: string;
+	TREESEED_SMTP_REPLY_TO?: string;
+	TREESEED_LOCAL_DEV_MODE?: string;
+	TREESEED_FORMS_LOCAL_BYPASS_TURNSTILE?: string;
+	TREESEED_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS?: string;
+	TREESEED_FORMS_LOCAL_USE_MAILPIT?: string;
+	TREESEED_MAILPIT_SMTP_HOST?: string;
+	TREESEED_MAILPIT_SMTP_PORT?: string;
 }
 
 function envBoolean(value: unknown) {
@@ -83,20 +83,20 @@ function serializeCookie(cookie: { name: string; value: string; options: Record<
 }
 
 function buildSmtpConfig(env: WorkerEnv) {
-	const useMailpit = envBoolean(env.DOCS_FORMS_LOCAL_USE_MAILPIT);
+	const useMailpit = envBoolean(env.TREESEED_FORMS_LOCAL_USE_MAILPIT);
 	return {
-		host: useMailpit ? (env.DOCS_MAILPIT_SMTP_HOST ?? env.DOCS_SMTP_HOST ?? '127.0.0.1') : (env.DOCS_SMTP_HOST ?? ''),
-		port: Number(useMailpit ? (env.DOCS_MAILPIT_SMTP_PORT ?? env.DOCS_SMTP_PORT ?? '1025') : (env.DOCS_SMTP_PORT ?? '465')),
-		username: env.DOCS_SMTP_USERNAME ?? '',
-		password: env.DOCS_SMTP_PASSWORD ?? '',
-		from: env.DOCS_SMTP_FROM ?? '',
-		replyTo: env.DOCS_SMTP_REPLY_TO ?? '',
+		host: useMailpit ? (env.TREESEED_MAILPIT_SMTP_HOST ?? env.TREESEED_SMTP_HOST ?? '127.0.0.1') : (env.TREESEED_SMTP_HOST ?? ''),
+		port: Number(useMailpit ? (env.TREESEED_MAILPIT_SMTP_PORT ?? env.TREESEED_SMTP_PORT ?? '1025') : (env.TREESEED_SMTP_PORT ?? '465')),
+		username: env.TREESEED_SMTP_USERNAME ?? '',
+		password: env.TREESEED_SMTP_PASSWORD ?? '',
+		from: env.TREESEED_SMTP_FROM ?? '',
+		replyTo: env.TREESEED_SMTP_REPLY_TO ?? '',
 	};
 }
 
 function isSmtpEnabled(env: WorkerEnv) {
 	const smtp = buildSmtpConfig(env);
-	const useMailpit = envBoolean(env.DOCS_FORMS_LOCAL_USE_MAILPIT);
+	const useMailpit = envBoolean(env.TREESEED_FORMS_LOCAL_USE_MAILPIT);
 	if (useMailpit) {
 		return true;
 	}
@@ -105,17 +105,17 @@ function isSmtpEnabled(env: WorkerEnv) {
 }
 
 function isTurnstileEnabled(env: WorkerEnv) {
-	return Boolean(__TREESEED_DEPLOY_CONFIG__.turnstile?.enabled && env.DOCS_TURNSTILE_SECRET_KEY);
+	return Boolean(env.TREESEED_TURNSTILE_SECRET_KEY);
 }
 
 function buildRuntime(env: WorkerEnv) {
 	return deriveFormRuntimeCapabilities({
 		isCloudflareRuntime: true,
-		localDevMode: env.DOCS_LOCAL_DEV_MODE === 'cloudflare' ? 'cloudflare' : null,
+		localDevMode: env.TREESEED_LOCAL_DEV_MODE === 'cloudflare' ? 'cloudflare' : null,
 		isDevServer: false,
-		bypassTurnstile: envBoolean(env.DOCS_FORMS_LOCAL_BYPASS_TURNSTILE),
-		bypassCloudflareGuards: envBoolean(env.DOCS_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS),
-		useMailpit: envBoolean(env.DOCS_FORMS_LOCAL_USE_MAILPIT),
+		bypassTurnstile: envBoolean(env.TREESEED_FORMS_LOCAL_BYPASS_TURNSTILE),
+		bypassCloudflareGuards: envBoolean(env.TREESEED_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS),
+		useMailpit: envBoolean(env.TREESEED_FORMS_LOCAL_USE_MAILPIT),
 		formsMode: __TREESEED_DEPLOY_CONFIG__.forms?.mode ?? 'store_only',
 		smtpEnabled: isSmtpEnabled(env),
 		turnstileEnabled: isTurnstileEnabled(env),
@@ -130,8 +130,8 @@ function buildFormConfig(env: WorkerEnv) {
 			SITE_DATA_DB: env.SITE_DATA_DB,
 			SESSION: env.SESSION,
 		},
-		formSecret: env.DOCS_FORM_TOKEN_SECRET ?? '',
-		turnstileSecret: env.DOCS_TURNSTILE_SECRET_KEY ?? '',
+		formSecret: env.TREESEED_FORM_TOKEN_SECRET ?? '',
+		turnstileSecret: env.TREESEED_TURNSTILE_SECRET_KEY ?? '',
 		contactRouting: __TREESEED_SITE_CONFIG__.site.emailNotifications.contactRouting,
 		subscribeRecipients: __TREESEED_SITE_CONFIG__.site.emailNotifications.subscribeRecipients,
 		smtpConfig: buildSmtpConfig(env),

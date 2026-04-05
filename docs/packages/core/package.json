@@ -40,7 +40,7 @@
     "precheck": "npm run starlight:patch",
     "check": "node ./scripts/run-fixture-astro-command.mjs check",
     "prebuild": "npm run starlight:patch && node ./scripts/aggregate-book.mjs",
-    "build": "DOCS_LOCAL_DEV_MODE=cloudflare node ./scripts/run-fixture-astro-command.mjs build",
+    "build": "TREESEED_LOCAL_DEV_MODE=cloudflare node ./scripts/run-fixture-astro-command.mjs build",
     "dev": "node ./scripts/local-dev.mjs",
     "dev:watch": "node ./scripts/local-dev.mjs --watch",
     "deploy": "node ./scripts/tenant-deploy.mjs",

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { BOOKS, DOCS_LIBRARY_DOWNLOAD } from '../src/utils/books-data.mjs';
+import { BOOKS, TREESEED_LIBRARY_DOWNLOAD } from '../src/utils/books-data.mjs';
 import { PROJECT_TENANT } from '../src/tenant/bridge.mjs';
 
 const projectRoot = PROJECT_TENANT.__tenantRoot ?? process.cwd();
@@ -127,11 +127,11 @@ function main() {
 		return { book, content };
 	});
 
-	const compositeContent = `# ${DOCS_LIBRARY_DOWNLOAD.downloadTitle}\n\n> This document is auto-generated from the Karyon knowledge source.\n\n${bookOutputs
+	const compositeContent = `# ${TREESEED_LIBRARY_DOWNLOAD.downloadTitle}\n\n> This document is auto-generated from the Karyon knowledge source.\n\n${bookOutputs
 		.map(({ content }) => content.trim())
 		.join('\n\n---\n\n')}\n`;
 
-	const compositeOutputPath = writeBookOutput(DOCS_LIBRARY_DOWNLOAD.downloadFileName, compositeContent);
+	const compositeOutputPath = writeBookOutput(TREESEED_LIBRARY_DOWNLOAD.downloadFileName, compositeContent);
 	console.log(`Generated ${path.relative(projectRoot, compositeOutputPath)}`);
 
 	if (fs.existsSync(legacyOutputFile)) {

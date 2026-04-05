@@ -11,15 +11,15 @@ import {
 import { resetTreeseedDeployConfigForTests } from '../../../src/deploy/runtime';
 
 const originalCwd = process.cwd();
-const originalMode = process.env.DOCS_AGENT_EXECUTION_MODE;
+const originalMode = process.env.TREESEED_AGENT_EXECUTION_MODE;
 
 afterEach(() => {
 	process.chdir(originalCwd);
 	resetTreeseedDeployConfigForTests();
 	if (originalMode === undefined) {
-		delete process.env.DOCS_AGENT_EXECUTION_MODE;
+		delete process.env.TREESEED_AGENT_EXECUTION_MODE;
 	} else {
-		process.env.DOCS_AGENT_EXECUTION_MODE = originalMode;
+		process.env.TREESEED_AGENT_EXECUTION_MODE = originalMode;
 	}
 });
 
@@ -47,7 +47,7 @@ describe('execution adapter selection', () => {
 		const tenantRoot = await createTenantFixture('stub');
 		try {
 			process.chdir(tenantRoot);
-			delete process.env.DOCS_AGENT_EXECUTION_MODE;
+			delete process.env.TREESEED_AGENT_EXECUTION_MODE;
 			expect(createExecutionAdapter()).toBeInstanceOf(StubExecutionAdapter);
 		} finally {
 			await rm(tenantRoot, { recursive: true, force: true });
@@ -58,7 +58,7 @@ describe('execution adapter selection', () => {
 		const tenantRoot = await createTenantFixture('manual');
 		try {
 			process.chdir(tenantRoot);
-			delete process.env.DOCS_AGENT_EXECUTION_MODE;
+			delete process.env.TREESEED_AGENT_EXECUTION_MODE;
 			expect(createExecutionAdapter()).toBeInstanceOf(ManualExecutionAdapter);
 		} finally {
 			await rm(tenantRoot, { recursive: true, force: true });
@@ -69,7 +69,7 @@ describe('execution adapter selection', () => {
 		const tenantRoot = await createTenantFixture('stub');
 		try {
 			process.chdir(tenantRoot);
-			process.env.DOCS_AGENT_EXECUTION_MODE = 'copilot';
+			process.env.TREESEED_AGENT_EXECUTION_MODE = 'copilot';
 			expect(createExecutionAdapter()).toBeInstanceOf(CopilotExecutionAdapter);
 		} finally {
 			await rm(tenantRoot, { recursive: true, force: true });

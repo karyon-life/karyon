@@ -38,9 +38,9 @@ function runNodeScript(scriptPath, args = [], options = {}) {
 }
 
 function runTenantBuildCycle({ includePackageBuild = false, fatal = true } = {}) {
-	const envOverrides = ['DOCS_LOCAL_DEV_MODE=cloudflare'];
+	const envOverrides = ['TREESEED_LOCAL_DEV_MODE=cloudflare'];
 	if (watchMode) {
-		envOverrides.push('DOCS_PUBLIC_DEV_WATCH_RELOAD=true');
+		envOverrides.push('TREESEED_PUBLIC_DEV_WATCH_RELOAD=true');
 	}
 
 	if (includePackageBuild && isEditablePackageWorkspace()) {
@@ -74,7 +74,7 @@ function runTenantBuildCycle({ includePackageBuild = false, fatal = true } = {})
 
 	const built = runNodeScript(packageScriptPath('tenant-build'), [], {
 		fatal,
-		env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
+		env: watchMode ? { TREESEED_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
 	});
 	if (!built) {
 		return false;
@@ -90,7 +90,7 @@ function startWrangler() {
 		['dev', '--local', '--config', wranglerPath, ...wranglerArgs],
 		{
 			cwd: tenantRoot,
-			env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
+			env: watchMode ? { TREESEED_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
 			detached: process.platform !== 'win32',
 		},
 	);
@@ -149,7 +149,7 @@ process.on('SIGTERM', () => {
 	void shutdownAndExit(143);
 });
 
-process.env.DOCS_LOCAL_DEV_MODE = process.env.DOCS_LOCAL_DEV_MODE ?? 'cloudflare';
+process.env.TREESEED_LOCAL_DEV_MODE = process.env.TREESEED_LOCAL_DEV_MODE ?? 'cloudflare';
 
 runTenantBuildCycle({
 	includePackageBuild: isEditablePackageWorkspace(),

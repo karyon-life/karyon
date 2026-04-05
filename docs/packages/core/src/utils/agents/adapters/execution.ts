@@ -83,7 +83,7 @@ export class ManualExecutionAdapter implements AgentExecutionAdapter {
 }
 
 export function createExecutionAdapter() {
-	const configuredMode = String(process.env.DOCS_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase();
+	const configuredMode = String(process.env.TREESEED_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase();
 	if (configuredMode === 'manual') {
 		return new ManualExecutionAdapter();
 	}

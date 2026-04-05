@@ -54,7 +54,7 @@ function runFixtureBuildCycle({ includePackageBuild = false, fatal = true, stage
 		}
 
 		prepareCloudflareLocalRuntime({
-			envOverrides: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
+			envOverrides: watchMode ? { TREESEED_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
 			outDir,
 		});
 
@@ -74,7 +74,7 @@ function runFixtureBuildCycle({ includePackageBuild = false, fatal = true, stage
 
 function startWrangler() {
 	const child = startWranglerDev(wranglerArgs, {
-		env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
+		env: watchMode ? { TREESEED_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
 		detached: process.platform !== 'win32',
 	});
 

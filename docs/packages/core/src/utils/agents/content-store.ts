@@ -115,7 +115,7 @@ export class ContentStore {
 	) {
 		this.gitRuntime = new GitRuntime(
 			repoRoot,
-			process.env.DOCS_AGENT_DISABLE_GIT === 'true',
+			process.env.TREESEED_AGENT_DISABLE_GIT === 'true',
 		);
 	}
 

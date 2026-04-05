@@ -8,7 +8,7 @@ async function main() {
 		execution,
 		executionMode: 'copilot',
 		databaseMode:
-			process.env.DOCS_AGENT_DATABASE_MODE === 'local-d1'
+			process.env.TREESEED_AGENT_DATABASE_MODE === 'local-d1'
 				? 'local-d1'
 				: 'memory',
 	});

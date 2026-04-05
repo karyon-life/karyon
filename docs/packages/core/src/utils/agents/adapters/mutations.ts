@@ -9,7 +9,7 @@ export class LocalBranchMutationAdapter implements AgentMutationAdapter {
 	constructor(repoRoot: string) {
 		this.git = new GitRuntime(
 			repoRoot,
-			process.env.DOCS_AGENT_DISABLE_GIT === 'true',
+			process.env.TREESEED_AGENT_DISABLE_GIT === 'true',
 		);
 	}
 

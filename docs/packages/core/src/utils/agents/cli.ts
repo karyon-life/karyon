@@ -13,8 +13,8 @@ async function main() {
 	const repoRoot = process.cwd();
 	const sdk = AgentSdk.createLocal({
 		repoRoot,
-		databaseName: process.env.DOCS_AGENT_D1_DATABASE ?? 'karyon-docs-site-data',
-		persistTo: process.env.DOCS_AGENT_D1_PERSIST_TO ?? undefined,
+		databaseName: process.env.TREESEED_AGENT_D1_DATABASE ?? 'karyon-docs-site-data',
+		persistTo: process.env.TREESEED_AGENT_D1_PERSIST_TO ?? undefined,
 	});
 	const kernel = new AgentKernel(sdk, repoRoot);
 	const { command, args } = parseArgs(process.argv);

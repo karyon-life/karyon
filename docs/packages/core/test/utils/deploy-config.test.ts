@@ -63,7 +63,7 @@ describe('deploy config', () => {
 			expect(wranglerToml).toContain('binding = "FORM_GUARD_KV"');
 			expect(wranglerToml).toContain('binding = "SESSION"');
 			expect(wranglerToml).toContain('binding = "SITE_DATA_DB"');
-			expect(wranglerToml).toContain('DOCS_AGENT_EXECUTION_MODE = "manual"');
+			expect(wranglerToml).toContain('TREESEED_AGENT_EXECUTION_MODE = "manual"');
 			expect(deployState).toContain('"workerName": "example-site"');
 		} finally {
 			await rm(tenantRoot, { recursive: true, force: true });

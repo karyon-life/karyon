@@ -1,14 +1,14 @@
 ---
 import {
-	DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE,
-	DOCS_PUBLIC_TURNSTILE_SITE_KEY,
+	TREESEED_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE,
+	TREESEED_PUBLIC_TURNSTILE_SITE_KEY,
 } from 'astro:env/client';
 import { FORM_CODE_PARAM, FORM_SUCCESS_PARAM, SUBSCRIBE_ANCHOR_ID } from '../../utils/forms/constants';
 import { SITE_FORMS } from '../../utils/site-config';
 
 const { currentPath = '/' } = Astro.props as { currentPath?: string };
 const redirectTarget = `${currentPath}#${SUBSCRIBE_ANCHOR_ID}`;
-const shouldBypassTurnstile = DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE ?? import.meta.env.DEV;
+const shouldBypassTurnstile = TREESEED_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE ?? import.meta.env.DEV;
 const formsApiBaseUrl = SITE_FORMS?.apiBaseUrl ?? '/api/form/submit';
 ---
 
@@ -48,7 +48,7 @@ const formsApiBaseUrl = SITE_FORMS?.apiBaseUrl ?? '/api/form/submit';
 					autocomplete="email"
 					required
 				/>
-				{DOCS_PUBLIC_TURNSTILE_SITE_KEY && !shouldBypassTurnstile ? (
+				{TREESEED_PUBLIC_TURNSTILE_SITE_KEY && !shouldBypassTurnstile ? (
 					<div class="js-turnstile min-h-0"></div>
 				) : shouldBypassTurnstile ? (
 					<p class="text-xs text-[color:var(--site-text-soft)]">Captcha bypassed locally.</p>
@@ -67,14 +67,14 @@ const formsApiBaseUrl = SITE_FORMS?.apiBaseUrl ?? '/api/form/submit';
 	</div>
 </section>
 
-{DOCS_PUBLIC_TURNSTILE_SITE_KEY && !shouldBypassTurnstile && (
+{TREESEED_PUBLIC_TURNSTILE_SITE_KEY && !shouldBypassTurnstile && (
 	<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 )}
 
 <script
 	is:inline
 	define:vars={{
-		siteKey: DOCS_PUBLIC_TURNSTILE_SITE_KEY,
+		siteKey: TREESEED_PUBLIC_TURNSTILE_SITE_KEY,
 		shouldBypassTurnstile,
 		formsApiBaseUrl,
 		successParam: FORM_SUCCESS_PARAM,

@@ -59,7 +59,7 @@ export class GitRepositoryInspectionAdapter implements AgentRepositoryInspection
 }
 
 export function createRepositoryInspectionAdapter() {
-	return String(process.env.DOCS_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase() !== 'copilot'
+	return String(process.env.TREESEED_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase() !== 'copilot'
 		? new StubRepositoryInspectionAdapter()
 		: new GitRepositoryInspectionAdapter();
 }

@@ -37,11 +37,11 @@ export const wranglerBin = resolvePackageBinary('wrangler', 'wrangler');
 
 export function createProductionBuildEnv(extraEnv = {}) {
 	return {
-		DOCS_LOCAL_DEV_MODE: 'cloudflare',
-		DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE: '',
-		DOCS_FORMS_LOCAL_BYPASS_TURNSTILE: '',
-		DOCS_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS: '',
-		DOCS_PUBLIC_DEV_WATCH_RELOAD: '',
+		TREESEED_LOCAL_DEV_MODE: 'cloudflare',
+		TREESEED_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE: '',
+		TREESEED_FORMS_LOCAL_BYPASS_TURNSTILE: '',
+		TREESEED_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS: '',
+		TREESEED_PUBLIC_DEV_WATCH_RELOAD: '',
 		...extraEnv,
 	};
 }

@@ -3,8 +3,8 @@ import { resolveTreeseedTenantRoot } from '../../tenant/config.mjs';
 import type { SdkModelDefinition, SdkModelName } from './sdk-types';
 
 function contentRoot() {
-	return process.env.DOCS_AGENT_CONTENT_ROOT
-		? path.resolve(process.env.DOCS_AGENT_CONTENT_ROOT)
+	return process.env.TREESEED_AGENT_CONTENT_ROOT
+		? path.resolve(process.env.TREESEED_AGENT_CONTENT_ROOT)
 		: path.resolve(resolveTreeseedTenantRoot(), 'src', 'content');
 }
 

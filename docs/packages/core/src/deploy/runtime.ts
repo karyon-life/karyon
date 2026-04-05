@@ -25,7 +25,7 @@ function defaultDeployConfig(): TreeseedDeployConfig {
 			enabled: false,
 		},
 		turnstile: {
-			enabled: false,
+			enabled: true,
 		},
 	};
 }
@@ -66,5 +66,5 @@ export function isTreeseedSmtpEnabled() {
 }
 
 export function isTreeseedTurnstileEnabled() {
-	return getTreeseedDeployConfig().turnstile?.enabled ?? false;
+	return getTreeseedDeployConfig().turnstile?.enabled ?? true;
 }

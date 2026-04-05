@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createInterface } from 'node:readline/promises';
 import { deriveCloudflareWorkerName, loadTreeseedDeployConfig } from '../src/deploy/config.mjs';
 import { wranglerBin } from './package-tools.mjs';
 
@@ -52,22 +53,22 @@ function relativeFromGeneratedRoot(targetPath) {
 
 function buildPublicVars(deployConfig) {
 	return {
-		DOCS_AGENT_EXECUTION_MODE: deployConfig.agents?.mode ?? 'stub',
-		DOCS_PUBLIC_TURNSTILE_SITE_KEY: deployConfig.turnstile?.enabled ? (envOrNull('DOCS_PUBLIC_TURNSTILE_SITE_KEY') ?? '') : '',
+		TREESEED_AGENT_EXECUTION_MODE: deployConfig.agents?.mode ?? 'stub',
+		TREESEED_PUBLIC_TURNSTILE_SITE_KEY: envOrNull('TREESEED_PUBLIC_TURNSTILE_SITE_KEY') ?? '',
 	};
 }
 
 function buildSecretMap(deployConfig, state) {
-	const generatedSecret = state.generatedSecrets?.DOCS_FORM_TOKEN_SECRET ?? randomBytes(24).toString('hex');
+	const generatedSecret = state.generatedSecrets?.TREESEED_FORM_TOKEN_SECRET ?? randomBytes(24).toString('hex');
 	return {
-		DOCS_FORM_TOKEN_SECRET: envOrNull('DOCS_FORM_TOKEN_SECRET') ?? generatedSecret,
-		DOCS_TURNSTILE_SECRET_KEY: deployConfig.turnstile?.enabled ? envOrNull('DOCS_TURNSTILE_SECRET_KEY') : null,
-		DOCS_SMTP_HOST: deployConfig.smtp?.enabled ? envOrNull('DOCS_SMTP_HOST') : null,
-		DOCS_SMTP_PORT: deployConfig.smtp?.enabled ? envOrNull('DOCS_SMTP_PORT') : null,
-		DOCS_SMTP_USERNAME: deployConfig.smtp?.enabled ? envOrNull('DOCS_SMTP_USERNAME') : null,
-		DOCS_SMTP_PASSWORD: deployConfig.smtp?.enabled ? envOrNull('DOCS_SMTP_PASSWORD') : null,
-		DOCS_SMTP_FROM: deployConfig.smtp?.enabled ? envOrNull('DOCS_SMTP_FROM') : null,
-		DOCS_SMTP_REPLY_TO: deployConfig.smtp?.enabled ? envOrNull('DOCS_SMTP_REPLY_TO') : null,
+		TREESEED_FORM_TOKEN_SECRET: envOrNull('TREESEED_FORM_TOKEN_SECRET') ?? generatedSecret,
+		TREESEED_TURNSTILE_SECRET_KEY: envOrNull('TREESEED_TURNSTILE_SECRET_KEY'),
+		TREESEED_SMTP_HOST: deployConfig.smtp?.enabled ? envOrNull('TREESEED_SMTP_HOST') : null,
+		TREESEED_SMTP_PORT: deployConfig.smtp?.enabled ? envOrNull('TREESEED_SMTP_PORT') : null,
+		TREESEED_SMTP_USERNAME: deployConfig.smtp?.enabled ? envOrNull('TREESEED_SMTP_USERNAME') : null,
+		TREESEED_SMTP_PASSWORD: deployConfig.smtp?.enabled ? envOrNull('TREESEED_SMTP_PASSWORD') : null,
+		TREESEED_SMTP_FROM: deployConfig.smtp?.enabled ? envOrNull('TREESEED_SMTP_FROM') : null,
+		TREESEED_SMTP_REPLY_TO: deployConfig.smtp?.enabled ? envOrNull('TREESEED_SMTP_REPLY_TO') : null,
 	};
 }
 
@@ -205,7 +206,7 @@ export function ensureGeneratedWranglerConfig(tenantRoot) {
 		state.generatedSecrets = {};
 	}
 	const secretMap = buildSecretMap(deployConfig, state);
-	state.generatedSecrets.DOCS_FORM_TOKEN_SECRET = secretMap.DOCS_FORM_TOKEN_SECRET;
+	state.generatedSecrets.TREESEED_FORM_TOKEN_SECRET = secretMap.TREESEED_FORM_TOKEN_SECRET;
 	writeDeployState(tenantRoot, state);
 	return { wranglerPath, deployConfig, state, manifestFingerprint };
 }
@@ -303,18 +304,78 @@ function isPlaceholderAccountId(value) {
 }
 
 function missingTurnstileRequirements(deployConfig) {
-	if (!deployConfig.turnstile?.enabled) {
-		return [];
-	}
-
 	const issues = [];
-	if (!envOrNull('DOCS_PUBLIC_TURNSTILE_SITE_KEY')) {
-		issues.push('Set DOCS_PUBLIC_TURNSTILE_SITE_KEY before deploying with turnstile.enabled: true.');
+	if (!envOrNull('TREESEED_PUBLIC_TURNSTILE_SITE_KEY')) {
+		issues.push('Set TREESEED_PUBLIC_TURNSTILE_SITE_KEY before deploying.');
 	}
-	if (!envOrNull('DOCS_TURNSTILE_SECRET_KEY')) {
-		issues.push('Set DOCS_TURNSTILE_SECRET_KEY before deploying with turnstile.enabled: true.');
+	if (!envOrNull('TREESEED_TURNSTILE_SECRET_KEY')) {
+		issues.push('Set TREESEED_TURNSTILE_SECRET_KEY before deploying.');
 	}
 	return issues;
+}
+
+export function collectMissingDeployInputs(tenantRoot) {
+	const deployConfig = loadTreeseedDeployConfig();
+	const missing = [];
+
+	if (isPlaceholderAccountId(deployConfig.cloudflare.accountId)) {
+		missing.push({
+			key: 'CLOUDFLARE_ACCOUNT_ID',
+			label: 'Cloudflare account ID',
+			message: `Cloudflare account ID is missing. Add it to ${relative(tenantRoot, deployConfig.__configPath ?? resolve(tenantRoot, 'treeseed.site.yaml'))} or provide it now.`,
+		});
+	}
+
+	if (!envOrNull('TREESEED_PUBLIC_TURNSTILE_SITE_KEY')) {
+		missing.push({
+			key: 'TREESEED_PUBLIC_TURNSTILE_SITE_KEY',
+			label: 'Turnstile public site key',
+			message: 'Turnstile public site key is missing for deploy.',
+		});
+	}
+
+	if (!envOrNull('TREESEED_TURNSTILE_SECRET_KEY')) {
+		missing.push({
+			key: 'TREESEED_TURNSTILE_SECRET_KEY',
+			label: 'Turnstile secret key',
+			message: 'Turnstile secret key is missing for deploy.',
+		});
+	}
+
+	return missing;
+}
+
+export async function promptForMissingDeployInputs(tenantRoot) {
+	const missing = collectMissingDeployInputs(tenantRoot);
+	if (!missing.length || !process.stdin.isTTY || !process.stdout.isTTY) {
+		return { prompted: false, provided: [] };
+	}
+
+	const rl = createInterface({
+		input: process.stdin,
+		output: process.stdout,
+	});
+
+	const provided = [];
+
+	try {
+		console.log('Treeseed deploy needs a few missing values before it can continue.');
+		console.log('These values will be used for this deploy process only. Persist them in your env files or CI secrets afterward.');
+
+		for (const item of missing) {
+			console.log(`- ${item.message}`);
+			const answer = (await rl.question(`${item.label}: `)).trim();
+			if (!answer) {
+				continue;
+			}
+			process.env[item.key] = answer;
+			provided.push(item.key);
+		}
+	} finally {
+		rl.close();
+	}
+
+	return { prompted: true, provided };
 }
 
 export function validateDeployPrerequisites(tenantRoot, { requireRemote = true } = {}) {
@@ -666,7 +727,7 @@ export function syncCloudflareSecrets(tenantRoot, { dryRun = false } = {}) {
 
 	state.generatedSecrets = {
 		...(state.generatedSecrets ?? {}),
-		DOCS_FORM_TOKEN_SECRET: secrets.DOCS_FORM_TOKEN_SECRET ?? state.generatedSecrets?.DOCS_FORM_TOKEN_SECRET,
+		TREESEED_FORM_TOKEN_SECRET: secrets.TREESEED_FORM_TOKEN_SECRET ?? state.generatedSecrets?.TREESEED_FORM_TOKEN_SECRET,
 	};
 	writeDeployState(tenantRoot, state);
 	return synced;

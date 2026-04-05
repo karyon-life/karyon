@@ -8,7 +8,7 @@ export async function issueFormToken(formType: FormSubmitPayload['formType'], se
 	const issuedAt = Date.now();
 
 	if (!secret) {
-		throw new Error('DOCS_FORM_TOKEN_SECRET is not configured.');
+		throw new Error('TREESEED_FORM_TOKEN_SECRET is not configured.');
 	}
 
 	const formToken = await signFormToken(

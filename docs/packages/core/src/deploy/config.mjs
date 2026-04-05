@@ -67,6 +67,7 @@ function parseDeployConfig(raw) {
 	const agents = parsed.agents ?? {};
 	const smtp = parsed.smtp ?? {};
 	const turnstile = parsed.turnstile ?? {};
+	optionalBoolean(turnstile.enabled, 'turnstile.enabled');
 
 	return {
 		name: expectString(parsed.name, 'name'),
@@ -87,7 +88,7 @@ function parseDeployConfig(raw) {
 			enabled: optionalBoolean(smtp.enabled, 'smtp.enabled'),
 		},
 		turnstile: {
-			enabled: optionalBoolean(turnstile.enabled, 'turnstile.enabled'),
+			enabled: true,
 		},
 	};
 }

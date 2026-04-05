@@ -1,7 +1,7 @@
 ---
 import {
-	DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE,
-	DOCS_PUBLIC_TURNSTILE_SITE_KEY,
+	TREESEED_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE,
+	TREESEED_PUBLIC_TURNSTILE_SITE_KEY,
 } from 'astro:env/client';
 import { CONTACT_TYPE_LABELS } from '../../utils/forms/constants';
 import { CONTACT_TYPES } from '../../types/forms';
@@ -25,7 +25,7 @@ const messages: Record<string, string> = {
 };
 
 const statusMessage = code ? messages[code] ?? null : null;
-const shouldBypassTurnstile = DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE ?? import.meta.env.DEV;
+const shouldBypassTurnstile = TREESEED_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE ?? import.meta.env.DEV;
 const formsApiBaseUrl = SITE_FORMS?.apiBaseUrl ?? '/api/form/submit';
 ---
 
@@ -133,7 +133,7 @@ const formsApiBaseUrl = SITE_FORMS?.apiBaseUrl ?? '/api/form/submit';
 			></textarea>
 		</label>
 
-		{DOCS_PUBLIC_TURNSTILE_SITE_KEY && !shouldBypassTurnstile ? (
+		{TREESEED_PUBLIC_TURNSTILE_SITE_KEY && !shouldBypassTurnstile ? (
 			<div class="js-turnstile rounded-md border border-dashed border-[color:var(--site-border-strong)] p-3"></div>
 		) : shouldBypassTurnstile ? (
 			<p class="rounded-md border border-[color:var(--site-blue)] bg-[color:var(--site-blue-soft)] px-4 py-3 text-sm text-[color:var(--site-text)]">
@@ -141,7 +141,7 @@ const formsApiBaseUrl = SITE_FORMS?.apiBaseUrl ?? '/api/form/submit';
 			</p>
 		) : (
 			<p class="rounded-md border border-[color:var(--site-warm)] bg-[color:rgba(194,139,91,0.14)] px-4 py-3 text-sm text-[color:var(--site-text)]">
-				Turnstile is not configured yet. Add `DOCS_PUBLIC_TURNSTILE_SITE_KEY` before deploying forms.
+				Turnstile is not configured yet. Add `TREESEED_PUBLIC_TURNSTILE_SITE_KEY` before deploying forms.
 			</p>
 		)}
 
@@ -162,7 +162,7 @@ const formsApiBaseUrl = SITE_FORMS?.apiBaseUrl ?? '/api/form/submit';
 
 <script
 	is:inline
-	define:vars={{ siteKey: DOCS_PUBLIC_TURNSTILE_SITE_KEY, shouldBypassTurnstile, formsApiBaseUrl }}
+	define:vars={{ siteKey: TREESEED_PUBLIC_TURNSTILE_SITE_KEY, shouldBypassTurnstile, formsApiBaseUrl }}
 >
 	const bootSecureForms = () => {
 		const forms = Array.from(document.querySelectorAll('.js-secure-form'));

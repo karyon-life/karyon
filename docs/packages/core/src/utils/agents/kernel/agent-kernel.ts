@@ -283,7 +283,7 @@ export class AgentKernel {
 		return results;
 	}
 
-	async start(intervalMs = Number(process.env.DOCS_AGENT_SUPERVISOR_INTERVAL_MS ?? 60000)) {
+	async start(intervalMs = Number(process.env.TREESEED_AGENT_SUPERVISOR_INTERVAL_MS ?? 60000)) {
 		await this.runCycle();
 		setInterval(() => {
 			void this.runCycle();

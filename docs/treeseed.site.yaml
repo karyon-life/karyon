@@ -12,4 +12,4 @@ agents:
 smtp:
   enabled: false
 turnstile:
-  enabled: false
+  enabled: true

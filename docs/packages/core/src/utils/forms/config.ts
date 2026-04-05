@@ -1,29 +1,29 @@
 import {
-	DOCS_FORM_TOKEN_SECRET,
-	DOCS_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS,
-	DOCS_FORMS_LOCAL_BYPASS_TURNSTILE,
-	DOCS_FORMS_LOCAL_USE_MAILPIT,
-	DOCS_LOCAL_DEV_MODE,
-	DOCS_MAILPIT_SMTP_HOST,
-	DOCS_MAILPIT_SMTP_PORT,
-	DOCS_SMTP_FROM,
-	DOCS_SMTP_HOST,
-	DOCS_SMTP_PASSWORD,
-	DOCS_SMTP_PORT,
-	DOCS_SMTP_REPLY_TO,
-	DOCS_SMTP_USERNAME,
-	DOCS_TURNSTILE_SECRET_KEY,
+	TREESEED_FORM_TOKEN_SECRET,
+	TREESEED_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS,
+	TREESEED_FORMS_LOCAL_BYPASS_TURNSTILE,
+	TREESEED_FORMS_LOCAL_USE_MAILPIT,
+	TREESEED_LOCAL_DEV_MODE,
+	TREESEED_MAILPIT_SMTP_HOST,
+	TREESEED_MAILPIT_SMTP_PORT,
+	TREESEED_SMTP_FROM,
+	TREESEED_SMTP_HOST,
+	TREESEED_SMTP_PASSWORD,
+	TREESEED_SMTP_PORT,
+	TREESEED_SMTP_REPLY_TO,
+	TREESEED_SMTP_USERNAME,
+	TREESEED_TURNSTILE_SECRET_KEY,
 } from 'astro:env/server';
 import { SITE_EMAIL_NOTIFICATIONS } from '../site-config';
 import type { ContactRoutingMap, LocalDevMode } from '../../types/forms';
 import { getTreeseedFormsMode, isTreeseedSmtpEnabled, isTreeseedTurnstileEnabled } from '../../deploy/runtime';
 
 export function getFormSecret() {
-	return DOCS_FORM_TOKEN_SECRET ?? '';
+	return TREESEED_FORM_TOKEN_SECRET ?? '';
 }
 
 export function getTurnstileSecret() {
-	return DOCS_TURNSTILE_SECRET_KEY ?? '';
+	return TREESEED_TURNSTILE_SECRET_KEY ?? '';
 }
 
 export function getContactRoutingMap() {
@@ -35,14 +35,14 @@ export function getSubscribeRecipients() {
 }
 
 export function getSmtpConfig() {
-	const useMailpit = DOCS_FORMS_LOCAL_USE_MAILPIT ?? false;
+	const useMailpit = TREESEED_FORMS_LOCAL_USE_MAILPIT ?? false;
 	return {
-		host: useMailpit ? (DOCS_MAILPIT_SMTP_HOST ?? DOCS_SMTP_HOST ?? '127.0.0.1') : (DOCS_SMTP_HOST ?? ''),
-		port: useMailpit ? (DOCS_MAILPIT_SMTP_PORT ?? DOCS_SMTP_PORT ?? 1025) : (DOCS_SMTP_PORT ?? 465),
-		username: DOCS_SMTP_USERNAME ?? '',
-		password: DOCS_SMTP_PASSWORD ?? '',
-		from: DOCS_SMTP_FROM ?? '',
-		replyTo: DOCS_SMTP_REPLY_TO ?? '',
+		host: useMailpit ? (TREESEED_MAILPIT_SMTP_HOST ?? TREESEED_SMTP_HOST ?? '127.0.0.1') : (TREESEED_SMTP_HOST ?? ''),
+		port: useMailpit ? (TREESEED_MAILPIT_SMTP_PORT ?? TREESEED_SMTP_PORT ?? 1025) : (TREESEED_SMTP_PORT ?? 465),
+		username: TREESEED_SMTP_USERNAME ?? '',
+		password: TREESEED_SMTP_PASSWORD ?? '',
+		from: TREESEED_SMTP_FROM ?? '',
+		replyTo: TREESEED_SMTP_REPLY_TO ?? '',
 	};
 }
 
@@ -51,7 +51,7 @@ export function getFormsMode() {
 }
 
 export function getLocalDevMode(): LocalDevMode | null {
-	if (DOCS_LOCAL_DEV_MODE === 'cloudflare') {
+	if (TREESEED_LOCAL_DEV_MODE === 'cloudflare') {
 		return 'cloudflare';
 	}
 
@@ -59,15 +59,15 @@ export function getLocalDevMode(): LocalDevMode | null {
 }
 
 export function shouldBypassTurnstileByEnv() {
-	return DOCS_FORMS_LOCAL_BYPASS_TURNSTILE;
+	return TREESEED_FORMS_LOCAL_BYPASS_TURNSTILE;
 }
 
 export function shouldBypassCloudflareGuardsByEnv() {
-	return DOCS_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS;
+	return TREESEED_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS;
 }
 
 export function shouldUseMailpit() {
-	return DOCS_FORMS_LOCAL_USE_MAILPIT ?? false;
+	return TREESEED_FORMS_LOCAL_USE_MAILPIT ?? false;
 }
 
 export function isSmtpConfigured() {

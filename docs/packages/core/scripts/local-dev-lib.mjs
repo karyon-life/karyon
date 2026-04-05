@@ -62,8 +62,8 @@ export function runLocalD1Migration(persistTo) {
 
 export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo, outDir } = {}) {
 	const mergedEnvOverrides = {
-		DOCS_MAILPIT_SMTP_HOST: '127.0.0.1',
-		DOCS_MAILPIT_SMTP_PORT: '1025',
+		TREESEED_MAILPIT_SMTP_HOST: '127.0.0.1',
+		TREESEED_MAILPIT_SMTP_PORT: '1025',
 		...envOverrides,
 	};
 
@@ -71,7 +71,7 @@ export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo, ou
 	runNodeScript('./scripts/aggregate-book.mjs');
 	runNodeScript('./scripts/ensure-mailpit.mjs');
 	syncDevVars({
-		DOCS_LOCAL_DEV_MODE: 'cloudflare',
+		TREESEED_LOCAL_DEV_MODE: 'cloudflare',
 		...mergedEnvOverrides,
 	});
 	runLocalD1Migration(persistTo);
@@ -82,7 +82,7 @@ export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo, ou
 
 	runStep('npx', astroArgs, {
 		env: {
-			DOCS_LOCAL_DEV_MODE: 'cloudflare',
+			TREESEED_LOCAL_DEV_MODE: 'cloudflare',
 			...mergedEnvOverrides,
 		},
 		cwd: packageRoot,
@@ -91,7 +91,7 @@ export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo, ou
 	runNodeScript('./scripts/build-tenant-worker.mjs', [], {
 		cwd: fixtureRoot,
 		env: {
-			DOCS_LOCAL_DEV_MODE: 'cloudflare',
+			TREESEED_LOCAL_DEV_MODE: 'cloudflare',
 			...mergedEnvOverrides,
 		},
 	});

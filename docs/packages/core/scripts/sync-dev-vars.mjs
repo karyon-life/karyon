@@ -48,7 +48,7 @@ for (const entry of overrideEntries) {
 }
 
 const docsEntries = Object.entries(envMap)
-	.filter(([key]) => key.startsWith('DOCS_'))
+	.filter(([key]) => key.startsWith('TREESEED_'))
 	.map(([key, value]) => `${key}=${value}`);
 
 mkdirSync(resolve(process.cwd(), '.local'), { recursive: true });

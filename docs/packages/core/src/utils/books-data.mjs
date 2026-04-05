@@ -78,10 +78,10 @@ export function buildTenantBookRuntime(tenantConfig, options = {}) {
 			label: 'Books',
 			link: docsHomePath,
 		},
-		DOCS_LINKS: {
+		TREESEED_LINKS: {
 			home: docsHomePath,
 		},
-		DOCS_LIBRARY_DOWNLOAD: docsLibraryDownload,
+		TREESEED_LIBRARY_DOWNLOAD: docsLibraryDownload,
 	};
 }
 
@@ -94,4 +94,4 @@ const runtime = buildTenantBookRuntime(RUNTIME_TENANT, {
 		},
 });
 
-export const { BOOKS, BOOKS_LINK, DOCS_LINKS, DOCS_LIBRARY_DOWNLOAD } = runtime;
+export const { BOOKS, BOOKS_LINK, TREESEED_LINKS, TREESEED_LIBRARY_DOWNLOAD } = runtime;

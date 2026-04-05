@@ -1,6 +1,6 @@
 import { defineRouteMiddleware } from '@astrojs/starlight/route-data';
 import type { StarlightRouteData } from '@astrojs/starlight/route-data';
-import { BOOKS, DOCS_LINKS, normalizeHref } from '../utils/starlight-nav.mjs';
+import { BOOKS, TREESEED_LINKS, normalizeHref } from '../utils/starlight-nav.mjs';
 
 type SidebarEntry = StarlightRouteData['sidebar'][number];
 type SidebarLink = Extract<SidebarEntry, { type: 'link' }>;
@@ -63,7 +63,7 @@ export const onRequest = defineRouteMiddleware((context) => {
 		return;
 	}
 
-	if (currentPath === normalizeHref(DOCS_LINKS.home)) {
+	if (currentPath === normalizeHref(TREESEED_LINKS.home)) {
 		setRouteSidebar(route, currentPath, [], null);
 		return;
 	}

@@ -113,6 +113,8 @@ Deployment inputs are read from `treeseed.site.yaml` and tenant config files. Th
 
 These are runtime artifacts, not source files.
 
+A tenant CI workflow should call `npm run deploy` from the tenant root so automated deploys use the same Treeseed provisioning and publish path as local deploys. Avoid separate `wrangler pages deploy` or ad hoc Worker publish steps that bypass the generated Treeseed deploy contract.
+
 ## Forms Runtime
 
 The default forms mode is `store_only`.
@@ -125,7 +127,7 @@ Supported modes:
 
 This keeps the default platform affordable and usable without SMTP, while still allowing richer behavior when a tenant explicitly enables it.
 
-Turnstile remains optional and deploy-config driven.
+Turnstile is part of the standard production deploy contract. Treeseed deploy expects `TREESEED_PUBLIC_TURNSTILE_SITE_KEY` and `TREESEED_TURNSTILE_SECRET_KEY` to be provided for production publishes.
 
 ## Agent Runtime
 
