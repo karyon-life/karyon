@@ -7,15 +7,16 @@ const [command, ...args] = process.argv.slice(2);
 
 const COMMAND_MAP = new Map([
 	['dev', packageScriptPath('tenant-dev')],
+	['dev:watch', packageScriptPath('tenant-dev')],
 	['build', packageScriptPath('tenant-build')],
 	['check', packageScriptPath('tenant-check')],
 	['preview', packageScriptPath('tenant-astro-command')],
 	['astro', packageScriptPath('tenant-astro-command')],
 	['sync:devvars', packageScriptPath('sync-dev-vars')],
-	['mailpit:up', packageScriptPath('tenant-ensure-mailpit')],
-	['mailpit:ensure', packageScriptPath('tenant-ensure-mailpit')],
-	['mailpit:down', packageScriptPath('tenant-mailpit-down')],
-	['mailpit:logs', packageScriptPath('tenant-mailpit-logs')],
+	['mailpit:up', packageScriptPath('ensure-mailpit')],
+	['mailpit:ensure', packageScriptPath('ensure-mailpit')],
+	['mailpit:down', packageScriptPath('stop-mailpit')],
+	['mailpit:logs', packageScriptPath('logs-mailpit')],
 	['d1:migrate:local', packageScriptPath('tenant-d1-migrate-local')],
 	['cleanup:markdown', packageScriptPath('cleanup-markdown')],
 	['cleanup:markdown:check', packageScriptPath('cleanup-markdown')],
@@ -50,6 +51,8 @@ if (!scriptPath) {
 const commandArgs =
 	command === 'preview' || command === 'astro'
 		? args
+		: command === 'dev:watch'
+			? ['--watch', ...args]
 		: command === 'cleanup:markdown:check'
 			? ['--check', ...args]
 			: command === 'cleanup:markdown'

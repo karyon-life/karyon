@@ -181,6 +181,7 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 			schema: {
 				DOCS_PUBLIC_TURNSTILE_SITE_KEY: envField.string({ context: 'client', access: 'public', optional: true }),
 				DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE: envField.boolean({ context: 'client', access: 'public', optional: true }),
+				DOCS_PUBLIC_DEV_WATCH_RELOAD: envField.boolean({ context: 'client', access: 'public', optional: true }),
 				DOCS_TURNSTILE_SECRET_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
 				DOCS_SMTP_HOST: envField.string({ context: 'server', access: 'secret', optional: true }),
 				DOCS_SMTP_PORT: envField.number({ context: 'server', access: 'secret', optional: true }),

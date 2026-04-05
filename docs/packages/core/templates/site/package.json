@@ -4,12 +4,16 @@
   "private": true,
   "version": "0.0.1",
   "scripts": {
-    "postinstall": "npm run starlight:patch",
-    "starlight:patch": "node ./node_modules/@treeseed/core/dist/scripts/treeseed.js starlight:patch",
+    "postinstall": "treeseed starlight:patch",
+    "starlight:patch": "treeseed starlight:patch",
     "dev": "treeseed dev",
+    "dev:watch": "treeseed dev --watch",
     "build": "treeseed build",
     "check": "treeseed check",
-    "preview": "treeseed preview"
+    "preview": "treeseed preview",
+    "mailpit:up": "treeseed mailpit:up",
+    "mailpit:down": "treeseed mailpit:down",
+    "mailpit:logs": "treeseed mailpit:logs"
   },
   "dependencies": {
     "@treeseed/core": "__CORE_VERSION__"

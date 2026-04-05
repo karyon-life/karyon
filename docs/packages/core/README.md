@@ -4,6 +4,8 @@ Main package-first Treeseed platform for Astro, Starlight, forms, books, and age
 
 This package is intended to own nearly all application code. A project repository should keep only tenant config, content, branding assets, prompts, deploy/runtime config, and thin local wrappers required for Astro entrypoints.
 
+Tenant branding assets should live under `public/` and be referenced through `src/config.yaml`. Generated `public/books/*.md` exports are runtime outputs and should stay out of version control.
+
 The package now publishes a built `dist/` runtime and a package CLI, so tenant sites can depend on `@treeseed/core` alone.
 
 ## Package Operations
@@ -14,6 +16,7 @@ Run these commands from `docs/packages/core/` while the package still lives insi
 
 - `npm run setup`: install docs workspace dependencies from the package entrypoint
 - `npm run dev`: start the docs fixture app that mounts `@treeseed/core`
+- `npm run dev:watch`: start the same fixture app with an opt-in rebuild and browser refresh loop
 - `npm run check`: run Astro/content checks against the fixture app
 - `npm run build`: build the fixture app
 - `npm run test`: run the fixture app test suite
@@ -24,10 +27,13 @@ Run these commands from `docs/packages/core/` while the package still lives insi
 Installed tenants use the `treeseed` CLI:
 
 - `treeseed dev`
+- `treeseed dev --watch`
 - `treeseed build`
 - `treeseed check`
 - `treeseed preview`
 - `treeseed init <directory>`
+
+MailPit is package-managed. Tenant apps do not need their own `compose.yml`; `treeseed mailpit:up`, `treeseed mailpit:down`, and `treeseed mailpit:logs` run against the package-owned service definition.
 
 `treeseed init` scaffolds a new tenant from `templates/site/`.
 

@@ -5,6 +5,7 @@ import { PROJECT_STAGE } from '../utils/content-status';
 import { SITE } from '../utils/seo';
 import { SITE_FOOTER_MENU, SITE_THEME_CSS } from '../utils/site-config';
 import FooterSubscribeForm from '../components/forms/FooterSubscribeForm.astro';
+import DevWatchReload from '../components/DevWatchReload.astro';
 
 const { title, description, currentPath = '/' } = Astro.props;
 ---
@@ -197,5 +198,6 @@ const { title, description, currentPath = '/' } = Astro.props;
 				});
 			});
 		</script>
+		<DevWatchReload />
 	</body>
 </html>

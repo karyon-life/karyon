@@ -76,7 +76,7 @@ export function runLocalD1Migration(persistTo) {
 export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo } = {}) {
 	const mergedEnvOverrides = {
 		DOCS_MAILPIT_SMTP_HOST: '127.0.0.1',
-		DOCS_MAILPIT_SMTP_PORT: '1125',
+		DOCS_MAILPIT_SMTP_PORT: '1025',
 		...envOverrides,
 	};
 

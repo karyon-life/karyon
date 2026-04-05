@@ -4,6 +4,7 @@ import LastUpdated from '@astrojs/starlight/components/LastUpdated.astro';
 import Pagination from '@astrojs/starlight/components/Pagination.astro';
 import config from 'virtual:starlight/user-config';
 import FooterSubscribeForm from '../forms/FooterSubscribeForm.astro';
+import DevWatchReload from '../DevWatchReload.astro';
 import { PROJECT_STAGE } from '../../utils/content-status';
 import { SITE } from '../../utils/seo';
 import { SITE_FOOTER_MENU } from '../../utils/site-config';
@@ -53,6 +54,7 @@ import { SITE_FOOTER_MENU } from '../../utils/site-config';
 			<FooterSubscribeForm currentPath={Astro.url.pathname} />
 		</div>
 	</footer>
+	<DevWatchReload />
 </div>
 
 <style>

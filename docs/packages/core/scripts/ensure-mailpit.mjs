@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { fixtureComposeFile, packageRoot } from './paths.mjs';
+import { mailpitComposeFile, packageRoot } from './paths.mjs';
 
 const checkDocker = spawnSync('docker', ['info'], {
 	stdio: 'ignore',
@@ -10,7 +10,7 @@ if (checkDocker.status !== 0) {
 	process.exit(1);
 }
 
-const result = spawnSync('docker', ['compose', '-f', fixtureComposeFile, 'up', '-d', 'mailpit'], {
+const result = spawnSync('docker', ['compose', '-f', mailpitComposeFile, 'up', '-d', 'mailpit'], {
 	stdio: 'inherit',
 	cwd: packageRoot,
 });

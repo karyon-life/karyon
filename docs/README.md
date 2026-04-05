@@ -21,7 +21,7 @@ The docs describe both the target organism and the codebase that exists today. T
 
 - the project-owned knowledge source lives in `src/content/knowledge/`
 - the public site routes are injected from `@treeseed/core`, while the platform package patches Starlight to treat `src/content/knowledge/` as the docs collection root
-- `public/books/*.md` are generated book exports, not guaranteed checked-in artifacts
+- `public/books/*.md` are generated book exports and are intentionally gitignored
 - production-facing integrations such as XTDB, NATS, and Firecracker are still being hardened
 - use the runtime repository's `PLAN.md` and `TASKS.md` to track readiness work while the docs still live inside the monorepo
 
@@ -48,7 +48,6 @@ Inside of your Astro + Starlight project, you'll see the following folders and f
 ├── packages/
 │   └── core/
 ├── src/
-│   ├── assets/
 │   ├── content/
 │   │   ├── knowledge/
 │   │   ├── notes/
@@ -65,9 +64,7 @@ Starlight’s `docs` collection is patched by the platform package to resolve to
 
 The tenant manifest owns the package-facing path and feature contract. Site identity, branding, links, menus, and model defaults live in `src/config.yaml`. Package-owned routes and runtime code consume those boundaries instead of living in the project tree.
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
-
-Static assets, like favicons, can be placed in the `public/` directory.
+Static assets, including tenant branding assets, belong in the `public/` directory. Reference them from content or config with public paths such as `/logo.png`.
 
 ## 🧞 Commands
 
@@ -76,7 +73,8 @@ All commands below assume your shell is inside `docs/`:
 | Command                   | Action                                           |
 | :------------------------ | :----------------------------------------------- |
 | `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts the local Wrangler dev server with Cloudflare bindings |
+| `npm run dev`             | Starts the unified local Wrangler runtime with MailPit, D1, KV, and generated books |
+| `npm run dev:watch`       | Starts the same Wrangler runtime plus opt-in rebuild and browser refresh for core development |
 | `npm run build`           | Build your production site to `./dist/`          |
 | `npm run preview`         | Preview your build locally, before deploying     |
 | `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
@@ -89,13 +87,14 @@ Run docs commands directly from `docs/`:
 | Command | Action |
 | :------ | :----- |
 | `npm install` | Install docs dependencies |
-| `npm run dev` | Start the docs site through local Wrangler with Cloudflare bindings |
+| `npm run dev` | Start the docs site through the unified local Wrangler runtime |
+| `npm run dev:watch` | Start the same runtime with opt-in rebuild and browser refresh support |
 | `npm run check` | Sync Astro/content state through the package-owned check flow |
 | `npm run build` | Build the static docs output |
 | `npm run test` | Run unit tests plus Cloudflare-local integration coverage |
 | `npm run cleanup:markdown -- <path>` | Normalize Markdown/MDX files before publishing |
 
-The optional aggregated markdown books can be produced with `node ./node_modules/@treeseed/core/scripts/aggregate-book.mjs`.
+The optional aggregated markdown books can be regenerated with `node ./node_modules/@treeseed/core/dist/scripts/aggregate-book.js`. They are build outputs and should not be committed.
 
 If you still need the nested monorepo wrappers before the split, the runtime repo currently exposes `npm run docs:*` aliases from its top-level `package.json`. Do not treat those wrappers as the long-term interface.
 
@@ -187,9 +186,9 @@ Defaults and guarantees:
 
 ## Local Form Development
 
-The docs site owns its local email testing workflow inside this directory.
+The docs site owns its local email testing workflow through the `treeseed` CLI.
 
-- `compose.yml` runs a MailPit SMTP server and inbox UI for form testing
+- MailPit is package-managed by `@treeseed/core`; the tenant no longer carries a `compose.yml`
 - `.env.local` is the canonical local config file for the docs site
 - every docs-site environment variable is prefixed with `DOCS_`
 
@@ -200,6 +199,7 @@ Run from inside `docs/`:
 | Command | Action |
 | :------ | :----- |
 | `npm run dev` | Starts MailPit, syncs local env into Wrangler, runs local D1 migration, builds the site, and launches `wrangler dev --local` |
+| `npm run dev:watch` | Runs the same Cloudflare-local stack, plus an opt-in rebuild and browser refresh loop for core development |
 
 Behavior:
 
@@ -208,6 +208,7 @@ Behavior:
 - local KV and D1 bindings come from `wrangler.toml`
 - local Wrangler vars are generated from `.env.local` into `.dev.vars`
 - `DOCS_LOCAL_DEV_MODE=cloudflare` is the only supported local runtime mode
+- `npm run dev:watch` keeps Wrangler as the only runtime host; it simply rebuilds the app and refreshes the browser after supported file changes
 - bypass flags such as `DOCS_FORMS_LOCAL_BYPASS_TURNSTILE` stay explicit, so local Cloudflare runs are production-like unless you opt into local shortcuts
 
 ## Local Test Parity

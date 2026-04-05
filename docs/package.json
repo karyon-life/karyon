@@ -6,6 +6,7 @@
     "starlight:patch": "treeseed starlight:patch",
     "postinstall": "npm run starlight:patch",
     "dev": "treeseed dev",
+    "dev:watch": "treeseed dev --watch",
     "start": "npm run dev",
     "build": "treeseed build",
     "check": "treeseed check",

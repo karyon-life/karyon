@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { build } from 'esbuild';
@@ -11,21 +11,7 @@ const scriptsRoot = resolve(packageRoot, 'scripts');
 const distRoot = resolve(packageRoot, 'dist');
 
 const JS_SOURCE_EXTENSIONS = new Set(['.mjs', '.ts']);
-const COPY_EXTENSIONS = new Set(['.astro', '.css', '.d.ts', '.js']);
-const BUNDLED_ENTRYPOINTS = new Set([
-	resolve(srcRoot, 'config.mjs'),
-	resolve(srcRoot, 'content-config.mjs'),
-]);
-const COMPATIBILITY_BUNDLES = [
-	{
-		entryPoint: resolve(srcRoot, 'config.mjs'),
-		outputPath: resolve(distRoot, 'config.js'),
-	},
-	{
-		entryPoint: resolve(srcRoot, 'content-config.mjs'),
-		outputPath: resolve(distRoot, 'content-config.js'),
-	},
-];
+const COPY_EXTENSIONS = new Set(['.astro', '.css', '.d.ts', '.js', '.json', '.jsonc', '.mjs']);
 
 function walkFiles(root) {
 	const files = [];
@@ -48,6 +34,64 @@ function rewriteRuntimeSpecifiers(contents) {
 	return contents.replace(/(['"`])(\.[^'"`\n]+)\.(mjs|ts)\1/g, '$1$2.js$1');
 }
 
+function rewriteVendorImportSpecifiers(contents, importerFile) {
+	return contents
+		.replace(
+			/(from\s+['"`]|import\s*\(\s*['"`]|export\s+\*\s+from\s+['"`]|export\s+\{[^}]*\}\s+from\s+['"`])(\.{1,2}\/[^'"`\n]+\.(?:json|jsonc))\?raw(['"`])/g,
+			(match, prefix, specifier, suffix) => `${prefix}${specifier}.js${suffix}`,
+		)
+		.replace(
+			/(from\s+['"`]|import\s*\(\s*['"`]|export\s+\*\s+from\s+['"`]|export\s+\{[^}]*\}\s+from\s+['"`])(\.{1,2}\/[^'"`\n]+\.json)(['"`])/g,
+			(match, prefix, specifier, suffix) => `${prefix}${specifier}.js${suffix}`,
+		)
+		.replace(
+			/(from\s+['"`]|import\s*\(\s*['"`]|export\s+\*\s+from\s+['"`]|export\s+\{[^}]*\}\s+from\s+['"`])(\.{1,2}\/[^'"`\n]+)(['"`])/g,
+			(match, prefix, specifier, suffix) => {
+			if (
+				specifier.endsWith('/') ||
+				/\.(?:js|mjs|cjs|json|jsonc|css|astro|svg|png|jpg|jpeg|gif|webp|avif|woff2?|ttf|otf)$/.test(specifier)
+			) {
+				return match;
+			}
+
+			const resolvedPath = resolve(dirname(importerFile), specifier);
+			if (existsSync(`${resolvedPath}.js`)) {
+				return `${prefix}${specifier}.js${suffix}`;
+			}
+			if (existsSync(resolve(resolvedPath, 'index.js'))) {
+				return `${prefix}${specifier}/index.js${suffix}`;
+			}
+
+			return `${prefix}${specifier}.js${suffix}`;
+			},
+		);
+}
+
+function writeRawTextModule(sourceFile, sourceRoot, outputRoot) {
+	const relativePath = relative(sourceRoot, sourceFile);
+	const outputFile = resolve(outputRoot, `${relativePath}.js`);
+	ensureDir(outputFile);
+	const source = readFileSync(sourceFile, 'utf8');
+	writeFileSync(outputFile, `export default ${JSON.stringify(source)};\n`, 'utf8');
+}
+
+function writeJsonModule(sourceFile, sourceRoot, outputRoot) {
+	const relativePath = relative(sourceRoot, sourceFile);
+	const outputFile = resolve(outputRoot, `${relativePath}.js`);
+	ensureDir(outputFile);
+	const source = readFileSync(sourceFile, 'utf8');
+	const parsed = JSON.parse(source);
+	const namedExports = Object.keys(parsed)
+		.filter((key) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key))
+		.map((key) => `export const ${key} = __treeseedJson.${key};`)
+		.join('\n');
+	writeFileSync(
+		outputFile,
+		`const __treeseedJson = ${JSON.stringify(parsed, null, 2)};\nexport default __treeseedJson;\n${namedExports}\n`,
+		'utf8',
+	);
+}
+
 function rewriteScriptRuntimeSpecifiers(contents) {
 	return rewriteRuntimeSpecifiers(contents)
 		.replace(/(['"`])\.\.\/src\//g, '$1../')
@@ -59,66 +103,20 @@ async function compileModule(filePath, sourceRoot, outputRoot) {
 	const outputFile = resolve(outputRoot, relativePath.replace(/\.(mjs|ts)$/u, '.js'));
 	ensureDir(outputFile);
 
-	const bundled = BUNDLED_ENTRYPOINTS.has(filePath);
 	await build({
 		entryPoints: [filePath],
 		outfile: outputFile,
 		platform: 'node',
 		format: 'esm',
-		bundle: bundled,
+		bundle: false,
 		logLevel: 'silent',
 		loader: {
 			'.jsonc': 'text',
 		},
-		external: bundled
-			? [
-					'node:*',
-					'astro',
-					'astro/*',
-					'astro:content',
-					'astro/loaders',
-					'astro/config',
-					'astro/assets/services/noop',
-					'@astrojs/cloudflare',
-					'@tailwindcss/vite',
-					'rehype-katex',
-					'remark-math',
-			  ]
-			: [],
 	});
 
 	const builtSource = readFileSync(outputFile, 'utf8');
 	writeFileSync(outputFile, rewriteRuntimeSpecifiers(builtSource), 'utf8');
-}
-
-async function buildCompatibilityBundle({ entryPoint, outputPath }) {
-	await build({
-		entryPoints: [entryPoint],
-		outfile: outputPath,
-		platform: 'node',
-		format: 'esm',
-		bundle: true,
-		logLevel: 'silent',
-		banner: {
-			js: "import { createRequire as __treeseedCreateRequire } from 'node:module'; const require = __treeseedCreateRequire(import.meta.url);",
-		},
-		loader: {
-			'.jsonc': 'text',
-		},
-		external: [
-			'node:*',
-			'astro',
-			'astro/*',
-			'astro:content',
-			'astro/loaders',
-			'astro/config',
-			'astro/assets/services/noop',
-			'@astrojs/cloudflare',
-			'@tailwindcss/vite',
-			'rehype-katex',
-			'remark-math',
-		],
-	});
 }
 
 function copyAsset(filePath, sourceRoot, outputRoot) {
@@ -172,6 +170,94 @@ function rewriteDeclarations() {
 	}
 }
 
+async function compileVendorPackage(sourceRoot, outputRoot) {
+	for (const filePath of walkFiles(sourceRoot)) {
+		if (filePath.endsWith('.d.ts')) {
+			copyAsset(filePath, sourceRoot, outputRoot);
+			continue;
+		}
+
+		const extension = extname(filePath);
+		if (extension === '.ts') {
+			await compileModule(filePath, sourceRoot, outputRoot);
+			continue;
+		}
+
+		if (COPY_EXTENSIONS.has(extension)) {
+			copyAsset(filePath, sourceRoot, outputRoot);
+			if (extension === '.jsonc') {
+				writeRawTextModule(filePath, sourceRoot, outputRoot);
+			}
+			if (extension === '.json') {
+				writeJsonModule(filePath, sourceRoot, outputRoot);
+			}
+		}
+	}
+
+	for (const filePath of walkFiles(outputRoot)) {
+		if (!filePath.endsWith('.js')) continue;
+		const contents = readFileSync(filePath, 'utf8');
+		writeFileSync(filePath, rewriteVendorImportSpecifiers(contents, filePath), 'utf8');
+	}
+}
+
+function writeCompatibilityEntrypoint(outputFile, contents) {
+	ensureDir(outputFile);
+	writeFileSync(outputFile, `${contents}
+`, 'utf8');
+}
+
+function patchVendoredStarlight(distVendorRoot) {
+	const indexFile = resolve(distVendorRoot, 'index.js');
+	if (readdirSync(dirname(indexFile)).includes('index.js')) {
+		let source = readFileSync(indexFile, 'utf8')
+			.replaceAll('@astrojs/starlight/locals', './locals.js')
+			.replaceAll('@astrojs/starlight/routes/static/404.astro', './routes/static/404.astro')
+			.replaceAll('@astrojs/starlight/routes/ssr/404.astro', './routes/ssr/404.astro')
+			.replaceAll('@astrojs/starlight/routes/static/index.astro', './routes/static/index.astro')
+			.replaceAll('@astrojs/starlight/routes/ssr/index.astro', './routes/ssr/index.astro');
+
+		if (!source.includes('from "node:url"')) {
+			source = `import { fileURLToPath } from "node:url";\n${source}`;
+		}
+
+		source = source
+			.replace(
+				'addMiddleware({ entrypoint: "./locals.js", order: "pre" });',
+				'addMiddleware({ entrypoint: fileURLToPath(new URL("./locals.js", import.meta.url)), order: "pre" });',
+			)
+			.replaceAll(
+				'"./routes/static/404.astro"',
+				'fileURLToPath(new URL("./routes/static/404.astro", import.meta.url))',
+			)
+			.replaceAll(
+				'"./routes/ssr/404.astro"',
+				'fileURLToPath(new URL("./routes/ssr/404.astro", import.meta.url))',
+			)
+			.replaceAll(
+				'"./routes/static/index.astro"',
+				'fileURLToPath(new URL("./routes/static/index.astro", import.meta.url))',
+			)
+			.replaceAll(
+				'"./routes/ssr/index.astro"',
+				'fileURLToPath(new URL("./routes/ssr/index.astro", import.meta.url))',
+			);
+
+		writeFileSync(indexFile, source, 'utf8');
+	}
+}
+
+function patchTreeseedRuntime(distRuntimeRoot) {
+	const middlewareFile = resolve(distRuntimeRoot, 'middleware', 'starlightRouteData.js');
+	if (existsSync(middlewareFile)) {
+		const source = readFileSync(middlewareFile, 'utf8').replaceAll(
+			'"@astrojs/starlight/route-data"',
+			'"../vendor/starlight/route-data.js"',
+		);
+		writeFileSync(middlewareFile, source, 'utf8');
+	}
+}
+
 async function main() {
 	rmSync(distRoot, { recursive: true, force: true });
 	mkdirSync(distRoot, { recursive: true });
@@ -200,9 +286,22 @@ async function main() {
 		}
 	}
 
-	for (const bundle of COMPATIBILITY_BUNDLES) {
-		await buildCompatibilityBundle(bundle);
-	}
+
+	const starlightPackageRoot = dirname(require.resolve('@astrojs/starlight'));
+	const vendoredStarlightRoot = resolve(distRoot, 'vendor', 'starlight');
+	await compileVendorPackage(starlightPackageRoot, vendoredStarlightRoot);
+	patchVendoredStarlight(vendoredStarlightRoot);
+	patchTreeseedRuntime(distRoot);
+
+	writeCompatibilityEntrypoint(
+		resolve(distRoot, 'config.js'),
+		"import starlight from './vendor/starlight/index.js';\nimport { createTreeseedSite } from './site.js';\nimport { loadTreeseedManifest } from './tenant/config.js';\n\nexport function createTreeseedTenantSite(manifestPath) {\n\tconst tenant = loadTreeseedManifest(manifestPath);\n\treturn createTreeseedSite(tenant, { starlight });\n}"
+	);
+
+	writeCompatibilityEntrypoint(
+		resolve(distRoot, 'content-config.js'),
+		"import { docsLoader } from './vendor/starlight/loaders.js';\nimport { docsSchema } from './vendor/starlight/schema.js';\nimport { createTreeseedCollections } from './content.js';\nimport { loadTreeseedManifest } from './tenant/config.js';\n\nexport function createTreeseedTenantCollections(manifestPath) {\n\tconst tenant = loadTreeseedManifest(manifestPath);\n\treturn createTreeseedCollections(tenant, { docsLoader, docsSchema });\n}"
+	);
 
 	copyAsset(resolve(packageRoot, 'tsconfigs/strict.json'), packageRoot, distRoot);
 	copyPackageAsset('@astrojs/mdx', 'template/content-module-types.d.ts', 'template/content-module-types.d.ts');
