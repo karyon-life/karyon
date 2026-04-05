@@ -48,11 +48,12 @@
     "test:unit": "vitest run --config ./vitest.config.ts",
     "test:integration": "node ./scripts/test-cloudflare-local.mjs",
     "test:e2e": "vitest run --config ./vitest.e2e.config.ts --maxWorkers=1",
+    "test:scaffold": "node ./scripts/test-scaffold.mjs",
     "test:smoke": "node ./scripts/agents-smoke.mjs",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "release:setup": "npm run setup:ci",
     "release:check-tag": "node ./scripts/assert-release-tag-version.mjs",
-    "release:verify": "npm run build:dist && npm run check && npm run build",
+    "release:verify": "npm run build:dist && npm run check && npm run build && npm run test:scaffold",
     "release:publish": "node ./scripts/publish-package.mjs"
   },
   "dependencies": {

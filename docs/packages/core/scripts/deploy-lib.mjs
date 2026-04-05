@@ -289,6 +289,21 @@ function isPlaceholderAccountId(value) {
 	return !value || value === 'replace-with-cloudflare-account-id';
 }
 
+function missingTurnstileRequirements(deployConfig) {
+	if (!deployConfig.turnstile?.enabled) {
+		return [];
+	}
+
+	const issues = [];
+	if (!envOrNull('DOCS_PUBLIC_TURNSTILE_SITE_KEY')) {
+		issues.push('Set DOCS_PUBLIC_TURNSTILE_SITE_KEY before deploying with turnstile.enabled: true.');
+	}
+	if (!envOrNull('DOCS_TURNSTILE_SECRET_KEY')) {
+		issues.push('Set DOCS_TURNSTILE_SECRET_KEY before deploying with turnstile.enabled: true.');
+	}
+	return issues;
+}
+
 export function validateDeployPrerequisites(tenantRoot, { requireRemote = true } = {}) {
 	const deployConfig = loadTreeseedDeployConfig();
 	const issues = [];
@@ -300,6 +315,8 @@ export function validateDeployPrerequisites(tenantRoot, { requireRemote = true }
 	}
 
 	if (requireRemote) {
+		issues.push(...missingTurnstileRequirements(deployConfig));
+
 		const result = runWrangler(['whoami'], {
 			cwd: tenantRoot,
 			allowFailure: true,

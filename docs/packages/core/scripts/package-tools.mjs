@@ -35,6 +35,17 @@ function resolvePackageBinary(packageName, binName = packageName) {
 export const astroBin = resolvePackageBinary('astro', 'astro');
 export const wranglerBin = resolvePackageBinary('wrangler', 'wrangler');
 
+export function createProductionBuildEnv(extraEnv = {}) {
+	return {
+		DOCS_LOCAL_DEV_MODE: 'cloudflare',
+		DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE: '',
+		DOCS_FORMS_LOCAL_BYPASS_TURNSTILE: '',
+		DOCS_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS: '',
+		DOCS_PUBLIC_DEV_WATCH_RELOAD: '',
+		...extraEnv,
+	};
+}
+
 export function packageScriptPath(scriptName) {
 	if (extname(scriptName)) {
 		return resolve(packageScriptRoot, scriptName);
