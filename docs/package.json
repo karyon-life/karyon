@@ -1,9 +1,9 @@
 {
-  "name": "docs",
+  "name": "karyon-docs",
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "starlight:patch": "node ./node_modules/@treeseed/core/dist/scripts/treeseed.js starlight:patch",
+    "starlight:patch": "treeseed starlight:patch",
     "postinstall": "npm run starlight:patch",
     "dev": "treeseed dev",
     "start": "npm run dev",
@@ -12,8 +12,8 @@
     "preview": "treeseed preview",
     "astro": "treeseed astro",
     "mailpit:up": "treeseed mailpit:up",
-    "mailpit:down": "docker compose -f compose.yml stop mailpit",
-    "mailpit:logs": "docker compose -f compose.yml logs -f mailpit",
+    "mailpit:down": "treeseed mailpit:down",
+    "mailpit:logs": "treeseed mailpit:logs",
     "sync:devvars": "treeseed sync:devvars",
     "d1:migrate:local": "treeseed d1:migrate:local",
     "cleanup:markdown": "treeseed cleanup:markdown",

@@ -14,6 +14,8 @@ const COMMAND_MAP = new Map([
 	['sync:devvars', packageScriptPath('sync-dev-vars')],
 	['mailpit:up', packageScriptPath('tenant-ensure-mailpit')],
 	['mailpit:ensure', packageScriptPath('tenant-ensure-mailpit')],
+	['mailpit:down', packageScriptPath('tenant-mailpit-down')],
+	['mailpit:logs', packageScriptPath('tenant-mailpit-logs')],
 	['d1:migrate:local', packageScriptPath('tenant-d1-migrate-local')],
 	['cleanup:markdown', packageScriptPath('cleanup-markdown')],
 	['cleanup:markdown:check', packageScriptPath('cleanup-markdown')],
