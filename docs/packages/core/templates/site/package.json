@@ -10,6 +10,7 @@
     "dev:watch": "treeseed dev --watch",
     "build": "treeseed build",
     "check": "treeseed check",
+    "deploy": "treeseed deploy",
     "preview": "treeseed preview",
     "mailpit:up": "treeseed mailpit:up",
     "mailpit:down": "treeseed mailpit:down",

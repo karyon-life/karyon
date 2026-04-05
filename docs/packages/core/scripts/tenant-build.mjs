@@ -10,3 +10,4 @@ runNodeBinary(astroBin, ['build'], {
 		DOCS_LOCAL_DEV_MODE: process.env.DOCS_LOCAL_DEV_MODE,
 	},
 });
+runNodeScript(packageScriptPath('build-tenant-worker'), [], { cwd: process.cwd() });

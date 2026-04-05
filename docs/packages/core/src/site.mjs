@@ -2,7 +2,6 @@ import { defineConfig, envField } from 'astro/config';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import cloudflare from '@astrojs/cloudflare';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
 import tailwindcss from '@tailwindcss/vite';
@@ -10,6 +9,7 @@ import { parseSiteConfig } from './utils/site-config-schema.js';
 import { buildTenantBookRuntime } from './utils/books-data.mjs';
 import { getStarlightSidebarConfigFromRuntime } from './utils/starlight-nav.mjs';
 import { buildTenantThemeCss } from './utils/theme.ts';
+import { loadTreeseedDeployConfig } from './deploy/config.mjs';
 
 const TENANT_THEME_VIRTUAL_ID = 'virtual:treeseed/tenant-theme.css';
 const RESOLVED_TENANT_THEME_VIRTUAL_ID = '\0treeseed:tenant-theme.css';
@@ -48,7 +48,6 @@ const PACKAGE_ROUTE_ENTRIES = [
 	{ pattern: '/people/[slug]', entrypoint: packageFile('./pages/people/[slug].astro') },
 	{ pattern: '/questions', entrypoint: packageFile('./pages/questions/index.astro') },
 	{ pattern: '/questions/[slug]', entrypoint: packageFile('./pages/questions/[slug].astro') },
-	{ pattern: '/api/form/submit', entrypoint: packageModuleFile('./pages/api/form/submit'), prerender: false },
 ];
 
 function createTreeseedRoutesIntegration(tenantConfig) {
@@ -62,7 +61,6 @@ function createTreeseedRoutesIntegration(tenantConfig) {
 					if (route.pattern.startsWith('/notes') && tenantConfig.features?.notes === false) continue;
 					if (route.pattern.startsWith('/objectives') && tenantConfig.features?.objectives === false) continue;
 					if (route.pattern.startsWith('/questions') && tenantConfig.features?.questions === false) continue;
-					if (route.pattern === '/api/form/submit' && tenantConfig.features?.forms === false) continue;
 					injectRoute(route);
 				}
 			},
@@ -153,25 +151,23 @@ function rehypeNormalizeEscapedMath() {
 export function createTreeseedSite(tenantConfig, { starlight }) {
 	const projectRoot = process.cwd();
 	const siteConfig = parseSiteConfig(readFileSync(resolve(projectRoot, tenantConfig.siteConfigPath), 'utf8'));
+	const deployConfig = loadTreeseedDeployConfig();
 	const bookRuntime = buildTenantBookRuntime(tenantConfig, { projectRoot });
 	const tenantThemeCss = buildTenantThemeCss(siteConfig.site.theme);
 	const injectedTenantConfig = JSON.stringify(tenantConfig);
 	const injectedProjectRoot = JSON.stringify(projectRoot);
 	const injectedSiteConfig = JSON.stringify(siteConfig);
+	const injectedDeployConfig = JSON.stringify(deployConfig);
 
 	return defineConfig({
+		output: 'static',
 		site: siteConfig.site.siteUrl,
-		adapter: cloudflare({ imageService: 'compile' }),
-		image: {
-			service: {
-				entrypoint: 'astro/assets/services/noop',
-			},
-		},
 		vite: {
 			define: {
 				__TREESEED_TENANT_CONFIG__: injectedTenantConfig,
 				__TREESEED_PROJECT_ROOT__: injectedProjectRoot,
 				__TREESEED_SITE_CONFIG__: injectedSiteConfig,
+				__TREESEED_DEPLOY_CONFIG__: injectedDeployConfig,
 			},
 			plugins: [
 				createTenantThemeVitePlugin(tenantThemeCss),
@@ -182,6 +178,7 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 			},
 		},
 		markdown: {
+			syntaxHighlight: false,
 			remarkPlugins: [remarkMath, remarkNormalizeEscapedMath],
 			rehypePlugins: [rehypeNormalizeEscapedMath, [rehypeKatex, { strict: 'ignore' }]],
 		},
@@ -210,6 +207,7 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 			createTreeseedRoutesIntegration(tenantConfig),
 			starlight({
 				disable404Route: true,
+				expressiveCode: false,
 				customCss: [packageFile('./styles/global.css'), TENANT_THEME_VIRTUAL_ID],
 				title: siteConfig.site.name,
 				logo: {

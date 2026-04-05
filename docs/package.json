@@ -10,6 +10,7 @@
     "start": "npm run dev",
     "build": "treeseed build",
     "check": "treeseed check",
+    "deploy": "treeseed deploy",
     "preview": "treeseed preview",
     "astro": "treeseed astro",
     "mailpit:up": "treeseed mailpit:up",

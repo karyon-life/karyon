@@ -32,12 +32,12 @@ export const plannerHandler: AgentHandler<PlannerInputs, PlannerResult> = {
 
 		return {
 			objectiveIds: objectives.payload
-				.map((entry) => (entry as { id?: string }).id ?? null)
-				.filter((entry): entry is string => Boolean(entry))
+				.map((entry: unknown) => (entry as { id?: string }).id ?? null)
+				.filter((entry: string | null): entry is string => Boolean(entry))
 				.slice(0, 1),
 			questionIds: questions.payload
-				.map((entry) => (entry as { id?: string }).id ?? null)
-				.filter((entry): entry is string => Boolean(entry))
+				.map((entry: unknown) => (entry as { id?: string }).id ?? null)
+				.filter((entry: string | null): entry is string => Boolean(entry))
 				.slice(0, 1),
 		};
 	},

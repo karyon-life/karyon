@@ -23,7 +23,7 @@ export const reviewerHandler: AgentHandler<ReviewerInputs, ReviewerResult> = {
 			throw new Error('Reviewer requires a claimed message trigger.');
 		}
 		if (context.trigger.message.type === 'task_complete') {
-			const payload = parseAgentMessagePayload('task_complete', context.trigger.message.payloadJson);
+			const payload = parseAgentMessagePayload('task_complete', String(context.trigger.message.payloadJson));
 			return {
 				messageType: 'task_complete',
 				branchName: payload.branchName,
@@ -33,7 +33,7 @@ export const reviewerHandler: AgentHandler<ReviewerInputs, ReviewerResult> = {
 			};
 		}
 
-		const payload = parseAgentMessagePayload('architecture_updated', context.trigger.message.payloadJson);
+		const payload = parseAgentMessagePayload('architecture_updated', String(context.trigger.message.payloadJson));
 		return {
 			messageType: 'architecture_updated',
 			branchName: null,

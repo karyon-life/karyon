@@ -2,8 +2,6 @@
 import MainLayout from '../layouts/MainLayout.astro';
 import ContactForm from '../components/forms/ContactForm.astro';
 
-export const prerender = false;
-
 const status = Astro.url.searchParams.get('formStatus');
 const code = Astro.url.searchParams.get('formCode');
 ---

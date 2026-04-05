@@ -5,6 +5,7 @@ dist/
 .dev.vars
 .env.local
 .local/
+.treeseed/
 coverage/
 *.log
 npm-debug.log*

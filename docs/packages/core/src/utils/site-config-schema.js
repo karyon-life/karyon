@@ -187,6 +187,7 @@ export function parseSiteConfig(source) {
 	const bookDefaults = expectRecord(bookModel.defaults ?? {}, 'models.books.defaults');
 	const docsDefaults = expectRecord(docsModel.defaults ?? {}, 'models.docs.defaults');
 	const logo = expectRecord(site.logo, 'site.logo');
+	const forms = expectRecord(site.forms ?? {}, 'site.forms');
 	const emailNotifications = expectRecord(site.emailNotifications, 'site.emailNotifications');
 
 	return {
@@ -202,6 +203,9 @@ export function parseSiteConfig(source) {
 			discordLink: expectString(site.discordLink, 'site.discordLink'),
 			headerMenu: parseMenuGroups(site.headerMenu, 'site.headerMenu'),
 			footerMenu: parseMenuGroups(site.footerMenu, 'site.footerMenu'),
+			forms: {
+				apiBaseUrl: optionalString(forms.apiBaseUrl, 'site.forms.apiBaseUrl'),
+			},
 			emailNotifications: {
 				contactRouting: parseContactRouting(
 					emailNotifications.contactRouting,

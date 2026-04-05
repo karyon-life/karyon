@@ -27,11 +27,13 @@ export const SITE = {
 	theme: SITE_CONFIG.site.theme,
 	headerMenu: SITE_CONFIG.site.headerMenu,
 	footerMenu: SITE_CONFIG.site.footerMenu,
+	forms: SITE_CONFIG.site.forms,
 	emailNotifications: SITE_CONFIG.site.emailNotifications,
 };
 
 export const SITE_HEADER_MENU = SITE.headerMenu;
 export const SITE_FOOTER_MENU = SITE.footerMenu;
+export const SITE_FORMS = SITE.forms;
 export const SITE_EMAIL_NOTIFICATIONS = SITE.emailNotifications;
 export const SITE_THEME_CSS = buildTenantThemeCss(SITE.theme);
 

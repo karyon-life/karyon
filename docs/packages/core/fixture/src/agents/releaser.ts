@@ -22,7 +22,7 @@ export const releaserHandler: AgentHandler<ReleaserInputs, ReleaserResult> = {
 		if (!context.trigger.message) {
 			throw new Error('Releaser requires a claimed message trigger.');
 		}
-		const payload = parseAgentMessagePayload('task_verified', context.trigger.message.payloadJson);
+		const payload = parseAgentMessagePayload('task_verified', String(context.trigger.message.payloadJson));
 		return {
 			branchName: payload.branchName,
 			taskRunId: payload.reviewerRunId,

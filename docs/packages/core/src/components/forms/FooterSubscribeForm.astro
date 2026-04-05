@@ -4,10 +4,12 @@ import {
 	DOCS_PUBLIC_TURNSTILE_SITE_KEY,
 } from 'astro:env/client';
 import { FORM_CODE_PARAM, FORM_SUCCESS_PARAM, SUBSCRIBE_ANCHOR_ID } from '../../utils/forms/constants';
+import { SITE_FORMS } from '../../utils/site-config';
 
 const { currentPath = '/' } = Astro.props as { currentPath?: string };
 const redirectTarget = `${currentPath}#${SUBSCRIBE_ANCHOR_ID}`;
 const shouldBypassTurnstile = DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE ?? import.meta.env.DEV;
+const formsApiBaseUrl = SITE_FORMS?.apiBaseUrl ?? '/api/form/submit';
 ---
 
 <section id={SUBSCRIBE_ANCHOR_ID} class="mt-6 border-t border-[color:var(--site-border)] pt-4">
@@ -21,7 +23,7 @@ const shouldBypassTurnstile = DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE ?? import
 		<p class="js-subscribe-status hidden rounded-md border px-4 py-2 text-sm font-medium"></p>
 		<form
 			method="post"
-			action="/api/form/submit"
+			action={formsApiBaseUrl}
 			class="js-secure-form flex w-full max-w-4xl flex-col items-center gap-3"
 			data-form-type="subscribe"
 			data-turnstile-action="subscribe_submit"
@@ -74,6 +76,7 @@ const shouldBypassTurnstile = DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE ?? import
 	define:vars={{
 		siteKey: DOCS_PUBLIC_TURNSTILE_SITE_KEY,
 		shouldBypassTurnstile,
+		formsApiBaseUrl,
 		successParam: FORM_SUCCESS_PARAM,
 		codeParam: FORM_CODE_PARAM,
 		subscribeAnchorId: SUBSCRIBE_ANCHOR_ID,
@@ -137,7 +140,7 @@ const shouldBypassTurnstile = DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE ?? import
 			};
 
 			const assignToken = async () => {
-				const response = await fetch(`/api/form/submit?formType=${encodeURIComponent(formType ?? '')}`, {
+				const response = await fetch(`${formsApiBaseUrl}?formType=${encodeURIComponent(formType ?? '')}`, {
 					headers: { accept: 'application/json' },
 					credentials: 'same-origin',
 				});

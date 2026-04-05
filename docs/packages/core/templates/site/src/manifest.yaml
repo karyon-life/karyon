@@ -16,4 +16,4 @@ features:
   questions: true
   objectives: true
   agents: true
-  forms: false
+  forms: true

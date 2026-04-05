@@ -30,9 +30,9 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 			throw new Error('Engineer requires a claimed message trigger.');
 		}
 		if (context.trigger.message.type === 'architecture_updated') {
-			const payload = parseAgentMessagePayload('architecture_updated', context.trigger.message.payloadJson);
+			const payload = parseAgentMessagePayload('architecture_updated', String(context.trigger.message.payloadJson));
 			return {
-				messageId: context.trigger.message.id,
+				messageId: Number(context.trigger.message.id),
 				messageType: 'architecture_updated',
 				objectiveId: payload.objectiveId,
 				knowledgeId: payload.knowledgeId,
@@ -40,18 +40,18 @@ export const engineerHandler: AgentHandler<EngineerInputs, EngineerResult> = {
 			};
 		}
 		if (context.trigger.message.type === 'review_failed') {
-			const payload = parseAgentMessagePayload('review_failed', context.trigger.message.payloadJson);
+			const payload = parseAgentMessagePayload('review_failed', String(context.trigger.message.payloadJson));
 			return {
-				messageId: context.trigger.message.id,
+				messageId: Number(context.trigger.message.id),
 				messageType: 'review_failed',
 				objectiveId: null,
 				knowledgeId: null,
 				contextSummary: payload.failureSummary,
 			};
 		}
-		const payload = parseAgentMessagePayload('release_failed', context.trigger.message.payloadJson);
+		const payload = parseAgentMessagePayload('release_failed', String(context.trigger.message.payloadJson));
 		return {
-			messageId: context.trigger.message.id,
+			messageId: Number(context.trigger.message.id),
 			messageType: 'release_failed',
 			objectiveId: null,
 			knowledgeId: null,

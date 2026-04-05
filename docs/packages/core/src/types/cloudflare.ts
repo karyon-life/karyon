@@ -21,10 +21,15 @@ export interface D1DatabaseLike {
 	exec?(query: string): Promise<unknown>;
 }
 
+export interface CloudflareRuntimeAssets {
+	fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
+}
+
 export interface CloudflareRuntime {
 	env: {
 		FORM_GUARD_KV: KvNamespaceLike;
 		SUBSCRIBERS_DB: D1DatabaseLike;
 		SESSION: KvNamespaceLike;
+		ASSETS?: CloudflareRuntimeAssets;
 	};
 }

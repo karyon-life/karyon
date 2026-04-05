@@ -7,6 +7,9 @@ interface RuntimeInputs {
 	bypassTurnstile: boolean | undefined;
 	bypassCloudflareGuards: boolean | undefined;
 	useMailpit: boolean;
+	formsMode: FormRuntimeCapabilities['formsMode'];
+	smtpEnabled: boolean;
+	turnstileEnabled: boolean;
 }
 
 export function deriveFormRuntimeCapabilities(input: RuntimeInputs): FormRuntimeCapabilities {
@@ -19,5 +22,8 @@ export function deriveFormRuntimeCapabilities(input: RuntimeInputs): FormRuntime
 		bypassTurnstile: isLocalMode ? (input.bypassTurnstile ?? false) : false,
 		bypassCloudflareGuards: isLocalMode ? (input.bypassCloudflareGuards ?? false) : false,
 		useMailpit: isLocalMode ? input.useMailpit : false,
+		formsMode: input.formsMode,
+		smtpEnabled: input.smtpEnabled || (isLocalMode ? input.useMailpit : false),
+		turnstileEnabled: input.turnstileEnabled,
 	};
 }

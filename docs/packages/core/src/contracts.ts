@@ -97,6 +97,33 @@ export interface TreeseedThemeConfig {
 	};
 }
 
+export type TreeseedFormsMode = 'store_only' | 'notify_admin' | 'full_email';
+
+export type TreeseedAgentMode = 'stub' | 'manual' | 'copilot';
+
+export interface TreeseedDeployConfig {
+	name: string;
+	slug: string;
+	siteUrl: string;
+	contactEmail: string;
+	cloudflare: {
+		accountId: string;
+		workerName?: string;
+	};
+	forms?: {
+		mode?: TreeseedFormsMode;
+	};
+	agents?: {
+		mode?: TreeseedAgentMode;
+	};
+	smtp?: {
+		enabled?: boolean;
+	};
+	turnstile?: {
+		enabled?: boolean;
+	};
+}
+
 export interface TreeseedTenantConfig {
 	id: string;
 	siteConfigPath: string;

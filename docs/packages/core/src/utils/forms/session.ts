@@ -1,13 +1,11 @@
-import { getFormSecret } from './config';
 import { createOpaqueId, signFormToken, verifyFormToken } from './crypto';
 import { FORM_SESSION_COOKIE } from './constants';
 import type { FormSubmitPayload } from '../../types/forms';
 
-export async function issueFormToken(formType: FormSubmitPayload['formType']) {
+export async function issueFormToken(formType: FormSubmitPayload['formType'], secret: string) {
 	const sessionId = createOpaqueId();
 	const nonce = createOpaqueId();
 	const issuedAt = Date.now();
-	const secret = getFormSecret();
 
 	if (!secret) {
 		throw new Error('DOCS_FORM_TOKEN_SECRET is not configured.');
@@ -31,9 +29,12 @@ export async function issueFormToken(formType: FormSubmitPayload['formType']) {
 	};
 }
 
-export async function verifyIssuedToken(formToken: string, sessionId: string, formType: FormSubmitPayload['formType']) {
-	const secret = getFormSecret();
-
+export async function verifyIssuedToken(
+	formToken: string,
+	sessionId: string,
+	formType: FormSubmitPayload['formType'],
+	secret: string,
+) {
 	if (!secret) {
 		return { ok: false as const, reason: 'missing-secret' };
 	}

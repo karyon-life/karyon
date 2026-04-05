@@ -1,0 +1,15 @@
+name: Karyon
+slug: karyon-docs
+siteUrl: https://karyon.life
+contactEmail: contact@karyon.life
+cloudflare:
+  accountId: bf5e29987a8968cae9f2a2cbd87ff966
+  workerName: karyon-docs
+forms:
+  mode: store_only
+agents:
+  mode: stub
+smtp:
+  enabled: false
+turnstile:
+  enabled: false

@@ -1,11 +1,17 @@
-import { SITE } from '../seo';
-import { getSmtpConfig } from './config';
-
 interface EmailMessage {
 	to: string[];
 	subject: string;
 	text: string;
 	replyTo?: string;
+}
+
+interface SmtpConfig {
+	host: string;
+	port: number;
+	username: string;
+	password: string;
+	from: string;
+	replyTo: string;
 }
 
 interface SocketContext {
@@ -112,8 +118,10 @@ function assertResponse(response: { code: number; raw: string }, acceptedCodes: 
 	}
 }
 
-export async function sendEmailWithCloudflareSockets(message: EmailMessage) {
-	const smtp = getSmtpConfig();
+export async function sendEmailWithCloudflareSockets(
+	message: EmailMessage,
+	{ smtp, siteUrl }: { smtp: SmtpConfig; siteUrl: string },
+) {
 	const envelopeFrom = toEnvelopeAddress(smtp.from);
 
 	if (!smtp.host || !smtp.port || !smtp.from || !envelopeFrom) {
@@ -123,12 +131,12 @@ export async function sendEmailWithCloudflareSockets(message: EmailMessage) {
 	let context = await createSocketContext(smtp.port, smtp.host);
 
 	assertResponse(await readSmtpResponse(context.reader), [220]);
-	assertResponse(await sendCommand(context, `EHLO ${new URL(SITE.url).hostname}`), [250]);
+	assertResponse(await sendCommand(context, `EHLO ${new URL(siteUrl).hostname}`), [250]);
 
 	if (smtp.port === 587) {
 		assertResponse(await sendCommand(context, 'STARTTLS'), [220]);
 		context = await upgradeToTls(context);
-		assertResponse(await sendCommand(context, `EHLO ${new URL(SITE.url).hostname}`), [250]);
+		assertResponse(await sendCommand(context, `EHLO ${new URL(siteUrl).hostname}`), [250]);
 	}
 
 	if (smtp.username) {

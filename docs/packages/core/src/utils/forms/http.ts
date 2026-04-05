@@ -4,9 +4,35 @@ export function getRemoteIp(request: Request) {
 	return request.headers.get('CF-Connecting-IP') ?? request.headers.get('X-Forwarded-For') ?? '';
 }
 
-export function buildRedirectTarget(formType: 'contact' | 'subscribe', rawRedirectTo: string, isSuccess: boolean, code: string) {
-	const fallback = formType === 'contact' ? '/contact/' : '/';
-	const url = new URL(rawRedirectTo || fallback, 'https://karyon.life');
+function fallbackPath(formType: 'contact' | 'subscribe') {
+	return formType === 'contact' ? '/contact/' : '/';
+}
+
+function resolveRedirectBase(requestUrl?: URL | string) {
+	if (requestUrl instanceof URL) {
+		return requestUrl.origin;
+	}
+
+	if (typeof requestUrl === 'string' && requestUrl.length) {
+		try {
+			return new URL(requestUrl).origin;
+		} catch {
+			return requestUrl;
+		}
+	}
+
+	return 'https://karyon.life';
+}
+
+export function buildRedirectTarget(
+	formType: 'contact' | 'subscribe',
+	rawRedirectTo: string,
+	isSuccess: boolean,
+	code: string,
+	requestUrl?: URL | string,
+) {
+	const fallback = fallbackPath(formType);
+	const url = new URL(rawRedirectTo || fallback, resolveRedirectBase(requestUrl));
 	url.searchParams.set(FORM_SUCCESS_PARAM, isSuccess ? 'success' : 'error');
 	url.searchParams.set(FORM_CODE_PARAM, code);
 
@@ -17,18 +43,20 @@ export function buildRedirectTarget(formType: 'contact' | 'subscribe', rawRedire
 	return `${url.pathname}${url.search}${url.hash}`;
 }
 
-export function sanitizeRedirectTo(rawRedirectTo: string | null, formType: 'contact' | 'subscribe') {
+export function sanitizeRedirectTo(rawRedirectTo: string | null, formType: 'contact' | 'subscribe', requestUrl?: URL | string) {
+	const fallback = fallbackPath(formType);
 	if (!rawRedirectTo) {
-		return formType === 'contact' ? '/contact/' : '/';
+		return fallback;
 	}
 
 	try {
-		const url = new URL(rawRedirectTo, 'https://karyon.life');
-		if (url.origin !== 'https://karyon.life') {
-			return formType === 'contact' ? '/contact/' : '/';
+		const base = resolveRedirectBase(requestUrl);
+		const url = new URL(rawRedirectTo, base);
+		if (url.origin !== new URL(base).origin) {
+			return fallback;
 		}
 		return `${url.pathname}${url.search}${url.hash}`;
 	} catch {
-		return formType === 'contact' ? '/contact/' : '/';
+		return fallback;
 	}
 }

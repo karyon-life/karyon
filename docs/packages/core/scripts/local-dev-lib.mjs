@@ -87,6 +87,14 @@ export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo, ou
 		},
 		cwd: packageRoot,
 	});
+
+	runNodeScript('./scripts/build-tenant-worker.mjs', [], {
+		cwd: fixtureRoot,
+		env: {
+			DOCS_LOCAL_DEV_MODE: 'cloudflare',
+			...mergedEnvOverrides,
+		},
+	});
 }
 
 export function startWranglerDev(args = [], options = {}) {

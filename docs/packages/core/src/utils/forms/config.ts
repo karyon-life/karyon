@@ -16,6 +16,7 @@ import {
 } from 'astro:env/server';
 import { SITE_EMAIL_NOTIFICATIONS } from '../site-config';
 import type { ContactRoutingMap, LocalDevMode } from '../../types/forms';
+import { getTreeseedFormsMode, isTreeseedSmtpEnabled, isTreeseedTurnstileEnabled } from '../../deploy/runtime';
 
 export function getFormSecret() {
 	return DOCS_FORM_TOKEN_SECRET ?? '';
@@ -45,6 +46,10 @@ export function getSmtpConfig() {
 	};
 }
 
+export function getFormsMode() {
+	return getTreeseedFormsMode();
+}
+
 export function getLocalDevMode(): LocalDevMode | null {
 	if (DOCS_LOCAL_DEV_MODE === 'cloudflare') {
 		return 'cloudflare';
@@ -63,4 +68,21 @@ export function shouldBypassCloudflareGuardsByEnv() {
 
 export function shouldUseMailpit() {
 	return DOCS_FORMS_LOCAL_USE_MAILPIT ?? false;
+}
+
+export function isSmtpConfigured() {
+	const smtp = getSmtpConfig();
+	return Boolean(smtp.host && smtp.port && smtp.from);
+}
+
+export function isSmtpEnabled() {
+	if (shouldUseMailpit()) {
+		return true;
+	}
+
+	return isTreeseedSmtpEnabled() && isSmtpConfigured();
+}
+
+export function isTurnstileEnabled() {
+	return isTreeseedTurnstileEnabled() && Boolean(getTurnstileSecret());
 }

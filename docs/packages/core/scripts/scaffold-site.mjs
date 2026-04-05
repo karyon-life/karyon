@@ -9,7 +9,15 @@ const packageJsonPath = resolve(packageRoot, 'package.json');
 const packageVersion = JSON.parse(readFileSync(packageJsonPath, 'utf8')).version;
 
 function parseArgs(argv) {
-  const args = { target: null, name: null, siteUrl: null, repositoryUrl: null, discordUrl: 'https://discord.gg/example' };
+  const args = {
+    target: null,
+    name: null,
+    slug: null,
+    siteUrl: null,
+    contactEmail: null,
+    repositoryUrl: null,
+    discordUrl: 'https://discord.gg/example',
+  };
   const rest = [...argv];
   while (rest.length > 0) {
     const current = rest.shift();
@@ -19,12 +27,14 @@ function parseArgs(argv) {
       continue;
     }
     if (current === '--name') args.name = rest.shift() ?? null;
+    else if (current === '--slug') args.slug = rest.shift() ?? null;
     else if (current === '--site-url') args.siteUrl = rest.shift() ?? null;
+    else if (current === '--contact-email') args.contactEmail = rest.shift() ?? null;
     else if (current === '--repo') args.repositoryUrl = rest.shift() ?? null;
     else if (current === '--discord') args.discordUrl = rest.shift() ?? args.discordUrl;
     else throw new Error(`Unknown argument: ${current}`);
   }
-  if (!args.target) throw new Error('Usage: treeseed init <directory> [--name <site name>] [--site-url <url>] [--repo <url>] [--discord <url>]');
+  if (!args.target) throw new Error('Usage: treeseed init <directory> [--name <site name>] [--slug <slug>] [--site-url <url>] [--contact-email <email>] [--repo <url>] [--discord <url>]');
   return args;
 }
 
@@ -62,11 +72,13 @@ function writeTemplateTree(sourceRoot, targetRoot, replacements) {
 const options = parseArgs(process.argv.slice(2));
 const targetRoot = resolve(process.cwd(), options.target);
 const inferredName = options.name ?? toTitleCase(basename(targetRoot));
+const inferredSlug = (options.slug ?? basename(targetRoot)).toLowerCase().replace(/[^a-z0-9-]+/g, '-');
 const replacements = {
-  '__PACKAGE_NAME__': basename(targetRoot).toLowerCase().replace(/[^a-z0-9-]+/g, '-'),
-  '__TENANT_ID__': basename(targetRoot).toLowerCase().replace(/[^a-z0-9-]+/g, '-'),
+  '__PACKAGE_NAME__': inferredSlug,
+  '__TENANT_ID__': inferredSlug,
   '__SITE_NAME__': inferredName,
   '__SITE_URL__': options.siteUrl ?? 'https://example.com',
+  '__CONTACT_EMAIL__': options.contactEmail ?? 'hello@example.com',
   '__REPOSITORY_URL__': options.repositoryUrl ?? 'https://github.com/example/project',
   '__DISCORD_URL__': options.discordUrl,
   '__CORE_VERSION__': `^${packageVersion}`,
@@ -82,4 +94,7 @@ console.log(`Created Treeseed tenant at ${targetRoot}`);
 console.log('Next steps:');
 console.log(`  cd ${options.target}`);
 console.log('  npm install');
+console.log('  # set cloudflare.accountId in treeseed.site.yaml (or export CLOUDFLARE_ACCOUNT_ID)');
+console.log('  wrangler login');
 console.log('  npm run dev');
+console.log('  npm run deploy -- --dry-run');

@@ -1,14 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { packageRoot, packageScriptPath, spawnNodeBinary, wranglerBin } from './package-tools.mjs';
+import { ensureGeneratedWranglerConfig } from './deploy-lib.mjs';
 import {
-	clearStagedBuildOutput,
-	createWatchBuildPaths,
 	createTenantWatchEntries,
 	isEditablePackageWorkspace,
 	startPollingWatch,
 	stopManagedProcess,
-	swapStagedBuildOutput,
 	writeDevReloadStamp,
 } from './watch-dev-lib.mjs';
 
@@ -16,7 +13,6 @@ const tenantRoot = process.cwd();
 const cliArgs = process.argv.slice(2);
 const watchMode = cliArgs.includes('--watch');
 const wranglerArgs = cliArgs.filter((arg) => arg !== '--watch');
-const wranglerConfig = resolve(tenantRoot, 'wrangler.toml');
 
 let wranglerChild = null;
 let stopWatching = null;
@@ -41,7 +37,7 @@ function runNodeScript(scriptPath, args = [], options = {}) {
 	return runStep(process.execPath, [scriptPath, ...args], options);
 }
 
-function runTenantBuildCycle({ includePackageBuild = false, fatal = true, stagedOutput = false } = {}) {
+function runTenantBuildCycle({ includePackageBuild = false, fatal = true } = {}) {
 	const envOverrides = ['DOCS_LOCAL_DEV_MODE=cloudflare'];
 	if (watchMode) {
 		envOverrides.push('DOCS_PUBLIC_DEV_WATCH_RELOAD=true');
@@ -70,18 +66,13 @@ function runTenantBuildCycle({ includePackageBuild = false, fatal = true, staged
 		}
 	}
 
+	ensureGeneratedWranglerConfig(tenantRoot);
+
 	if (watchMode) {
 		writeDevReloadStamp(tenantRoot);
 	}
 
-	const astroArgs = ['build'];
-	if (stagedOutput) {
-		const { stagedDistRoot } = createWatchBuildPaths(tenantRoot);
-		clearStagedBuildOutput(tenantRoot);
-		astroArgs.push('--outDir', stagedDistRoot);
-	}
-
-	const built = runNodeScript(packageScriptPath('tenant-astro-command'), astroArgs, {
+	const built = runNodeScript(packageScriptPath('tenant-build'), [], {
 		fatal,
 		env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
 	});
@@ -89,17 +80,14 @@ function runTenantBuildCycle({ includePackageBuild = false, fatal = true, staged
 		return false;
 	}
 
-	if (stagedOutput) {
-		swapStagedBuildOutput(tenantRoot);
-	}
-
 	return true;
 }
 
 function startWrangler() {
+	const { wranglerPath } = ensureGeneratedWranglerConfig(tenantRoot);
 	const child = spawnNodeBinary(
 		wranglerBin,
-		['dev', '--local', '--config', wranglerConfig, ...wranglerArgs],
+		['dev', '--local', '--config', wranglerPath, ...wranglerArgs],
 		{
 			cwd: tenantRoot,
 			env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
@@ -186,7 +174,6 @@ if (watchMode) {
 			const ok = runTenantBuildCycle({
 				includePackageBuild: packageChanged,
 				fatal: false,
-				stagedOutput: false,
 			});
 
 			if (ok) {

@@ -1,0 +1,15 @@
+name: __SITE_NAME__
+slug: __TENANT_ID__
+siteUrl: __SITE_URL__
+contactEmail: __CONTACT_EMAIL__
+cloudflare:
+  accountId: replace-with-cloudflare-account-id
+  workerName: __PACKAGE_NAME__
+forms:
+  mode: store_only
+agents:
+  mode: stub
+smtp:
+  enabled: false
+turnstile:
+  enabled: false

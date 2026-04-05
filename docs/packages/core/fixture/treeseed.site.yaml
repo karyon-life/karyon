@@ -1,0 +1,15 @@
+name: Karyon
+slug: karyon-docs
+siteUrl: https://karyon.life
+contactEmail: contact@karyon.life
+cloudflare:
+  accountId: fixture-cloudflare-account-id
+  workerName: karyon-docs
+forms:
+  mode: store_only
+agents:
+  mode: stub
+smtp:
+  enabled: false
+turnstile:
+  enabled: false

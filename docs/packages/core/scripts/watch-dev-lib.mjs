@@ -53,6 +53,8 @@ function shouldIgnoreWatchPath(filePath, rootPath) {
 		normalized.startsWith('.wrangler/') ||
 		normalized === '.local' ||
 		normalized.startsWith('.local/') ||
+		normalized === '.treeseed' ||
+		normalized.startsWith('.treeseed/') ||
 		normalized === 'dist' ||
 		normalized.startsWith('dist/') ||
 		normalized === 'coverage' ||
@@ -175,7 +177,7 @@ export function createTenantWatchEntries(tenantRoot) {
 		{ kind: 'tenant', root: resolve(tenantRoot, 'src') },
 		{ kind: 'tenant', root: resolve(tenantRoot, 'public') },
 		{ kind: 'tenant', root: resolve(tenantRoot, 'astro.config.mjs') },
-		{ kind: 'tenant', root: resolve(tenantRoot, 'wrangler.toml') },
+		{ kind: 'tenant', root: resolve(tenantRoot, 'treeseed.site.yaml') },
 		{ kind: 'tenant', root: resolve(tenantRoot, '.env.local') },
 		{ kind: 'tenant', root: resolve(tenantRoot, '.env.local.example') },
 	];

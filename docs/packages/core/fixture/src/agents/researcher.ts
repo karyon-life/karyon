@@ -23,7 +23,7 @@ export const researcherHandler: AgentHandler<ResearcherInputs, ResearcherResult>
 		}
 		const payload = parseAgentMessagePayload(
 			'question_priority_updated',
-			context.trigger.message.payloadJson,
+			String(context.trigger.message.payloadJson),
 		);
 		return {
 			questionId: payload.questionId,

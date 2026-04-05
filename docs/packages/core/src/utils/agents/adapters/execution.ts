@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { normalizeAgentCliOptions, buildCopilotAllowToolArgs } from '../cli-tools.ts';
 import type { AgentExecutionAdapter } from '../runtime-types.ts';
+import { getTreeseedAgentMode } from '../../../deploy/runtime';
 
 const execFileAsync = promisify(execFile);
 
@@ -63,8 +64,30 @@ export class CopilotExecutionAdapter implements AgentExecutionAdapter {
 	}
 }
 
+export class ManualExecutionAdapter implements AgentExecutionAdapter {
+	async runTask(input: { prompt: string; runId: string }) {
+		return {
+			status: 'completed' as const,
+			summary: `Manual execution mode is enabled for ${input.runId}.`,
+			stdout: [
+				'# Manual Execution Required',
+				'',
+				'This agent run is configured for manual execution.',
+				'Review the prompt below and complete the work outside the automated adapter.',
+				'',
+				input.prompt,
+			].join('\n'),
+			stderr: '',
+		};
+	}
+}
+
 export function createExecutionAdapter() {
-	if (String(process.env.DOCS_AGENT_EXECUTION_MODE ?? '').toLowerCase() === 'stub') {
+	const configuredMode = String(process.env.DOCS_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase();
+	if (configuredMode === 'manual') {
+		return new ManualExecutionAdapter();
+	}
+	if (configuredMode !== 'copilot') {
 		return new StubExecutionAdapter();
 	}
 	return new CopilotExecutionAdapter();

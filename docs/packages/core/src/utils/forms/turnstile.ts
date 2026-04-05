@@ -1,4 +1,3 @@
-import { getTurnstileSecret } from './config';
 import type { FormRuntimeCapabilities } from '../../types/forms';
 
 interface TurnstileResponse {
@@ -13,12 +12,11 @@ export async function verifyTurnstileToken(
 	remoteIp: string,
 	expectedAction: string,
 	runtime: FormRuntimeCapabilities,
+	secret: string,
 ) {
-	if (runtime.bypassTurnstile) {
+	if (runtime.bypassTurnstile || !runtime.turnstileEnabled) {
 		return { ok: true as const, bypassed: true };
 	}
-
-	const secret = getTurnstileSecret();
 
 	if (!secret || !token) {
 		return { ok: false as const, reason: 'missing-config' };

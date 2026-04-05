@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { AgentRepositoryInspectionAdapter } from '../runtime-types.ts';
+import { getTreeseedAgentMode } from '../../../deploy/runtime';
 
 const execFileAsync = promisify(execFile);
 
@@ -58,7 +59,7 @@ export class GitRepositoryInspectionAdapter implements AgentRepositoryInspection
 }
 
 export function createRepositoryInspectionAdapter() {
-	return String(process.env.DOCS_AGENT_EXECUTION_MODE ?? '').toLowerCase() === 'stub'
+	return String(process.env.DOCS_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase() !== 'copilot'
 		? new StubRepositoryInspectionAdapter()
 		: new GitRepositoryInspectionAdapter();
 }

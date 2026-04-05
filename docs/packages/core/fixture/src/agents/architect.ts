@@ -21,7 +21,7 @@ export const architectHandler: AgentHandler<ArchitectInputs, ArchitectResult> = 
 		}
 		const payload = parseAgentMessagePayload(
 			'objective_priority_updated',
-			context.trigger.message.payloadJson,
+			String(context.trigger.message.payloadJson),
 		);
 		return {
 			objectiveId: payload.objectiveId,
