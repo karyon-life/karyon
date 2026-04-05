@@ -131,7 +131,7 @@ async function querySubscribers() {
 		[
 			'd1',
 			'execute',
-			'karyon-docs-subscribers',
+			'karyon-docs-site-data',
 			'--local',
 			'--config',
 			fixtureWranglerConfig,

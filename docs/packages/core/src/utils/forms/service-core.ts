@@ -37,7 +37,7 @@ interface SmtpConfig {
 
 export interface FormServiceBindings {
 	FORM_GUARD_KV?: KvNamespaceLike | null;
-	SUBSCRIBERS_DB?: D1DatabaseLike | null;
+	SITE_DATA_DB?: D1DatabaseLike | null;
 	SESSION?: KvNamespaceLike | null;
 }
 
@@ -286,8 +286,8 @@ export async function handleFormSubmissionWithConfig(context: FormRequestContext
 	const bindings = config.bindings ?? {};
 	const runtime = config.runtime;
 	const guardStore = createGuardStore(runtime, bindings.FORM_GUARD_KV ?? null);
-	const subscriberStore = createSubscriberStore(runtime, bindings.SUBSCRIBERS_DB ?? null);
-	const contactStore = createContactStore(runtime, bindings.SUBSCRIBERS_DB ?? null);
+	const subscriberStore = createSubscriberStore(runtime, bindings.SITE_DATA_DB ?? null);
+	const contactStore = createContactStore(runtime, bindings.SITE_DATA_DB ?? null);
 	const formData = await context.request.formData();
 	const payload = parsePayload(formData);
 

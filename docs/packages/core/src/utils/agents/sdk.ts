@@ -76,7 +76,7 @@ export class AgentSdk {
 	}) {
 		const repoRoot = options.repoRoot ?? resolveTreeseedTenantRoot();
 		const d1 = new WranglerD1Database(
-			options.databaseName ?? 'karyon-docs-subscribers',
+			options.databaseName ?? 'karyon-docs-site-data',
 			repoRoot,
 			options.persistTo,
 		);

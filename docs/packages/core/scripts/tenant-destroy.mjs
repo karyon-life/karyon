@@ -61,7 +61,7 @@ function printDangerMessage(deployConfig, state, expectedConfirmation) {
 	console.error(`  Site: ${deployConfig.name}`);
 	console.error(`  Slug: ${deployConfig.slug}`);
 	console.error(`  Worker: ${state.workerName ?? deriveCloudflareWorkerName(deployConfig)}`);
-	console.error(`  D1: ${state.d1Databases.SUBSCRIBERS_DB.databaseName}`);
+	console.error(`  D1: ${state.d1Databases.SITE_DATA_DB.databaseName}`);
 	console.error(`  KV FORM_GUARD_KV: ${state.kvNamespaces.FORM_GUARD_KV.name}`);
 	console.error(`  KV SESSION: ${state.kvNamespaces.SESSION.name}`);
 	console.error('  This action is irreversible.');

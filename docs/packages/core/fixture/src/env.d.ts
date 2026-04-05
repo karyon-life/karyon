@@ -7,7 +7,7 @@ import type {
 declare global {
 	interface Env {
 		FORM_GUARD_KV: KvNamespaceLike;
-		SUBSCRIBERS_DB: D1DatabaseLike;
+		SITE_DATA_DB: D1DatabaseLike;
 		SESSION: KvNamespaceLike;
 	}
 }

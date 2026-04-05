@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { wranglerBin } from './package-tools.mjs';
 
-const DATABASE_NAME = 'karyon-docs-subscribers';
+const DATABASE_NAME = 'karyon-docs-site-data';
 
 function runWrangler(args, { cwd, capture = false } = {}) {
 	return spawnSync(process.execPath, [wranglerBin, ...args], {

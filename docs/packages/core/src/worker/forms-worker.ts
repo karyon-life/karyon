@@ -16,7 +16,7 @@ declare const __TREESEED_SITE_CONFIG__: {
 
 interface WorkerEnv {
 	FORM_GUARD_KV: KvNamespaceLike;
-	SUBSCRIBERS_DB: D1DatabaseLike;
+	SITE_DATA_DB: D1DatabaseLike;
 	SESSION: KvNamespaceLike;
 	ASSETS: CloudflareRuntimeAssets;
 	DOCS_FORM_TOKEN_SECRET?: string;
@@ -127,7 +127,7 @@ function buildFormConfig(env: WorkerEnv) {
 		runtime: buildRuntime(env),
 		bindings: {
 			FORM_GUARD_KV: env.FORM_GUARD_KV,
-			SUBSCRIBERS_DB: env.SUBSCRIBERS_DB,
+			SITE_DATA_DB: env.SITE_DATA_DB,
 			SESSION: env.SESSION,
 		},
 		formSecret: env.DOCS_FORM_TOKEN_SECRET ?? '',

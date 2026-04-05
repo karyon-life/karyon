@@ -88,10 +88,10 @@ function defaultStateFromConfig(deployConfig) {
 			},
 		},
 		d1Databases: {
-			SUBSCRIBERS_DB: {
-				databaseName: `${workerName}-subscribers`,
-				databaseId: `dryrun-${deployConfig.slug}-subscribers`,
-				previewDatabaseId: `dryrun-${deployConfig.slug}-subscribers-preview`,
+			SITE_DATA_DB: {
+				databaseName: `${workerName}-site-data`,
+				databaseId: `dryrun-${deployConfig.slug}-site-data`,
+				previewDatabaseId: `dryrun-${deployConfig.slug}-site-data-preview`,
 			},
 		},
 		generatedSecrets: {},
@@ -105,6 +105,7 @@ export function loadDeployState(tenantRoot, deployConfig) {
 	const statePath = resolve(tenantRoot, STATE_PATH);
 	const defaults = defaultStateFromConfig(deployConfig);
 	const persisted = readJson(statePath, {});
+	const persistedSiteDataDb = persisted.d1Databases?.SITE_DATA_DB ?? persisted.d1Databases?.SUBSCRIBERS_DB ?? {};
 	const merged = {
 		...defaults,
 		...persisted,
@@ -123,9 +124,9 @@ export function loadDeployState(tenantRoot, deployConfig) {
 		d1Databases: {
 			...defaults.d1Databases,
 			...(persisted.d1Databases ?? {}),
-			SUBSCRIBERS_DB: {
-				...defaults.d1Databases.SUBSCRIBERS_DB,
-				...(persisted.d1Databases?.SUBSCRIBERS_DB ?? {}),
+			SITE_DATA_DB: {
+				...defaults.d1Databases.SITE_DATA_DB,
+				...persistedSiteDataDb,
 			},
 		},
 		generatedSecrets: {
@@ -137,7 +138,7 @@ export function loadDeployState(tenantRoot, deployConfig) {
 	merged.workerName = defaults.workerName;
 	merged.kvNamespaces.FORM_GUARD_KV.name = defaults.kvNamespaces.FORM_GUARD_KV.name;
 	merged.kvNamespaces.SESSION.name = defaults.kvNamespaces.SESSION.name;
-	merged.d1Databases.SUBSCRIBERS_DB.databaseName = defaults.d1Databases.SUBSCRIBERS_DB.databaseName;
+	merged.d1Databases.SITE_DATA_DB.databaseName = defaults.d1Databases.SITE_DATA_DB.databaseName;
 
 	return merged;
 }
@@ -182,10 +183,10 @@ export function buildWranglerConfigContents(tenantRoot, deployConfig, state) {
 		`preview_id = ${renderTomlString(state.kvNamespaces.SESSION.previewId ?? state.kvNamespaces.SESSION.id)}`,
 		'',
 		'[[d1_databases]]',
-		'binding = "SUBSCRIBERS_DB"',
-		`database_name = ${renderTomlString(state.d1Databases.SUBSCRIBERS_DB.databaseName)}`,
-		`database_id = ${renderTomlString(state.d1Databases.SUBSCRIBERS_DB.databaseId)}`,
-		`preview_database_id = ${renderTomlString(state.d1Databases.SUBSCRIBERS_DB.previewDatabaseId ?? state.d1Databases.SUBSCRIBERS_DB.databaseId)}`,
+		'binding = "SITE_DATA_DB"',
+		`database_name = ${renderTomlString(state.d1Databases.SITE_DATA_DB.databaseName)}`,
+		`database_id = ${renderTomlString(state.d1Databases.SITE_DATA_DB.databaseId)}`,
+		`preview_database_id = ${renderTomlString(state.d1Databases.SITE_DATA_DB.previewDatabaseId ?? state.d1Databases.SITE_DATA_DB.databaseId)}`,
 		`migrations_dir = ${renderTomlString(migrationsDir)}`,
 		'',
 	].join('\n');
@@ -282,7 +283,7 @@ function buildProvisioningSummary(deployConfig, state) {
 		accountId: deployConfig.cloudflare.accountId,
 		formGuardKv: state.kvNamespaces.FORM_GUARD_KV,
 		sessionKv: state.kvNamespaces.SESSION,
-		subscribersDb: state.d1Databases.SUBSCRIBERS_DB,
+		siteDataDb: state.d1Databases.SITE_DATA_DB,
 	};
 }
 
@@ -293,7 +294,7 @@ function buildDestroySummary(deployConfig, state) {
 		accountId: deployConfig.cloudflare.accountId,
 		formGuardKv: state.kvNamespaces.FORM_GUARD_KV,
 		sessionKv: state.kvNamespaces.SESSION,
-		subscribersDb: state.d1Databases.SUBSCRIBERS_DB,
+		siteDataDb: state.d1Databases.SITE_DATA_DB,
 	};
 }
 
@@ -506,10 +507,10 @@ export function destroyCloudflareResources(tenantRoot, { dryRun = false, force =
 		state.kvNamespaces.SESSION.name,
 		state.kvNamespaces.SESSION.id,
 	);
-	state.d1Databases.SUBSCRIBERS_DB = resolveExistingD1ByName(
+	state.d1Databases.SITE_DATA_DB = resolveExistingD1ByName(
 		d1Databases,
-		state.d1Databases.SUBSCRIBERS_DB.databaseName,
-		state.d1Databases.SUBSCRIBERS_DB,
+		state.d1Databases.SITE_DATA_DB.databaseName,
+		state.d1Databases.SITE_DATA_DB,
 	);
 
 	const worker = deleteWorker(tenantRoot, state.workerName, { env, dryRun, force });
@@ -525,7 +526,7 @@ export function destroyCloudflareResources(tenantRoot, { dryRun = false, force =
 		state.kvNamespaces.SESSION.previewId !== state.kvNamespaces.SESSION.id
 			? deleteKvNamespace(tenantRoot, state.kvNamespaces.SESSION.previewId, { env, dryRun, preview: true })
 			: null;
-	const database = deleteD1Database(tenantRoot, state.d1Databases.SUBSCRIBERS_DB.databaseName, { env, dryRun });
+	const database = deleteD1Database(tenantRoot, state.d1Databases.SITE_DATA_DB.databaseName, { env, dryRun });
 
 	return {
 		summary: buildDestroySummary(deployConfig, state),
@@ -591,7 +592,7 @@ export function provisionCloudflareResources(tenantRoot, { dryRun = false } = {}
 	};
 
 	const ensureD1 = () => {
-		const current = state.d1Databases.SUBSCRIBERS_DB;
+		const current = state.d1Databases.SITE_DATA_DB;
 		if (current?.databaseId && !isPlaceholderResourceId(current.databaseId)) {
 			return;
 		}
@@ -674,18 +675,18 @@ export function syncCloudflareSecrets(tenantRoot, { dryRun = false } = {}) {
 export function runRemoteD1Migrations(tenantRoot, { dryRun = false } = {}) {
 	const { wranglerPath, deployConfig, state } = ensureGeneratedWranglerConfig(tenantRoot);
 	if (dryRun) {
-		return { databaseName: state.d1Databases.SUBSCRIBERS_DB.databaseName, dryRun: true };
+		return { databaseName: state.d1Databases.SITE_DATA_DB.databaseName, dryRun: true };
 	}
 
 	runWrangler(
-		['d1', 'migrations', 'apply', state.d1Databases.SUBSCRIBERS_DB.databaseName, '--remote', '--config', wranglerPath],
+		['d1', 'migrations', 'apply', state.d1Databases.SITE_DATA_DB.databaseName, '--remote', '--config', wranglerPath],
 		{
 			cwd: tenantRoot,
 			env: { CLOUDFLARE_ACCOUNT_ID: deployConfig.cloudflare.accountId },
 		},
 	);
 
-	return { databaseName: state.d1Databases.SUBSCRIBERS_DB.databaseName, dryRun: false };
+	return { databaseName: state.d1Databases.SITE_DATA_DB.databaseName, dryRun: false };
 }
 
 export function finalizeDeploymentState(tenantRoot) {
@@ -703,7 +704,7 @@ export function printDeploySummary(summary) {
 	console.log(`  Worker: ${summary.workerName}`);
 	console.log(`  Site URL: ${summary.siteUrl}`);
 	console.log(`  Account ID: ${summary.accountId}`);
-	console.log(`  D1: ${summary.subscribersDb.databaseName} (${summary.subscribersDb.databaseId})`);
+	console.log(`  D1: ${summary.siteDataDb.databaseName} (${summary.siteDataDb.databaseId})`);
 	console.log(`  KV FORM_GUARD_KV: ${summary.formGuardKv.id}`);
 	console.log(`  KV SESSION: ${summary.sessionKv.id}`);
 }
@@ -714,7 +715,7 @@ export function printDestroySummary(result) {
 	console.log(`  Worker: ${summary.workerName} -> ${operations.worker.status}`);
 	console.log(`  Site URL: ${summary.siteUrl}`);
 	console.log(`  Account ID: ${summary.accountId}`);
-	console.log(`  D1: ${summary.subscribersDb.databaseName} -> ${operations.database.status}`);
+	console.log(`  D1: ${summary.siteDataDb.databaseName} -> ${operations.database.status}`);
 	console.log(`  KV FORM_GUARD_KV: ${summary.formGuardKv.name} -> ${operations.formGuard.status}`);
 	if (operations.formGuardPreview) {
 		console.log(`  KV FORM_GUARD_KV preview -> ${operations.formGuardPreview.status}`);

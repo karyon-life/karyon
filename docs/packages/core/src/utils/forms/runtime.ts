@@ -14,7 +14,7 @@ import { deriveFormRuntimeCapabilities } from './runtime-core';
 export function resolveFormRuntimeCapabilities(locals: App.Locals): FormRuntimeCapabilities {
 	const runtime = (locals as App.Locals & { runtime?: CloudflareRuntime }).runtime;
 	return deriveFormRuntimeCapabilities({
-		isCloudflareRuntime: Boolean(runtime?.env?.FORM_GUARD_KV && runtime?.env?.SUBSCRIBERS_DB),
+		isCloudflareRuntime: Boolean(runtime?.env?.FORM_GUARD_KV && runtime?.env?.SITE_DATA_DB),
 		localDevMode: getLocalDevMode(),
 		isDevServer: import.meta.env.DEV,
 		bypassTurnstile: shouldBypassTurnstileByEnv(),

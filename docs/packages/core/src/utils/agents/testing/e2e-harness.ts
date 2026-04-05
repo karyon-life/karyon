@@ -81,7 +81,7 @@ async function migrateDatabase(repoRoot: string, persistTo: string) {
 			[
 				'd1',
 				'execute',
-				'karyon-docs-subscribers',
+				'karyon-docs-site-data',
 				'--local',
 				'--persist-to',
 				persistTo,
@@ -215,7 +215,7 @@ export async function createAgentTestRuntime(options?: {
 		options?.databaseMode === 'local-d1'
 			? (await migrateDatabase(repoRoot, persistTo), AgentSdk.createLocal({
 				repoRoot,
-				databaseName: 'karyon-docs-subscribers',
+				databaseName: 'karyon-docs-site-data',
 				persistTo,
 			}))
 			: new AgentSdk({
