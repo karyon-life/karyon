@@ -11,6 +11,7 @@ const COMMAND_MAP = new Map([
 	['build', packageScriptPath('tenant-build')],
 	['check', packageScriptPath('tenant-check')],
 	['deploy', packageScriptPath('tenant-deploy')],
+	['destroy', packageScriptPath('tenant-destroy')],
 	['preview', packageScriptPath('tenant-astro-command')],
 	['astro', packageScriptPath('tenant-astro-command')],
 	['sync:devvars', packageScriptPath('sync-dev-vars')],

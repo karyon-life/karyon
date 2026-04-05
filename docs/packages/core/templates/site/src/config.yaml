@@ -13,7 +13,7 @@ site:
         - label: Vision
           href: /vision/
         - label: Knowledge
-          href: /knowledge/
+          href: /knowledge/handbook/
         - label: Notes
           href: /notes/
         - label: Books
@@ -34,7 +34,7 @@ site:
         - label: Vision
           href: /vision/
         - label: Knowledge
-          href: /knowledge/
+          href: /knowledge/handbook/
         - label: Notes
           href: /notes/
         - label: Contact

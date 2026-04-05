@@ -44,6 +44,7 @@
     "dev": "node ./scripts/local-dev.mjs",
     "dev:watch": "node ./scripts/local-dev.mjs --watch",
     "deploy": "node ./scripts/tenant-deploy.mjs",
+    "destroy": "node ./scripts/tenant-destroy.mjs",
     "preview": "node ./scripts/run-fixture-astro-command.mjs preview",
     "test:unit": "vitest run --config ./vitest.config.ts",
     "test:integration": "node ./scripts/test-cloudflare-local.mjs",

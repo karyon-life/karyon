@@ -170,6 +170,25 @@ function rewriteDeclarations() {
 	}
 }
 
+function toPosixRelative(fromFile, toFile) {
+	return relative(dirname(fromFile), toFile).replaceAll('\\', '/');
+}
+
+function rewriteTreeseedStarlightSpecifiers(contents, filePath) {
+	const componentsIndex = toPosixRelative(filePath, resolve(distRoot, 'vendor', 'starlight', 'components.js'));
+	const routeData = toPosixRelative(filePath, resolve(distRoot, 'vendor', 'starlight', 'route-data.js'));
+
+	return contents
+		.replaceAll("'@astrojs/starlight/components'", `'${componentsIndex}'`)
+		.replaceAll('"@astrojs/starlight/components"', `"${componentsIndex}"`)
+		.replaceAll("'@astrojs/starlight/route-data'", `'${routeData}'`)
+		.replaceAll('"@astrojs/starlight/route-data"', `"${routeData}"`)
+		.replace(/(['"])@astrojs\/starlight\/components\/([^'"\n]+)\1/g, (match, quote, subpath) => {
+			const target = toPosixRelative(filePath, resolve(distRoot, 'vendor', 'starlight', 'components', subpath));
+			return `${quote}${target}${quote}`;
+		});
+}
+
 async function compileVendorPackage(sourceRoot, outputRoot) {
 	for (const filePath of walkFiles(sourceRoot)) {
 		if (filePath.endsWith('.d.ts')) {
@@ -243,6 +262,10 @@ function patchVendoredStarlight(distVendorRoot) {
 				'fileURLToPath(new URL("./routes/ssr/index.astro", import.meta.url))',
 			);
 
+		source = source
+			.replaceAll('name: "@astrojs/starlight"', 'name: "@treeseed/core-vendored-starlight"')
+			.replaceAll('i.name === "@astrojs/starlight"', 'i.name === "@treeseed/core-vendored-starlight"');
+
 		writeFileSync(indexFile, source, 'utf8');
 	}
 }
@@ -292,6 +315,13 @@ async function main() {
 	await compileVendorPackage(starlightPackageRoot, vendoredStarlightRoot);
 	patchVendoredStarlight(vendoredStarlightRoot);
 	patchTreeseedRuntime(distRoot);
+
+	for (const filePath of walkFiles(distRoot)) {
+		if (filePath.startsWith(`${vendoredStarlightRoot}/`) || filePath === vendoredStarlightRoot) continue;
+		if (!(filePath.endsWith('.astro') || filePath.endsWith('.js'))) continue;
+		const contents = readFileSync(filePath, 'utf8');
+		writeFileSync(filePath, rewriteTreeseedStarlightSpecifiers(contents, filePath), 'utf8');
+	}
 
 	writeCompatibilityEntrypoint(
 		resolve(distRoot, 'config.js'),

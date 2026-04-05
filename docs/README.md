@@ -76,6 +76,8 @@ All commands below assume your shell is inside `docs/`:
 | `npm run dev`             | Starts the unified local Wrangler runtime with MailPit, D1, KV, and generated books |
 | `npm run dev:watch`       | Starts the same Wrangler runtime plus opt-in rebuild and browser refresh for core development |
 | `npm run build`           | Build your production site to `./dist/`          |
+| `npm run deploy`          | Provision or reuse Cloudflare resources and deploy the site |
+| `npm run destroy`         | Dangerously delete the deployed site Worker, D1, and KV resources after typed confirmation |
 | `npm run preview`         | Preview your build locally, before deploying     |
 | `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
 | `npm run astro -- --help` | Get help using the Astro CLI                     |
@@ -91,6 +93,8 @@ Run docs commands directly from `docs/`:
 | `npm run dev:watch` | Start the same runtime with opt-in rebuild and browser refresh support |
 | `npm run check` | Sync Astro/content state through the package-owned check flow |
 | `npm run build` | Build the static docs output |
+| `npm run deploy` | Run the package-owned Cloudflare deploy flow |
+| `npm run destroy` | Run the package-owned Cloudflare destroy flow with typed confirmation |
 | `npm run test` | Run unit tests plus Cloudflare-local integration coverage |
 | `npm run cleanup:markdown -- <path>` | Normalize Markdown/MDX files before publishing |
 
@@ -227,12 +231,12 @@ Behavior:
 The future standalone docs repository should own these deployment and runtime inputs:
 
 - GitHub Actions workflow at `.github/workflows/deploy.yml`
-- Cloudflare Pages deployment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
-- Wrangler bindings from `wrangler.toml` for `FORM_GUARD_KV`, `SESSION`, and `SUBSCRIBERS_DB`
+- deploy manifest at `treeseed.site.yaml`
 - docs-local runtime variables defined in `.env.local.example`
 - SQL migrations in `migrations/`
+- generated deployment state under `.treeseed/` as runtime artifacts, not committed source
 
-When the split happens, promote this directory's `.gitignore`, `.github/workflows/`, `package.json`, `wrangler.toml`, scripts, and migrations to the root of the new repository without changing their ownership model.
+The package now generates Wrangler deploy config into `.treeseed/generated/wrangler.toml`, so the tenant no longer treats a hand-authored root `wrangler.toml` as the source of truth.
 
 ### Troubleshooting
 

@@ -6,8 +6,12 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { packageRoot, packageScriptPath } from './package-tools.mjs';
 
-const npmCacheDir = '/tmp/treeseed-npm-cache';
+const npmCacheDir = resolve(packageRoot, '.local', 'scaffold-npm-cache');
 const packageJson = JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'));
+
+function resetNpmCache() {
+	rmSync(npmCacheDir, { recursive: true, force: true });
+}
 
 function runStep(command, args, { cwd = packageRoot, env = {}, capture = false } = {}) {
 	const result = spawnSync(command, args, {
@@ -54,11 +58,14 @@ function scaffoldSite(siteRoot) {
 }
 
 function installScaffold(siteRoot) {
-	runStep('npm', ['install', '--cache', npmCacheDir], {
+	runStep('npm', ['install', '--cache', npmCacheDir, '--prefer-offline', '--no-audit', '--no-fund'], {
 		cwd: siteRoot,
 		env: {
 			npm_config_cache: npmCacheDir,
 			NPM_CONFIG_CACHE: npmCacheDir,
+			npm_config_prefer_offline: 'true',
+			npm_config_audit: 'false',
+			npm_config_fund: 'false',
 		},
 	});
 }
@@ -71,6 +78,7 @@ function runScaffoldChecks(siteRoot) {
 const siteRoot = createTempSiteRoot();
 
 try {
+	resetNpmCache();
 	const tarballPath = createTarball();
 	scaffoldSite(siteRoot);
 	rewriteScaffoldDependency(siteRoot, tarballPath);
@@ -79,4 +87,5 @@ try {
 	console.log(`Scaffold smoke test passed in ${dirname(siteRoot) ? siteRoot : '.'}`);
 } finally {
 	rmSync(siteRoot, { recursive: true, force: true });
+	resetNpmCache();
 }

@@ -30,8 +30,12 @@ Installed tenants use the `treeseed` CLI:
 - `treeseed dev --watch`
 - `treeseed build`
 - `treeseed check`
+- `treeseed deploy`
+- `treeseed destroy`
 - `treeseed preview`
 - `treeseed init <directory>`
+
+`treeseed destroy` is intentionally dangerous. By default it prints the Worker, D1, and KV resources it is about to remove and requires typed confirmation matching the site slug before it deletes anything on Cloudflare.
 
 MailPit is package-managed. Tenant apps do not need their own `compose.yml`; `treeseed mailpit:up`, `treeseed mailpit:down`, and `treeseed mailpit:logs` run against the package-owned service definition.
 

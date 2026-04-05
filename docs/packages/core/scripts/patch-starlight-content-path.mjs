@@ -4,6 +4,11 @@ import process from 'node:process';
 import { packageRoot } from './paths.mjs';
 
 const legacyDocsRoot = path.resolve(packageRoot, '../..');
+const candidateStarlightRoots = [
+	path.join(process.cwd(), 'node_modules/@astrojs/starlight'),
+	path.join(packageRoot, 'node_modules/@astrojs/starlight'),
+	path.join(legacyDocsRoot, 'node_modules/@astrojs/starlight'),
+];
 const candidateCollectionFiles = [
 	path.join(process.cwd(), 'node_modules/@astrojs/starlight/utils/collection.ts'),
 	path.join(packageRoot, 'node_modules/@astrojs/starlight/utils/collection.ts'),
@@ -107,6 +112,40 @@ async function patchCollectionFile(collectionFile) {
 	return 'patched';
 }
 
+async function copyVendoredTree(sourceRoot, targetRoot) {
+	const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
+	for (const entry of entries) {
+		const sourcePath = path.join(sourceRoot, entry.name);
+		const targetPath = path.join(targetRoot, entry.name);
+		if (entry.isDirectory()) {
+			await fs.mkdir(targetPath, { recursive: true });
+			await copyVendoredTree(sourcePath, targetPath);
+			continue;
+		}
+
+		await fs.copyFile(sourcePath, targetPath);
+	}
+}
+
+async function patchStarlightPackageRoot(starlightRoot) {
+	const packageJsonPath = path.join(starlightRoot, 'package.json');
+	const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'));
+	const coreVendorRoot = path.join(path.dirname(path.dirname(starlightRoot)), '@treeseed/core/dist/vendor/starlight');
+	await copyVendoredTree(coreVendorRoot, starlightRoot);
+
+	packageJson.exports = {
+		...packageJson.exports,
+		'.': './index.js',
+		'./schema': './schema.js',
+		'./loaders': './loaders.js',
+		'./route-data': './route-data.js',
+		'./internal': './internal.js',
+		'./components': './components.js',
+	};
+
+	await fs.writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8');
+}
+
 async function run() {
 	const existingFiles = [];
 	for (const collectionFile of candidateCollectionFiles) {
@@ -126,6 +165,16 @@ async function run() {
 	for (const collectionFile of existingFiles) {
 		const result = await patchCollectionFile(collectionFile);
 		patchedAny = patchedAny || result === 'patched';
+	}
+
+	for (const starlightRoot of candidateStarlightRoots) {
+		try {
+			await fs.access(path.join(starlightRoot, 'package.json'));
+			await patchStarlightPackageRoot(starlightRoot);
+			patchedAny = true;
+		} catch {
+			// Ignore missing dependency trees.
+		}
 	}
 
 	console.log(

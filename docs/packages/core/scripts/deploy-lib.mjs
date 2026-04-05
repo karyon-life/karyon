@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { deriveCloudflareWorkerName, loadTreeseedDeployConfig } from '../src/deploy/config.mjs';
@@ -209,12 +209,13 @@ export function ensureGeneratedWranglerConfig(tenantRoot) {
 	return { wranglerPath, deployConfig, state, manifestFingerprint };
 }
 
-function runWrangler(args, { cwd, allowFailure = false, json = false, capture = false, env = {} } = {}) {
+function runWrangler(args, { cwd, allowFailure = false, json = false, capture = false, env = {}, input } = {}) {
 	const result = spawnSync(process.execPath, [wranglerBin, ...args], {
-		stdio: json || capture ? 'pipe' : 'inherit',
+		stdio: json || capture || input !== undefined ? ['pipe', 'pipe', 'pipe'] : 'inherit',
 		cwd,
 		env: { ...process.env, ...env },
 		encoding: 'utf8',
+		input,
 	});
 
 	if (result.status !== 0 && !allowFailure) {
@@ -285,6 +286,17 @@ function buildProvisioningSummary(deployConfig, state) {
 	};
 }
 
+function buildDestroySummary(deployConfig, state) {
+	return {
+		workerName: state.workerName ?? deriveCloudflareWorkerName(deployConfig),
+		siteUrl: deployConfig.siteUrl,
+		accountId: deployConfig.cloudflare.accountId,
+		formGuardKv: state.kvNamespaces.FORM_GUARD_KV,
+		sessionKv: state.kvNamespaces.SESSION,
+		subscribersDb: state.d1Databases.SUBSCRIBERS_DB,
+	};
+}
+
 function isPlaceholderAccountId(value) {
 	return !value || value === 'replace-with-cloudflare-account-id';
 }
@@ -333,6 +345,207 @@ export function validateDeployPrerequisites(tenantRoot, { requireRemote = true }
 	}
 
 	return deployConfig;
+}
+
+export function validateDestroyPrerequisites(tenantRoot, { requireRemote = true } = {}) {
+	const deployConfig = loadTreeseedDeployConfig();
+	const issues = [];
+
+	if (isPlaceholderAccountId(deployConfig.cloudflare.accountId)) {
+		issues.push(
+			`Set cloudflare.accountId in ${relative(tenantRoot, deployConfig.__configPath ?? resolve(tenantRoot, 'treeseed.site.yaml'))} or export CLOUDFLARE_ACCOUNT_ID.`,
+		);
+	}
+
+	if (requireRemote) {
+		const result = runWrangler(['whoami'], {
+			cwd: tenantRoot,
+			allowFailure: true,
+			capture: true,
+		});
+		const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+		if (/You are not authenticated/i.test(output) || /wrangler login/i.test(output)) {
+			issues.push('Authenticate Wrangler first with `wrangler login`.');
+		}
+	}
+
+	if (issues.length > 0) {
+		throw new Error(`Treeseed destroy prerequisites are not satisfied:\n- ${issues.join('\n- ')}`);
+	}
+
+	return deployConfig;
+}
+
+function resolveExistingKvIdByName(kvNamespaces, expectedName, fallbackId) {
+	if (fallbackId && !isPlaceholderResourceId(fallbackId)) {
+		return fallbackId;
+	}
+
+	return kvNamespaces.find((entry) => entry?.title === expectedName)?.id ?? null;
+}
+
+function resolveExistingD1ByName(d1Databases, expectedName, current) {
+	if (current?.databaseId && !isPlaceholderResourceId(current.databaseId)) {
+		return current;
+	}
+
+	const existing = d1Databases.find((entry) => entry?.name === expectedName);
+	if (!existing?.uuid) {
+		return current;
+	}
+
+	return {
+		...current,
+		databaseId: existing.uuid,
+		previewDatabaseId: existing.previewDatabaseUuid ?? existing.uuid,
+	};
+}
+
+function looksLikeMissingResource(output) {
+	return /not found|does not exist|could not find|unknown/i.test(output);
+}
+
+function deleteKvNamespace(tenantRoot, namespaceId, { env, dryRun, preview = false }) {
+	if (!namespaceId || isPlaceholderResourceId(namespaceId)) {
+		return { status: 'missing', id: namespaceId };
+	}
+
+	if (dryRun) {
+		return { status: 'planned', id: namespaceId, preview };
+	}
+
+	const args = ['kv', 'namespace', 'delete', '--namespace-id', namespaceId, '--skip-confirmation'];
+	if (preview) {
+		args.push('--preview');
+	}
+	const result = runWrangler(args, {
+		cwd: tenantRoot,
+		allowFailure: true,
+		capture: true,
+		env,
+	});
+	const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+	if (result.status !== 0 && !looksLikeMissingResource(output)) {
+		throw new Error(output.trim() || `Failed to delete KV namespace ${namespaceId}.`);
+	}
+
+	return { status: result.status === 0 ? 'deleted' : 'missing', id: namespaceId, preview };
+}
+
+function deleteD1Database(tenantRoot, databaseName, { env, dryRun }) {
+	if (!databaseName) {
+		return { status: 'missing', name: databaseName };
+	}
+
+	if (dryRun) {
+		return { status: 'planned', name: databaseName };
+	}
+
+	const result = runWrangler(['d1', 'delete', databaseName, '--skip-confirmation'], {
+		cwd: tenantRoot,
+		allowFailure: true,
+		capture: true,
+		env,
+	});
+	const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+	if (result.status !== 0 && !looksLikeMissingResource(output)) {
+		throw new Error(output.trim() || `Failed to delete D1 database ${databaseName}.`);
+	}
+
+	return { status: result.status === 0 ? 'deleted' : 'missing', name: databaseName };
+}
+
+function deleteWorker(tenantRoot, workerName, { env, dryRun, force = false }) {
+	if (!workerName) {
+		return { status: 'missing', name: workerName };
+	}
+
+	if (dryRun) {
+		return { status: 'planned', name: workerName };
+	}
+
+	const args = ['delete', workerName];
+	if (force) {
+		args.push('--force');
+	}
+
+	const result = runWrangler(args, {
+		cwd: tenantRoot,
+		allowFailure: true,
+		capture: true,
+		env,
+		input: 'y\n',
+	});
+	const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+	if (result.status !== 0 && !looksLikeMissingResource(output)) {
+		throw new Error(output.trim() || `Failed to delete Worker ${workerName}.`);
+	}
+
+	return { status: result.status === 0 ? 'deleted' : 'missing', name: workerName };
+}
+
+export function destroyCloudflareResources(tenantRoot, { dryRun = false, force = false } = {}) {
+	const deployConfig = loadTreeseedDeployConfig();
+	const state = loadDeployState(tenantRoot, deployConfig);
+	state.workerName = deriveCloudflareWorkerName(deployConfig);
+
+	const env = {
+		CLOUDFLARE_ACCOUNT_ID: deployConfig.cloudflare.accountId,
+	};
+
+	const kvNamespaces = dryRun ? [] : listKvNamespaces(tenantRoot, env);
+	const d1Databases = dryRun ? [] : listD1Databases(tenantRoot, env);
+
+	state.kvNamespaces.FORM_GUARD_KV.id = resolveExistingKvIdByName(
+		kvNamespaces,
+		state.kvNamespaces.FORM_GUARD_KV.name,
+		state.kvNamespaces.FORM_GUARD_KV.id,
+	);
+	state.kvNamespaces.SESSION.id = resolveExistingKvIdByName(
+		kvNamespaces,
+		state.kvNamespaces.SESSION.name,
+		state.kvNamespaces.SESSION.id,
+	);
+	state.d1Databases.SUBSCRIBERS_DB = resolveExistingD1ByName(
+		d1Databases,
+		state.d1Databases.SUBSCRIBERS_DB.databaseName,
+		state.d1Databases.SUBSCRIBERS_DB,
+	);
+
+	const worker = deleteWorker(tenantRoot, state.workerName, { env, dryRun, force });
+	const formGuard = deleteKvNamespace(tenantRoot, state.kvNamespaces.FORM_GUARD_KV.id, { env, dryRun });
+	const formGuardPreview =
+		state.kvNamespaces.FORM_GUARD_KV.previewId &&
+		state.kvNamespaces.FORM_GUARD_KV.previewId !== state.kvNamespaces.FORM_GUARD_KV.id
+			? deleteKvNamespace(tenantRoot, state.kvNamespaces.FORM_GUARD_KV.previewId, { env, dryRun, preview: true })
+			: null;
+	const session = deleteKvNamespace(tenantRoot, state.kvNamespaces.SESSION.id, { env, dryRun });
+	const sessionPreview =
+		state.kvNamespaces.SESSION.previewId &&
+		state.kvNamespaces.SESSION.previewId !== state.kvNamespaces.SESSION.id
+			? deleteKvNamespace(tenantRoot, state.kvNamespaces.SESSION.previewId, { env, dryRun, preview: true })
+			: null;
+	const database = deleteD1Database(tenantRoot, state.d1Databases.SUBSCRIBERS_DB.databaseName, { env, dryRun });
+
+	return {
+		summary: buildDestroySummary(deployConfig, state),
+		operations: {
+			worker,
+			formGuard,
+			formGuardPreview,
+			session,
+			sessionPreview,
+			database,
+		},
+	};
+}
+
+export function cleanupDestroyedState(tenantRoot, { removeBuildArtifacts = false } = {}) {
+	rmSync(resolve(tenantRoot, STATE_ROOT), { recursive: true, force: true });
+	rmSync(resolve(tenantRoot, GENERATED_ROOT), { recursive: true, force: true });
+	if (removeBuildArtifacts) {
+		rmSync(resolve(tenantRoot, 'dist'), { recursive: true, force: true });
+	}
 }
 
 export function provisionCloudflareResources(tenantRoot, { dryRun = false } = {}) {
@@ -493,4 +706,21 @@ export function printDeploySummary(summary) {
 	console.log(`  D1: ${summary.subscribersDb.databaseName} (${summary.subscribersDb.databaseId})`);
 	console.log(`  KV FORM_GUARD_KV: ${summary.formGuardKv.id}`);
 	console.log(`  KV SESSION: ${summary.sessionKv.id}`);
+}
+
+export function printDestroySummary(result) {
+	const { summary, operations } = result;
+	console.log('Treeseed destroy summary');
+	console.log(`  Worker: ${summary.workerName} -> ${operations.worker.status}`);
+	console.log(`  Site URL: ${summary.siteUrl}`);
+	console.log(`  Account ID: ${summary.accountId}`);
+	console.log(`  D1: ${summary.subscribersDb.databaseName} -> ${operations.database.status}`);
+	console.log(`  KV FORM_GUARD_KV: ${summary.formGuardKv.name} -> ${operations.formGuard.status}`);
+	if (operations.formGuardPreview) {
+		console.log(`  KV FORM_GUARD_KV preview -> ${operations.formGuardPreview.status}`);
+	}
+	console.log(`  KV SESSION: ${summary.sessionKv.name} -> ${operations.session.status}`);
+	if (operations.sessionPreview) {
+		console.log(`  KV SESSION preview -> ${operations.sessionPreview.status}`);
+	}
 }

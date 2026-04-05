@@ -11,6 +11,7 @@
     "build": "treeseed build",
     "check": "treeseed check",
     "deploy": "treeseed deploy",
+    "destroy": "treeseed destroy",
     "preview": "treeseed preview",
     "astro": "treeseed astro",
     "mailpit:up": "treeseed mailpit:up",
