@@ -1,12 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { packageRoot } from './paths.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const docsRoot = path.resolve(__dirname, '../../..');
-const collectionFile = path.join(docsRoot, 'node_modules/@astrojs/starlight/utils/collection.ts');
+const legacyDocsRoot = path.resolve(packageRoot, '../..');
+const candidateCollectionFiles = [
+	path.join(process.cwd(), 'node_modules/@astrojs/starlight/utils/collection.ts'),
+	path.join(packageRoot, 'node_modules/@astrojs/starlight/utils/collection.ts'),
+	path.join(legacyDocsRoot, 'node_modules/@astrojs/starlight/utils/collection.ts'),
+];
 
 const originalSource = `export type StarlightCollection = 'docs' | 'i18n';
 
@@ -90,12 +92,11 @@ export function getCollectionPathFromRoot(
 }
 `;
 
-async function run() {
+async function patchCollectionFile(collectionFile) {
 	const source = await fs.readFile(collectionFile, 'utf8');
 
 	if (source === patchedSource) {
-		console.log('Starlight knowledge-path patch already applied.');
-		return;
+		return 'already';
 	}
 
 	if (source !== originalSource) {
@@ -103,7 +104,35 @@ async function run() {
 	}
 
 	await fs.writeFile(collectionFile, patchedSource);
-	console.log('Applied Starlight knowledge-path patch.');
+	return 'patched';
+}
+
+async function run() {
+	const existingFiles = [];
+	for (const collectionFile of candidateCollectionFiles) {
+		try {
+			await fs.access(collectionFile);
+			existingFiles.push(collectionFile);
+		} catch {
+			// Ignore missing dependency trees.
+		}
+	}
+
+	if (existingFiles.length === 0) {
+		throw new Error('Unable to find any Starlight collection helper files to patch.');
+	}
+
+	let patchedAny = false;
+	for (const collectionFile of existingFiles) {
+		const result = await patchCollectionFile(collectionFile);
+		patchedAny = patchedAny || result === 'patched';
+	}
+
+	console.log(
+		patchedAny
+			? 'Applied Starlight knowledge-path patch.'
+			: 'Starlight knowledge-path patch already applied.',
+	);
 }
 
 run().catch((error) => {

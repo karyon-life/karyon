@@ -1,10 +1,11 @@
 import path from 'node:path';
+import { resolveTreeseedTenantRoot } from '../../tenant/config.mjs';
 import type { SdkModelDefinition, SdkModelName } from './sdk-types';
 
 function contentRoot() {
 	return process.env.DOCS_AGENT_CONTENT_ROOT
 		? path.resolve(process.env.DOCS_AGENT_CONTENT_ROOT)
-		: path.resolve(process.cwd(), 'src', 'content');
+		: path.resolve(resolveTreeseedTenantRoot(), 'src', 'content');
 }
 
 export function buildModelRegistry(): Record<SdkModelName, SdkModelDefinition> {

@@ -1,5 +1,5 @@
 import { defineConfig, envField } from 'astro/config';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cloudflare from '@astrojs/cloudflare';
@@ -9,17 +9,32 @@ import tailwindcss from '@tailwindcss/vite';
 import { parseSiteConfig } from './utils/site-config-schema.js';
 import { buildTenantBookRuntime } from './utils/books-data.mjs';
 import { getStarlightSidebarConfigFromRuntime } from './utils/starlight-nav.mjs';
+import { buildTenantThemeCss } from './utils/theme.ts';
 
+const TENANT_THEME_VIRTUAL_ID = 'virtual:treeseed/tenant-theme.css';
+const RESOLVED_TENANT_THEME_VIRTUAL_ID = '\0treeseed:tenant-theme.css';
 
 function packageFile(relativePath) {
 	return fileURLToPath(new URL(relativePath, import.meta.url));
+}
+
+function packageModuleFile(relativeStem) {
+	for (const extension of ['.js', '.mjs', '.ts']) {
+		const candidateUrl = new URL(`${relativeStem}${extension}`, import.meta.url);
+		const candidatePath = fileURLToPath(candidateUrl);
+		if (existsSync(candidatePath)) {
+			return candidatePath;
+		}
+	}
+
+	throw new Error(`Unable to resolve package module for ${relativeStem}`);
 }
 
 const PACKAGE_ROUTE_ENTRIES = [
 	{ pattern: '/', entrypoint: packageFile('./pages/index.astro') },
 	{ pattern: '/404', entrypoint: packageFile('./pages/404.astro') },
 	{ pattern: '/contact', entrypoint: packageFile('./pages/contact.astro') },
-	{ pattern: '/feed.xml', entrypoint: packageFile('./pages/feed.xml.ts') },
+	{ pattern: '/feed.xml', entrypoint: packageModuleFile('./pages/feed.xml') },
 	{ pattern: '/[slug]', entrypoint: packageFile('./pages/[slug].astro') },
 	{ pattern: '/agents', entrypoint: packageFile('./pages/agents/index.astro') },
 	{ pattern: '/agents/[slug]', entrypoint: packageFile('./pages/agents/[slug].astro') },
@@ -33,7 +48,7 @@ const PACKAGE_ROUTE_ENTRIES = [
 	{ pattern: '/people/[slug]', entrypoint: packageFile('./pages/people/[slug].astro') },
 	{ pattern: '/questions', entrypoint: packageFile('./pages/questions/index.astro') },
 	{ pattern: '/questions/[slug]', entrypoint: packageFile('./pages/questions/[slug].astro') },
-	{ pattern: '/api/form/submit', entrypoint: packageFile('./pages/api/form/submit.ts') },
+	{ pattern: '/api/form/submit', entrypoint: packageModuleFile('./pages/api/form/submit'), prerender: false },
 ];
 
 function createTreeseedRoutesIntegration(tenantConfig) {
@@ -57,6 +72,18 @@ function createTreeseedRoutesIntegration(tenantConfig) {
 
 function toStarlightLogoSrc(publicPath) {
 	return publicPath.startsWith('/') ? `./public${publicPath}` : publicPath;
+}
+
+function createTenantThemeVitePlugin(themeCss) {
+	return {
+		name: 'treeseed-tenant-theme',
+		resolveId(id) {
+			return id === TENANT_THEME_VIRTUAL_ID ? RESOLVED_TENANT_THEME_VIRTUAL_ID : undefined;
+		},
+		load(id) {
+			return id === RESOLVED_TENANT_THEME_VIRTUAL_ID ? themeCss : undefined;
+		},
+	};
 }
 
 function normalizeEscapedMath(value) {
@@ -127,6 +154,7 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 	const projectRoot = process.cwd();
 	const siteConfig = parseSiteConfig(readFileSync(resolve(projectRoot, tenantConfig.siteConfigPath), 'utf8'));
 	const bookRuntime = buildTenantBookRuntime(tenantConfig, { projectRoot });
+	const tenantThemeCss = buildTenantThemeCss(siteConfig.site.theme);
 
 	return defineConfig({
 		site: siteConfig.site.siteUrl,
@@ -137,7 +165,10 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 			},
 		},
 		vite: {
-			plugins: [/** @type {any} */ (tailwindcss())],
+			plugins: [
+				createTenantThemeVitePlugin(tenantThemeCss),
+				/** @type {any} */ (tailwindcss()),
+			],
 			ssr: {
 				external: ['node:fs', 'node:path', 'node:url'],
 			},
@@ -170,7 +201,7 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 			createTreeseedRoutesIntegration(tenantConfig),
 			starlight({
 				disable404Route: true,
-				customCss: [packageFile('./styles/global.css')],
+				customCss: [packageFile('./styles/global.css'), TENANT_THEME_VIRTUAL_ID],
 				title: siteConfig.site.name,
 				logo: {
 					src: toStarlightLogoSrc(siteConfig.site.logo.src),
@@ -191,7 +222,7 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 					ThemeSelect: packageFile('./components/docs/ThemeSelect.astro'),
 				},
 				sidebar: getStarlightSidebarConfigFromRuntime(bookRuntime),
-				routeMiddleware: [packageFile('./middleware/starlightRouteData.ts')],
+				routeMiddleware: [packageModuleFile('./middleware/starlightRouteData')],
 			}),
 		],
 	});

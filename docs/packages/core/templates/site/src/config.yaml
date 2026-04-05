@@ -1,0 +1,31 @@
+site:
+  name: __SITE_NAME__
+  logo:
+    src: /logo.svg
+    alt: __SITE_NAME__ logo
+  stage: exploratory
+  summary: Research, implementation notes, and knowledge for __SITE_NAME__.
+  githubRepository: __REPOSITORY_URL__
+  discordLink: __DISCORD_URL__
+  siteUrl: __SITE_URL__
+  footerTagline: Built on Treeseed.
+  navigation:
+    primary:
+      - label: Knowledge
+        href: /knowledge/
+      - label: Notes
+        href: /notes/
+      - label: People
+        href: /people/
+      - label: Objectives
+        href: /objectives/
+      - label: Questions
+        href: /questions/
+  theme:
+    accent:
+      base: "#d7e4d3"
+      strong: "#45624d"
+      soft: "#f2f7ef"
+models:
+  docs:
+    tags: []

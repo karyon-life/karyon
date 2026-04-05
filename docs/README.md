@@ -20,7 +20,7 @@ The intended steady state is that almost all app/framework code lives in `@trees
 The docs describe both the target organism and the codebase that exists today. Treat the codebase as the source of truth for runtime behavior:
 
 - the project-owned knowledge source lives in `src/content/knowledge/`
-- the public site routes are injected from `node_modules//core/src/pages/`, while the platform package patches Starlight to treat `src/content/knowledge/` as the docs collection root
+- the public site routes are injected from `@treeseed/core`, while the platform package patches Starlight to treat `src/content/knowledge/` as the docs collection root
 - `public/books/*.md` are generated book exports, not guaranteed checked-in artifacts
 - production-facing integrations such as XTDB, NATS, and Firecracker are still being hardened
 - use the runtime repository's `PLAN.md` and `TASKS.md` to track readiness work while the docs still live inside the monorepo
@@ -34,6 +34,8 @@ cd docs
 npm install
 ```
 
+The docs tenant now has a single runtime dependency in [package.json](/home/adrian/Projects/nexical/karyon/docs/package.json): `@treeseed/core`.
+
 The current nested layout is temporary. Root-level `npm run docs:*` commands remain available only as a transitional wrapper until the docs are moved into their own repository.
 
 ## 🚀 Project Structure
@@ -44,7 +46,7 @@ Inside of your Astro + Starlight project, you'll see the following folders and f
 .
 ├── public/
 ├── packages/
-│   └── treeseed-app/
+│   └── core/
 ├── src/
 │   ├── assets/
 │   ├── content/
@@ -88,14 +90,42 @@ Run docs commands directly from `docs/`:
 | :------ | :----- |
 | `npm install` | Install docs dependencies |
 | `npm run dev` | Start the docs site through local Wrangler with Cloudflare bindings |
-| `npm run check` | Run Astro type/content checks |
+| `npm run check` | Sync Astro/content state through the package-owned check flow |
 | `npm run build` | Build the static docs output |
 | `npm run test` | Run unit tests plus Cloudflare-local integration coverage |
 | `npm run cleanup:markdown -- <path>` | Normalize Markdown/MDX files before publishing |
 
-The optional aggregated markdown books can be produced with `node ./node_modules//core/scripts/aggregate-book.mjs`.
+The optional aggregated markdown books can be produced with `node ./node_modules/@treeseed/core/scripts/aggregate-book.mjs`.
 
 If you still need the nested monorepo wrappers before the split, the runtime repo currently exposes `npm run docs:*` aliases from its top-level `package.json`. Do not treat those wrappers as the long-term interface.
+
+## Package Release
+
+`@treeseed/core` now lives in `packages/core/` and is set up to publish as a public npm package.
+
+To scaffold a brand new tenant from the package:
+
+```bash
+npx treeseed init my-docs-site --name "My Docs Site" --site-url https://example.com
+```
+
+Release workflow:
+
+1. update [packages/core/package.json](/home/adrian/Projects/nexical/karyon/docs/packages/core/package.json) with the target version
+2. create a matching git tag in the form `treeseed-core-v<version>`
+3. push the tag or run the publish workflow manually
+
+Examples:
+
+```bash
+cd docs/packages/core
+npm run release:check-tag -- treeseed-core-v0.1.0
+npm run release:verify
+git tag treeseed-core-v0.1.0
+git push origin treeseed-core-v0.1.0
+```
+
+The publish workflow validates that the tag version exactly matches `packages/core/package.json` before publishing to npm, and it now executes the package-local release scripts from `packages/core/`.
 
 ## Markdown Authoring
 

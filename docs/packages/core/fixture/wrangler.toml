@@ -1,0 +1,23 @@
+name = "karyon-docs"
+compatibility_date = "2026-04-03"
+compatibility_flags = ["nodejs_compat"]
+main = "./dist/_worker.js/index.js"
+
+[assets]
+directory = "./dist"
+
+[[kv_namespaces]]
+binding = "FORM_GUARD_KV"
+id = "replace-with-form-guard-kv-id"
+preview_id = "replace-with-form-guard-kv-preview-id"
+
+[[kv_namespaces]]
+binding = "SESSION"
+id = "replace-with-session-kv-id"
+preview_id = "replace-with-session-kv-preview-id"
+
+[[d1_databases]]
+binding = "SUBSCRIBERS_DB"
+database_name = "karyon-docs-subscribers"
+database_id = "replace-with-subscribers-db-id"
+preview_database_id = "replace-with-subscribers-db-preview-id"

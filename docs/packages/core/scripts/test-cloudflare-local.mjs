@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { prepareCloudflareLocalRuntime, spawnProcess, startWranglerDev } from './local-dev-lib.mjs';
+import { fixtureRoot, fixtureWranglerConfig } from './paths.mjs';
 
 const TEST_PORT = 8791;
 const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
@@ -132,13 +133,15 @@ async function querySubscribers() {
 			'execute',
 			'karyon-docs-subscribers',
 			'--local',
+			'--config',
+			fixtureWranglerConfig,
 			'--persist-to',
 			PERSIST_TO,
 			'--json',
 			'--command',
 			query,
 		],
-		{ stdio: ['ignore', 'pipe', 'inherit'] },
+		{ stdio: ['ignore', 'pipe', 'inherit'], cwd: fixtureRoot },
 	);
 
 	const stdout = await readBody(child.stdout);
@@ -162,6 +165,8 @@ async function main() {
 			DOCS_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE: 'true',
 			DOCS_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS: 'false',
 			DOCS_FORMS_LOCAL_USE_MAILPIT: 'true',
+			DOCS_MAILPIT_SMTP_HOST: '127.0.0.1',
+			DOCS_MAILPIT_SMTP_PORT: '1125',
 		},
 	});
 
@@ -178,6 +183,13 @@ async function main() {
 				new Promise((resolve) => worker.once('exit', resolve)),
 				delay(5000),
 			]);
+			if (worker.exitCode === null && !worker.killed) {
+				worker.kill('SIGKILL');
+				await Promise.race([
+					new Promise((resolve) => worker.once('exit', resolve)),
+					delay(5000),
+				]);
+			}
 		}
 	};
 

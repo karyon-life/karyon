@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { PROJECT_TENANT } from '../tenant/bridge.mjs';
 import { parseSiteConfig } from './site-config-schema.js';
+import { buildTenantThemeCss } from './theme.ts';
 
-const configSource = readFileSync(resolve(process.cwd(), 'src/config.yaml'), 'utf8');
+const configSource = readFileSync(resolve(process.cwd(), PROJECT_TENANT.siteConfigPath), 'utf8');
 
 export const SITE_CONFIG = parseSiteConfig(configSource);
 
@@ -17,6 +19,7 @@ export const SITE = {
 	discordLink: SITE_CONFIG.site.discordLink,
 	projectStage: SITE_CONFIG.site.projectStage,
 	projectStageDetail: SITE_CONFIG.site.projectStageDetail,
+	theme: SITE_CONFIG.site.theme,
 	headerMenu: SITE_CONFIG.site.headerMenu,
 	footerMenu: SITE_CONFIG.site.footerMenu,
 	emailNotifications: SITE_CONFIG.site.emailNotifications,
@@ -25,6 +28,7 @@ export const SITE = {
 export const SITE_HEADER_MENU = SITE.headerMenu;
 export const SITE_FOOTER_MENU = SITE.footerMenu;
 export const SITE_EMAIL_NOTIFICATIONS = SITE.emailNotifications;
+export const SITE_THEME_CSS = buildTenantThemeCss(SITE.theme);
 
 export const PAGE_MODEL_DEFAULTS = SITE_CONFIG.models.pages.defaults;
 export const NOTE_MODEL_DEFAULTS = SITE_CONFIG.models.notes.defaults;

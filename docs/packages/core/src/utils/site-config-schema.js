@@ -40,6 +40,14 @@ function optionalBoolean(value, path) {
 	return value;
 }
 
+function optionalRecord(value, path) {
+	if (value === undefined || value === null) {
+		return undefined;
+	}
+
+	return expectRecord(value, path);
+}
+
 function stringArray(value, path) {
 	if (value === undefined || value === null) {
 		return [];
@@ -90,6 +98,69 @@ function parseContactRouting(value, path) {
 			return [[key, stringArray(parsedValue[key], `${path}.${key}`)]];
 		}),
 	);
+}
+
+function parseTheme(value, path) {
+	const theme = optionalRecord(value, path);
+	if (!theme) {
+		return undefined;
+	}
+
+	const surfaces = optionalRecord(theme.surfaces, `${path}.surfaces`);
+	const text = optionalRecord(theme.text, `${path}.text`);
+	const border = optionalRecord(theme.border, `${path}.border`);
+	const accent = optionalRecord(theme.accent, `${path}.accent`);
+	const info = optionalRecord(theme.info, `${path}.info`);
+	const warm = optionalRecord(theme.warm, `${path}.warm`);
+
+	return {
+		surfaces: surfaces
+			? {
+				background: optionalString(surfaces.background, `${path}.surfaces.background`),
+				backgroundElevated: optionalString(
+					surfaces.backgroundElevated,
+					`${path}.surfaces.backgroundElevated`,
+				),
+				backgroundSoft: optionalString(surfaces.backgroundSoft, `${path}.surfaces.backgroundSoft`),
+				panel: optionalString(surfaces.panel, `${path}.surfaces.panel`),
+				panelStrong: optionalString(surfaces.panelStrong, `${path}.surfaces.panelStrong`),
+			}
+			: undefined,
+		text: text
+			? {
+				body: optionalString(text.body, `${path}.text.body`),
+				muted: optionalString(text.muted, `${path}.text.muted`),
+				soft: optionalString(text.soft, `${path}.text.soft`),
+			}
+			: undefined,
+		border: border
+			? {
+				base: optionalString(border.base, `${path}.border.base`),
+				strong: optionalString(border.strong, `${path}.border.strong`),
+				grid: optionalString(border.grid, `${path}.border.grid`),
+			}
+			: undefined,
+		accent: accent
+			? {
+				base: optionalString(accent.base, `${path}.accent.base`),
+				strong: optionalString(accent.strong, `${path}.accent.strong`),
+				soft: optionalString(accent.soft, `${path}.accent.soft`),
+			}
+			: undefined,
+		info: info
+			? {
+				base: optionalString(info.base, `${path}.info.base`),
+				strong: optionalString(info.strong, `${path}.info.strong`),
+				soft: optionalString(info.soft, `${path}.info.soft`),
+			}
+			: undefined,
+		warm: warm
+			? {
+				base: optionalString(warm.base, `${path}.warm.base`),
+				strong: optionalString(warm.strong, `${path}.warm.strong`),
+			}
+			: undefined,
+	};
 }
 
 /**
@@ -144,6 +215,7 @@ export function parseSiteConfig(source) {
 			summary: expectString(site.summary, 'site.summary'),
 			projectStage: expectString(site.projectStage, 'site.projectStage'),
 			projectStageDetail: expectString(site.projectStageDetail, 'site.projectStageDetail'),
+			theme: parseTheme(site.theme, 'site.theme'),
 		},
 		models: {
 			pages: {

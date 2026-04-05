@@ -1,1 +1,1 @@
-export { AGENT_HANDLER_REGISTRY, resolveAgentHandler } from '../tenant/bridge.mjs';
+export { AGENT_HANDLER_REGISTRY, resolveAgentHandler } from './registry.ts';

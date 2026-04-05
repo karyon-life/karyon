@@ -1,0 +1,17 @@
+{
+  "name": "__PACKAGE_NAME__",
+  "type": "module",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "postinstall": "npm run starlight:patch",
+    "starlight:patch": "node ./node_modules/@treeseed/core/dist/scripts/treeseed.js starlight:patch",
+    "dev": "treeseed dev",
+    "build": "treeseed build",
+    "check": "treeseed check",
+    "preview": "treeseed preview"
+  },
+  "dependencies": {
+    "@treeseed/core": "__CORE_VERSION__"
+  }
+}

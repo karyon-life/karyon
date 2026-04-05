@@ -3,7 +3,7 @@ import path from 'node:path';
 import { BOOKS, DOCS_LIBRARY_DOWNLOAD } from '../src/utils/books-data.mjs';
 import { PROJECT_TENANT } from '../src/tenant/bridge.mjs';
 
-const projectRoot = process.cwd();
+const projectRoot = PROJECT_TENANT.__tenantRoot ?? process.cwd();
 const outputDir = path.join(projectRoot, 'public', 'books');
 const legacyOutputFile = path.join(projectRoot, 'public', 'book.md');
 
@@ -86,7 +86,7 @@ function resolveExportRoots(book) {
 
 function resolveBookFiles(book) {
 	const files = resolveExportRoots(book).flatMap((root) =>
-		collectMarkdownFiles(path.join(projectRoot, root)).sort((left, right) => {
+		collectMarkdownFiles(path.resolve(projectRoot, root)).sort((left, right) => {
 			const orderDelta = getSidebarOrder(left) - getSidebarOrder(right);
 			if (orderDelta !== 0) return orderDelta;
 

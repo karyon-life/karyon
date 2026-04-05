@@ -233,9 +233,6 @@ function normalizeParts(
 			execution: normalizeExecution(raw.execution, diagnostics, slug),
 			outputs: normalizeOutputs(raw.outputs, diagnostics, slug),
 		};
-		if (diagnostics.some((entry) => entry.severity === 'error')) {
-			return null;
-		}
 		return spec;
 	} catch (error) {
 		diagnostics.push({

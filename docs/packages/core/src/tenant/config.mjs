@@ -1,6 +1,74 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
+
+const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const packageFixtureRoot = resolve(packageRoot, 'fixture');
+const docsFixtureRoot = resolve(packageRoot, '../..');
+
+function collectTenantRootCandidates(start) {
+	const candidates = [];
+	let current = resolve(start);
+
+	while (true) {
+		candidates.push(current, resolve(current, 'fixture'));
+		const parent = resolve(current, '..');
+		if (parent === current) {
+			break;
+		}
+		current = parent;
+	}
+
+	return candidates;
+}
+
+function uniqueCandidates(entries) {
+	return [...new Set(entries.map((entry) => resolve(entry)))];
+}
+
+function tenantRootCandidates() {
+	return uniqueCandidates([
+		...collectTenantRootCandidates(process.cwd()),
+		...collectTenantRootCandidates(packageRoot),
+		packageFixtureRoot,
+		docsFixtureRoot,
+	]);
+}
+
+function resolveTenantPath(manifestPath) {
+	if (existsSync(manifestPath)) {
+		return resolve(manifestPath);
+	}
+
+	const candidates = [
+		...tenantRootCandidates().map((root) => resolve(root, manifestPath)),
+	];
+
+	for (const candidate of candidates) {
+		if (existsSync(candidate)) {
+			return candidate;
+		}
+	}
+
+	throw new Error(
+		`Unable to resolve Treeseed tenant manifest at "${manifestPath}" from ${process.cwd()}, ${packageFixtureRoot}, or ${docsFixtureRoot}.`,
+	);
+}
+
+function resolveTenantRoot() {
+	const candidates = tenantRootCandidates();
+
+	for (const candidate of candidates) {
+		if (existsSync(resolve(candidate, 'src/manifest.yaml'))) {
+			return candidate;
+		}
+	}
+
+	throw new Error(
+		`Unable to resolve a Treeseed tenant root from ${process.cwd()}, ${packageFixtureRoot}, or ${docsFixtureRoot}.`,
+	);
+}
 
 /**
  * @template T
@@ -15,11 +83,30 @@ export function defineTreeseedTenant(tenantConfig) {
  * @param {string} [manifestPath]
  */
 export function loadTreeseedManifest(manifestPath = './src/manifest.yaml') {
-	const source = readFileSync(resolve(process.cwd(), manifestPath), 'utf8');
-	return defineTreeseedTenant(parseYaml(source));
+	const resolvedManifestPath = resolveTenantPath(manifestPath);
+	const tenantRoot = resolve(dirname(resolvedManifestPath), '..');
+	const parsed = parseYaml(readFileSync(resolvedManifestPath, 'utf8'));
+	const tenantConfig = defineTreeseedTenant({
+		...parsed,
+		siteConfigPath: resolve(tenantRoot, parsed.siteConfigPath),
+		content: Object.fromEntries(
+			Object.entries(parsed.content ?? {}).map(([collectionName, rootPath]) => [
+				collectionName,
+				resolve(tenantRoot, String(rootPath)),
+			]),
+		),
+	});
+
+	Object.defineProperty(tenantConfig, '__tenantRoot', {
+		value: tenantRoot,
+		enumerable: false,
+	});
+
+	return tenantConfig;
 }
 
 export const loadTreeseedTenantManifest = loadTreeseedManifest;
+export const resolveTreeseedTenantRoot = resolveTenantRoot;
 
 /**
  * @param {{ content: Record<string, string> }} tenantConfig

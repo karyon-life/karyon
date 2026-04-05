@@ -3,6 +3,7 @@ import { access, cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'no
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import type { AgentExecutionAdapter, AgentMutationAdapter } from '../runtime-types.ts';
 import { MemoryAgentDatabase } from '../d1-store.ts';
 import { AgentKernel } from '../kernel/agent-kernel.ts';
@@ -23,7 +24,13 @@ function nowIso() {
 }
 
 function resolveDocsRoot() {
-	return path.resolve(process.cwd());
+	const packageFixtureRoot = path.resolve(
+		path.dirname(fileURLToPath(import.meta.url)),
+		'../../../../fixture',
+	);
+	const cwdRoot = path.resolve(process.cwd());
+
+	return cwdRoot.endsWith(`${path.sep}docs`) ? cwdRoot : packageFixtureRoot;
 }
 
 async function resolveWranglerBin() {
@@ -259,7 +266,7 @@ export async function createAgentTestRuntime(options?: {
 		async seedKnowledge(entries) {
 			for (const entry of entries) {
 				await writeSeedFile(
-					path.join('src', 'content', 'docs', 'docs', `${entry.slug}.md`),
+					path.join('src', 'content', 'knowledge', `${entry.slug}.md`),
 					createKnowledgeDocument(entry.slug, entry.title ?? `Knowledge ${entry.slug}`),
 					`test(seed): knowledge ${entry.slug}`,
 				);

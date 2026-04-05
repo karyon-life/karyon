@@ -1,0 +1,85 @@
+#!/usr/bin/env node
+
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
+import { packageRoot } from './package-tools.mjs';
+
+const templateRoot = resolve(packageRoot, 'templates/site');
+const packageJsonPath = resolve(packageRoot, 'package.json');
+const packageVersion = JSON.parse(readFileSync(packageJsonPath, 'utf8')).version;
+
+function parseArgs(argv) {
+  const args = { target: null, name: null, siteUrl: null, repositoryUrl: null, discordUrl: 'https://discord.gg/example' };
+  const rest = [...argv];
+  while (rest.length > 0) {
+    const current = rest.shift();
+    if (!current) continue;
+    if (!args.target && !current.startsWith('--')) {
+      args.target = current;
+      continue;
+    }
+    if (current === '--name') args.name = rest.shift() ?? null;
+    else if (current === '--site-url') args.siteUrl = rest.shift() ?? null;
+    else if (current === '--repo') args.repositoryUrl = rest.shift() ?? null;
+    else if (current === '--discord') args.discordUrl = rest.shift() ?? args.discordUrl;
+    else throw new Error(`Unknown argument: ${current}`);
+  }
+  if (!args.target) throw new Error('Usage: treeseed init <directory> [--name <site name>] [--site-url <url>] [--repo <url>] [--discord <url>]');
+  return args;
+}
+
+function toTitleCase(value) {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function replaceTokens(contents, replacements) {
+  return Object.entries(replacements).reduce(
+    (acc, [token, value]) => acc.replaceAll(token, value),
+    contents,
+  );
+}
+
+function writeTemplateTree(sourceRoot, targetRoot, replacements) {
+  for (const entry of readdirSync(sourceRoot, { withFileTypes: true })) {
+    const sourcePath = join(sourceRoot, entry.name);
+    const targetPath = join(targetRoot, entry.name);
+
+    if (entry.isDirectory()) {
+      mkdirSync(targetPath, { recursive: true });
+      writeTemplateTree(sourcePath, targetPath, replacements);
+      continue;
+    }
+
+    const raw = readFileSync(sourcePath, 'utf8');
+    writeFileSync(targetPath, replaceTokens(raw, replacements), 'utf8');
+  }
+}
+
+const options = parseArgs(process.argv.slice(2));
+const targetRoot = resolve(process.cwd(), options.target);
+const inferredName = options.name ?? toTitleCase(basename(targetRoot));
+const replacements = {
+  '__PACKAGE_NAME__': basename(targetRoot).toLowerCase().replace(/[^a-z0-9-]+/g, '-'),
+  '__TENANT_ID__': basename(targetRoot).toLowerCase().replace(/[^a-z0-9-]+/g, '-'),
+  '__SITE_NAME__': inferredName,
+  '__SITE_URL__': options.siteUrl ?? 'https://example.com',
+  '__REPOSITORY_URL__': options.repositoryUrl ?? 'https://github.com/example/project',
+  '__DISCORD_URL__': options.discordUrl,
+  '__CORE_VERSION__': `^${packageVersion}`,
+};
+
+if (existsSync(targetRoot) && readdirSync(targetRoot).length > 0) {
+  throw new Error(`Target directory is not empty: ${targetRoot}`);
+}
+
+mkdirSync(targetRoot, { recursive: true });
+writeTemplateTree(templateRoot, targetRoot, replacements);
+console.log(`Created Treeseed tenant at ${targetRoot}`);
+console.log('Next steps:');
+console.log(`  cd ${options.target}`);
+console.log('  npm install');
+console.log('  npm run dev');

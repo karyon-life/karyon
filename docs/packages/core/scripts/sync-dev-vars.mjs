@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const envFilePath = resolve(process.cwd(), '.env.local');
+const exampleEnvFilePath = resolve(process.cwd(), '.env.local.example');
 const outputPath = resolve(process.cwd(), '.dev.vars');
 const overrideEntries = process.argv.slice(2);
 
@@ -23,8 +24,12 @@ let envMap = {};
 try {
 	envMap = parseEnvFile(readFileSync(envFilePath, 'utf8'));
 } catch {
-	console.error('Missing docs/.env.local. Copy docs/.env.local.example to docs/.env.local first.');
-	process.exit(1);
+	try {
+		envMap = parseEnvFile(readFileSync(exampleEnvFilePath, 'utf8'));
+		console.warn(`Using ${exampleEnvFilePath} as the source for .dev.vars because ${envFilePath} was not found.`);
+	} catch {
+		console.warn(`No ${envFilePath} or ${exampleEnvFilePath} found. Writing .dev.vars from overrides only.`);
+	}
 }
 
 for (const entry of overrideEntries) {

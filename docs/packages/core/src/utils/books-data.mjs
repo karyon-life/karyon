@@ -58,7 +58,7 @@ function inferDocsLibraryDownload(book) {
  */
 export function buildTenantBookRuntime(tenantConfig, options = {}) {
 	const projectRoot = options.projectRoot ?? process.cwd();
-	const booksContentRoot = path.join(projectRoot, getTenantContentRoot(tenantConfig, 'books'));
+	const booksContentRoot = path.resolve(projectRoot, getTenantContentRoot(tenantConfig, 'books'));
 	const books = collectMarkdownFiles(booksContentRoot)
 		.map((filePath) => {
 			const frontmatter = parseFrontmatter(filePath);

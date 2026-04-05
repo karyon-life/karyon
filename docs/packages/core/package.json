@@ -1,41 +1,128 @@
 {
   "name": "@treeseed/core",
-  "version": "0.1.0",
+  "version": "0.0.1",
+  "description": "Package-first Treeseed platform for Astro, Starlight, forms, books, and agent runtime behavior.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/treeseed-ai/core.git",
+    "directory": "docs/packages/core"
+  },
+  "homepage": "https://treeseed.ai",
   "type": "module",
-  "types": "./src/index.d.ts",
+  "engines": {
+    "node": ">=20"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "README.md",
+    "dist",
+    "template",
+    "style",
+    "utils"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "setup": "npm install",
+    "setup:ci": "npm ci",
+    "build:dist": "node ./scripts/build-dist.mjs",
+    "prepare": "npm run build:dist",
+    "prepack": "npm run build:dist",
+    "starlight:patch": "node ./scripts/patch-starlight-content-path.mjs",
+    "sync:devvars": "node ./scripts/sync-dev-vars.mjs",
+    "mailpit:up": "node ./scripts/ensure-mailpit.mjs",
+    "mailpit:ensure": "node ./scripts/ensure-mailpit.mjs",
+    "precheck": "npm run starlight:patch",
+    "check": "node ./scripts/run-fixture-astro-command.mjs check",
+    "prebuild": "npm run starlight:patch && node ./scripts/aggregate-book.mjs",
+    "build": "DOCS_LOCAL_DEV_MODE=cloudflare node ./scripts/run-fixture-astro-command.mjs build",
+    "dev": "node ./scripts/local-dev.mjs",
+    "preview": "node ./scripts/run-fixture-astro-command.mjs preview",
+    "test:unit": "vitest run --config ./vitest.config.ts",
+    "test:integration": "node ./scripts/test-cloudflare-local.mjs",
+    "test:e2e": "vitest run --config ./vitest.e2e.config.ts --maxWorkers=1",
+    "test:smoke": "node ./scripts/agents-smoke.mjs",
+    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "release:setup": "npm run setup:ci",
+    "release:check-tag": "node ./scripts/assert-release-tag-version.mjs",
+    "release:verify": "npm run build:dist && npm run check && npm run build",
+    "release:publish": "node ./scripts/publish-package.mjs"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.8",
+    "@astrojs/cloudflare": "^12.6.13",
+    "@astrojs/starlight": "^0.37.6",
+    "@tailwindcss/vite": "^4.1.4",
+    "astro": "^5.6.1",
+    "esbuild": "^0.25.10",
+    "katex": "^0.16.22",
+    "nodemailer": "^8.0.4",
+    "rehype-katex": "^7.0.1",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx": "^3.1.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "tailwindcss": "^4.1.4",
+    "typescript": "^5.9.3",
+    "unified": "^11.0.5",
+    "vitest": "^4.1.2",
+    "wrangler": "^4.80.0",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^7.0.11"
+  },
   "bin": {
-    "treeseed-agents": "./scripts/treeseed-agents.mjs"
+    "treeseed": "./dist/scripts/treeseed.js",
+    "treeseed-agents": "./dist/scripts/treeseed-agents.js"
   },
   "exports": {
     ".": {
-      "types": "./src/index.d.ts",
-      "default": "./src/index.mjs"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./site": {
-      "types": "./src/site.d.ts",
-      "default": "./src/site.mjs"
+      "types": "./dist/site.d.ts",
+      "default": "./dist/site.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
     },
     "./content": {
-      "types": "./src/content.d.ts",
-      "default": "./src/content.mjs"
+      "types": "./dist/content.d.ts",
+      "default": "./dist/content.js"
     },
-    "./tenant": "./src/tenant/bridge.mjs",
+    "./content-config": {
+      "types": "./dist/content-config.d.ts",
+      "default": "./dist/content-config.js"
+    },
+    "./tenant": "./dist/tenant/bridge.js",
     "./tenant-config": {
-      "types": "./src/tenant/config.d.ts",
-      "default": "./src/tenant/config.mjs"
+      "types": "./dist/tenant/config.d.ts",
+      "default": "./dist/tenant/config.js"
     },
-    "./contracts": "./src/contracts.ts",
-    "./types/agents": "./src/types/agents.ts",
-    "./types/cloudflare": "./src/types/cloudflare.ts",
-    "./agents/registry-helper": "./src/agents/registry-helper.ts",
-    "./utils/seo": "./src/utils/seo.ts",
-    "./utils/agents/runtime-types": "./src/utils/agents/runtime-types.ts",
-    "./utils/agents/contracts/messages": "./src/utils/agents/contracts/messages.ts",
-    "./utils/agents/contracts/run": "./src/utils/agents/contracts/run.ts",
-    "./components/site/CTASection.astro": "./src/components/site/CTASection.astro",
-    "./components/site/SectionIntro.astro": "./src/components/site/SectionIntro.astro",
-    "./components/site/PathCard.astro": "./src/components/site/PathCard.astro",
-    "./components/site/TrustCallout.astro": "./src/components/site/TrustCallout.astro",
-    "./components/content/ContentStatusLegend.astro": "./src/components/content/ContentStatusLegend.astro"
+    "./contracts": "./dist/contracts.js",
+    "./types/agents": "./dist/types/agents.js",
+    "./types/cloudflare": "./dist/types/cloudflare.js",
+    "./agents/registry-helper": "./dist/agents/registry-helper.js",
+    "./utils/seo": "./dist/utils/seo.js",
+    "./utils/agents/runtime-types": "./dist/utils/agents/runtime-types.js",
+    "./utils/agents/contracts/messages": "./dist/utils/agents/contracts/messages.js",
+    "./utils/agents/contracts/run": "./dist/utils/agents/contracts/run.js",
+    "./components/site/CTASection.astro": "./dist/components/site/CTASection.astro",
+    "./components/site/SectionIntro.astro": "./dist/components/site/SectionIntro.astro",
+    "./components/site/PathCard.astro": "./dist/components/site/PathCard.astro",
+    "./components/site/TrustCallout.astro": "./dist/components/site/TrustCallout.astro",
+    "./components/content/ContentStatusLegend.astro": "./dist/components/content/ContentStatusLegend.astro",
+    "./components/starlight": {
+      "types": "./dist/components/starlight.d.ts",
+      "default": "./dist/components/starlight.js"
+    },
+    "./tsconfigs/strict": "./dist/tsconfigs/strict.json"
   }
 }

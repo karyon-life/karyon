@@ -12,9 +12,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    defaults:
-      run:
-        working-directory: docs
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,16 +24,25 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
+      - name: Validate release tag version
+        if: startsWith(github.ref, 'refs/tags/')
+        working-directory: docs/packages/core
+        run: npm run release:check-tag -- "${GITHUB_REF_NAME}"
+
       - name: Install dependencies
-        run: npm ci
+        working-directory: docs/packages/core
+        run: npm run release:setup
 
       - name: Check docs app
+        working-directory: docs/packages/core
         run: npm run check
 
       - name: Build docs app
+        working-directory: docs/packages/core
         run: npm run build
 
       - name: Publish package
-        run: npm publish ./packages/core --access public --provenance
+        working-directory: docs/packages/core
+        run: npm run release:publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -2,6 +2,7 @@ import type {
 	AgentPermissionConfig,
 	AgentRuntimeSpec,
 } from '../../types/agents';
+import { resolveTreeseedTenantRoot } from '../../tenant/config.mjs';
 import { normalizeAgentCliOptions } from './cli-tools.ts';
 import { ContentStore } from './content-store.ts';
 import {
@@ -63,7 +64,7 @@ export class AgentSdk {
 	readonly content: ContentStore;
 
 	constructor(options: AgentSdkOptions = {}) {
-		const repoRoot = options.repoRoot ?? process.cwd();
+		const repoRoot = options.repoRoot ?? resolveTreeseedTenantRoot();
 		this.database = options.database ?? new MemoryAgentDatabase();
 		this.content = new ContentStore(repoRoot, this.database);
 	}
@@ -73,7 +74,7 @@ export class AgentSdk {
 		databaseName?: string;
 		persistTo?: string;
 	}) {
-		const repoRoot = options.repoRoot ?? process.cwd();
+		const repoRoot = options.repoRoot ?? resolveTreeseedTenantRoot();
 		const d1 = new WranglerD1Database(
 			options.databaseName ?? 'karyon-docs-subscribers',
 			repoRoot,
