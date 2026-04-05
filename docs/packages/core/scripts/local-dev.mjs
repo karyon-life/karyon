@@ -3,14 +3,23 @@ import { packageRoot } from './package-tools.mjs';
 import { fixtureRoot } from './paths.mjs';
 import { prepareCloudflareLocalRuntime, startWranglerDev } from './local-dev-lib.mjs';
 import {
+	clearStagedBuildOutput,
+	createWatchBuildPaths,
 	createTenantWatchEntries,
 	startPollingWatch,
+	stopManagedProcess,
+	swapStagedBuildOutput,
 	writeDevReloadStamp,
 } from './watch-dev-lib.mjs';
 
 const cliArgs = process.argv.slice(2);
 const watchMode = cliArgs.includes('--watch');
 const wranglerArgs = cliArgs.filter((arg) => arg !== '--watch');
+
+let wranglerChild = null;
+let stopWatching = null;
+let isStoppingForRebuild = false;
+let shuttingDown = false;
 
 function runStep(command, args, { cwd = packageRoot, env = {}, fatal = true } = {}) {
 	const result = spawnSync(command, args, {
@@ -26,7 +35,7 @@ function runStep(command, args, { cwd = packageRoot, env = {}, fatal = true } = 
 	return result.status === 0;
 }
 
-function runFixtureBuildCycle({ includePackageBuild = false, fatal = true } = {}) {
+function runFixtureBuildCycle({ includePackageBuild = false, fatal = true, stagedOutput = false } = {}) {
 	if (includePackageBuild) {
 		const built = runStep('npm', ['run', 'build:dist'], { cwd: packageRoot, fatal });
 		if (!built) {
@@ -39,9 +48,20 @@ function runFixtureBuildCycle({ includePackageBuild = false, fatal = true } = {}
 	}
 
 	try {
+		const outDir = stagedOutput ? createWatchBuildPaths(fixtureRoot).stagedDistRoot : undefined;
+		if (stagedOutput) {
+			clearStagedBuildOutput(fixtureRoot);
+		}
+
 		prepareCloudflareLocalRuntime({
 			envOverrides: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
+			outDir,
 		});
+
+		if (stagedOutput) {
+			swapStagedBuildOutput(fixtureRoot);
+		}
+
 		return true;
 	} catch (error) {
 		if (fatal) {
@@ -52,13 +72,57 @@ function runFixtureBuildCycle({ includePackageBuild = false, fatal = true } = {}
 	}
 }
 
-runFixtureBuildCycle({ includePackageBuild: true, fatal: true });
+function startWrangler() {
+	const child = startWranglerDev(wranglerArgs, {
+		env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
+		detached: process.platform !== 'win32',
+	});
 
-const child = startWranglerDev(wranglerArgs, {
-	env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
+	wranglerChild = child;
+	child.on('exit', (code, signal) => {
+		if (child !== wranglerChild) {
+			return;
+		}
+
+		wranglerChild = null;
+
+		if (isStoppingForRebuild || shuttingDown) {
+			return;
+		}
+
+		if (stopWatching) {
+			stopWatching();
+		}
+
+		if (signal) {
+			process.kill(process.pid, signal);
+			return;
+		}
+
+		process.exit(code ?? 0);
+	});
+}
+
+async function shutdownAndExit(code = 0) {
+	shuttingDown = true;
+	if (stopWatching) {
+		stopWatching();
+	}
+	await stopManagedProcess(wranglerChild);
+	process.exit(code);
+}
+
+process.on('SIGINT', () => {
+	void shutdownAndExit(130);
 });
 
-let stopWatching = null;
+process.on('SIGTERM', () => {
+	void shutdownAndExit(143);
+});
+
+runFixtureBuildCycle({ includePackageBuild: true, fatal: true });
+startWrangler();
+
 if (watchMode) {
 	console.log('Starting fixture watch mode. Changes will rebuild the package fixture and refresh the browser.');
 	stopWatching = startPollingWatch({
@@ -67,28 +131,23 @@ if (watchMode) {
 			console.log(
 				`Detected ${changedPaths.length} change${changedPaths.length === 1 ? '' : 's'}; rebuilding ${packageChanged ? 'package and fixture' : 'fixture'} output...`,
 			);
+
+			isStoppingForRebuild = true;
+			await stopManagedProcess(wranglerChild);
+			isStoppingForRebuild = false;
+
 			const ok = runFixtureBuildCycle({
 				includePackageBuild: packageChanged,
 				fatal: false,
+				stagedOutput: false,
 			});
+
 			if (ok) {
-				console.log('Rebuild complete.');
+				startWrangler();
+				console.log('Rebuild complete. Wrangler restarted with the updated fixture output.');
 			} else {
-				console.error('Rebuild failed. Wrangler and Mailpit are still running; save again after fixing the issue to retry.');
+				console.error('Rebuild failed. Wrangler remains stopped until the next successful save.');
 			}
 		},
 	});
 }
-
-child.on('exit', (code, signal) => {
-	if (stopWatching) {
-		stopWatching();
-	}
-
-	if (signal) {
-		process.kill(process.pid, signal);
-		return;
-	}
-
-	process.exit(code ?? 0);
-});

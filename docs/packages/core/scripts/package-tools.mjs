@@ -71,5 +71,6 @@ export function spawnNodeBinary(binPath, args, options = {}) {
 		stdio: options.stdio ?? 'inherit',
 		cwd: options.cwd ?? process.cwd(),
 		env: { ...process.env, ...(options.env ?? {}) },
+		detached: options.detached ?? false,
 	});
 }

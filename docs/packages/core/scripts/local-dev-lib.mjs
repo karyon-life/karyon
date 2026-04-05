@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { runLocalD1Migrations as applyLocalD1Migrations } from './d1-migration-lib.mjs';
 import {
 	fixtureMigrationsRoot,
 	fixtureRoot,
@@ -37,6 +38,7 @@ export function spawnProcess(command, args, options = {}) {
 		shell: process.platform === 'win32',
 		env: mergeEnv(options.env),
 		cwd: options.cwd ?? process.cwd(),
+		detached: options.detached ?? false,
 	});
 }
 
@@ -50,30 +52,15 @@ export function syncDevVars(overrides = {}) {
 }
 
 export function runLocalD1Migration(persistTo) {
-	for (const file of [
-		resolve(fixtureMigrationsRoot, '0001_subscribers.sql'),
-		resolve(fixtureMigrationsRoot, '0002_agent_runtime.sql'),
-		resolve(fixtureMigrationsRoot, '0003_agent_run_trace.sql'),
-	]) {
-		const args = [
-			'd1',
-			'execute',
-			'karyon-docs-subscribers',
-			'--local',
-			'--config',
-			fixtureWranglerConfig,
-			`--file=${file}`,
-		];
-
-		if (persistTo) {
-			args.push('--persist-to', persistTo);
-		}
-
-		runStep('wrangler', args, { cwd: fixtureRoot });
-	}
+	applyLocalD1Migrations({
+		cwd: fixtureRoot,
+		wranglerConfig: fixtureWranglerConfig,
+		migrationsRoot: fixtureMigrationsRoot,
+		persistTo,
+	});
 }
 
-export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo } = {}) {
+export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo, outDir } = {}) {
 	const mergedEnvOverrides = {
 		DOCS_MAILPIT_SMTP_HOST: '127.0.0.1',
 		DOCS_MAILPIT_SMTP_PORT: '1025',
@@ -88,7 +75,12 @@ export function prepareCloudflareLocalRuntime({ envOverrides = {}, persistTo } =
 		...mergedEnvOverrides,
 	});
 	runLocalD1Migration(persistTo);
-	runStep('npx', ['astro', 'build', '--root', fixtureRoot], {
+	const astroArgs = ['astro', 'build', '--root', fixtureRoot];
+	if (outDir) {
+		astroArgs.push('--outDir', outDir);
+	}
+
+	runStep('npx', astroArgs, {
 		env: {
 			DOCS_LOCAL_DEV_MODE: 'cloudflare',
 			...mergedEnvOverrides,

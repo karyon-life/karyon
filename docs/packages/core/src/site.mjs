@@ -155,6 +155,9 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 	const siteConfig = parseSiteConfig(readFileSync(resolve(projectRoot, tenantConfig.siteConfigPath), 'utf8'));
 	const bookRuntime = buildTenantBookRuntime(tenantConfig, { projectRoot });
 	const tenantThemeCss = buildTenantThemeCss(siteConfig.site.theme);
+	const injectedTenantConfig = JSON.stringify(tenantConfig);
+	const injectedProjectRoot = JSON.stringify(projectRoot);
+	const injectedSiteConfig = JSON.stringify(siteConfig);
 
 	return defineConfig({
 		site: siteConfig.site.siteUrl,
@@ -165,6 +168,11 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 			},
 		},
 		vite: {
+			define: {
+				__TREESEED_TENANT_CONFIG__: injectedTenantConfig,
+				__TREESEED_PROJECT_ROOT__: injectedProjectRoot,
+				__TREESEED_SITE_CONFIG__: injectedSiteConfig,
+			},
 			plugins: [
 				createTenantThemeVitePlugin(tenantThemeCss),
 				/** @type {any} */ (tailwindcss()),

@@ -1,8 +1,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { PROJECT_TENANT } from '../tenant/bridge.mjs';
 import { getTenantContentRoot } from '../tenant/config.mjs';
+import { RUNTIME_PROJECT_ROOT, RUNTIME_TENANT } from '../tenant/runtime-config.mjs';
 
 function sortPaths(paths) {
 	return [...paths].sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
@@ -85,7 +85,8 @@ export function buildTenantBookRuntime(tenantConfig, options = {}) {
 	};
 }
 
-const runtime = buildTenantBookRuntime(PROJECT_TENANT, {
+const runtime = buildTenantBookRuntime(RUNTIME_TENANT, {
+		projectRoot: RUNTIME_PROJECT_ROOT,
 		docsLibraryDownload: {
 		downloadFileName: 'karyon-knowledge.md',
 		downloadHref: '/books/karyon-knowledge.md',

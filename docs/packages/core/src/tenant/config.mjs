@@ -3,7 +3,16 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 
-const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+function resolvePackageRoot() {
+	const moduleUrl = typeof import.meta?.url === 'string' ? import.meta.url : null;
+	if (!moduleUrl) {
+		return process.cwd();
+	}
+
+	return resolve(dirname(fileURLToPath(moduleUrl)), '../..');
+}
+
+const packageRoot = resolvePackageRoot();
 const packageFixtureRoot = resolve(packageRoot, 'fixture');
 const docsFixtureRoot = resolve(packageRoot, '../..');
 

@@ -1,10 +1,3 @@
-import { spawnSync } from 'node:child_process';
-import { mailpitComposeFile, packageRoot } from './paths.mjs';
+import { streamKnownMailpitLogs } from './mailpit-runtime.mjs';
 
-const result = spawnSync('docker', ['compose', '-f', mailpitComposeFile, 'logs', '-f', 'mailpit'], {
-	stdio: 'inherit',
-	cwd: packageRoot,
-	env: { ...process.env },
-});
-
-process.exit(result.status ?? 1);
+streamKnownMailpitLogs();

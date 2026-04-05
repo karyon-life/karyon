@@ -1,10 +1,14 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { packageRoot } from './package-tools.mjs';
 
 const WATCH_INTERVAL_MS = 900;
 const DEBOUNCE_MS = 350;
 const DEV_RELOAD_FILE = 'public/__treeseed/dev-reload.json';
+const PROCESS_SHUTDOWN_TIMEOUT_MS = 5000;
+const WATCH_BUILD_ROOT = '.local/treeseed-watch';
+const PROCESS_SETTLE_DELAY_MS = 300;
 
 function isNodeModulesPath(filePath) {
 	return filePath.split(sep).includes('node_modules');
@@ -54,6 +58,10 @@ function shouldIgnoreWatchPath(filePath, rootPath) {
 		normalized === 'coverage' ||
 		normalized.startsWith('coverage/') ||
 		normalized === '.dev.vars' ||
+		normalized === 'books' ||
+		normalized.startsWith('books/') ||
+		normalized === '__treeseed' ||
+		normalized.startsWith('__treeseed/') ||
 		normalized.startsWith('public/books/') ||
 		normalized.startsWith('public/__treeseed/')
 	);
@@ -238,4 +246,83 @@ export function startPollingWatch({ watchEntries, onChange }) {
 			clearInterval(intervalId);
 		}
 	};
+}
+
+export async function stopManagedProcess(child, signal = 'SIGTERM') {
+	if (!child || child.exitCode !== null || child.killed) {
+		return;
+	}
+
+	const groupSignalSupported = process.platform !== 'win32' && child.pid && child.spawnargs;
+	let signaled = false;
+	if (groupSignalSupported) {
+		try {
+			process.kill(-child.pid, signal);
+			signaled = true;
+		} catch {
+			signaled = false;
+		}
+	}
+
+	if (!signaled) {
+		child.kill(signal);
+	}
+
+	await Promise.race([
+		new Promise((resolve) => child.once('exit', resolve)),
+		delay(PROCESS_SHUTDOWN_TIMEOUT_MS),
+	]);
+
+	if (child.exitCode === null && !child.killed) {
+		if (groupSignalSupported) {
+			try {
+				process.kill(-child.pid, 'SIGKILL');
+			} catch {
+				child.kill('SIGKILL');
+			}
+		} else {
+			child.kill('SIGKILL');
+		}
+
+		await Promise.race([
+			new Promise((resolve) => child.once('exit', resolve)),
+			delay(PROCESS_SHUTDOWN_TIMEOUT_MS),
+		]);
+	}
+
+	await delay(PROCESS_SETTLE_DELAY_MS);
+}
+
+export function createWatchBuildPaths(projectRoot) {
+	const watchRoot = resolve(projectRoot, WATCH_BUILD_ROOT);
+	return {
+		watchRoot,
+		stagedDistRoot: resolve(watchRoot, 'dist-next'),
+		backupDistRoot: resolve(watchRoot, 'dist-prev'),
+		liveDistRoot: resolve(projectRoot, 'dist'),
+	};
+}
+
+export function swapStagedBuildOutput(projectRoot) {
+	const { watchRoot, stagedDistRoot, backupDistRoot, liveDistRoot } = createWatchBuildPaths(projectRoot);
+	mkdirSync(watchRoot, { recursive: true });
+	rmSync(backupDistRoot, { recursive: true, force: true });
+
+	if (existsSync(liveDistRoot)) {
+		try {
+			renameSync(liveDistRoot, backupDistRoot);
+		} catch {
+			// Some rebuild cycles leave the previous backup path occupied long enough that the
+			// rename can fail. In that case, drop the old live output and replace it directly.
+			rmSync(liveDistRoot, { recursive: true, force: true });
+		}
+	}
+
+	renameSync(stagedDistRoot, liveDistRoot);
+	rmSync(backupDistRoot, { recursive: true, force: true });
+}
+
+export function clearStagedBuildOutput(projectRoot) {
+	const { stagedDistRoot } = createWatchBuildPaths(projectRoot);
+	rmSync(stagedDistRoot, { recursive: true, force: true });
 }

@@ -1,12 +1,17 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { PROJECT_TENANT } from '../tenant/bridge.mjs';
-import { parseSiteConfig } from './site-config-schema.js';
+import { RUNTIME_SITE_CONFIG, RUNTIME_TENANT } from '../tenant/runtime-config.mjs';
 import { buildTenantThemeCss } from './theme.ts';
 
-const configSource = readFileSync(resolve(process.cwd(), PROJECT_TENANT.siteConfigPath), 'utf8');
+function requireRuntimeSiteConfig() {
+	if (!RUNTIME_SITE_CONFIG) {
+		throw new Error(
+			`Treeseed runtime site config was not injected for tenant config at "${RUNTIME_TENANT.siteConfigPath}".`,
+		);
+	}
 
-export const SITE_CONFIG = parseSiteConfig(configSource);
+	return RUNTIME_SITE_CONFIG;
+}
+
+export const SITE_CONFIG = requireRuntimeSiteConfig();
 
 export const SITE = {
 	logo: SITE_CONFIG.site.logo,

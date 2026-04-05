@@ -1,10 +1,7 @@
-import { spawnSync } from 'node:child_process';
-import { mailpitComposeFile, packageRoot } from './paths.mjs';
+import { stopKnownMailpitContainers } from './mailpit-runtime.mjs';
 
-const result = spawnSync('docker', ['compose', '-f', mailpitComposeFile, 'down'], {
-	stdio: 'inherit',
-	cwd: packageRoot,
-	env: { ...process.env },
-});
+if (!stopKnownMailpitContainers()) {
+	process.exit(1);
+}
 
-process.exit(result.status ?? 1);
+console.log('Mailpit is stopped.');

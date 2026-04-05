@@ -2,9 +2,13 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { packageRoot, packageScriptPath, spawnNodeBinary, wranglerBin } from './package-tools.mjs';
 import {
+	clearStagedBuildOutput,
+	createWatchBuildPaths,
 	createTenantWatchEntries,
 	isEditablePackageWorkspace,
 	startPollingWatch,
+	stopManagedProcess,
+	swapStagedBuildOutput,
 	writeDevReloadStamp,
 } from './watch-dev-lib.mjs';
 
@@ -12,6 +16,12 @@ const tenantRoot = process.cwd();
 const cliArgs = process.argv.slice(2);
 const watchMode = cliArgs.includes('--watch');
 const wranglerArgs = cliArgs.filter((arg) => arg !== '--watch');
+const wranglerConfig = resolve(tenantRoot, 'wrangler.toml');
+
+let wranglerChild = null;
+let stopWatching = null;
+let isStoppingForRebuild = false;
+let shuttingDown = false;
 
 function runStep(command, args, { cwd = tenantRoot, env = {}, fatal = true } = {}) {
 	const result = spawnSync(command, args, {
@@ -31,7 +41,7 @@ function runNodeScript(scriptPath, args = [], options = {}) {
 	return runStep(process.execPath, [scriptPath, ...args], options);
 }
 
-function runTenantBuildCycle({ includePackageBuild = false, fatal = true } = {}) {
+function runTenantBuildCycle({ includePackageBuild = false, fatal = true, stagedOutput = false } = {}) {
 	const envOverrides = ['DOCS_LOCAL_DEV_MODE=cloudflare'];
 	if (watchMode) {
 		envOverrides.push('DOCS_PUBLIC_DEV_WATCH_RELOAD=true');
@@ -64,11 +74,92 @@ function runTenantBuildCycle({ includePackageBuild = false, fatal = true } = {})
 		writeDevReloadStamp(tenantRoot);
 	}
 
-	return runNodeScript(packageScriptPath('tenant-astro-command'), ['build'], {
+	const astroArgs = ['build'];
+	if (stagedOutput) {
+		const { stagedDistRoot } = createWatchBuildPaths(tenantRoot);
+		clearStagedBuildOutput(tenantRoot);
+		astroArgs.push('--outDir', stagedDistRoot);
+	}
+
+	const built = runNodeScript(packageScriptPath('tenant-astro-command'), astroArgs, {
 		fatal,
 		env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
 	});
+	if (!built) {
+		return false;
+	}
+
+	if (stagedOutput) {
+		swapStagedBuildOutput(tenantRoot);
+	}
+
+	return true;
 }
+
+function startWrangler() {
+	const child = spawnNodeBinary(
+		wranglerBin,
+		['dev', '--local', '--config', wranglerConfig, ...wranglerArgs],
+		{
+			cwd: tenantRoot,
+			env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
+			detached: process.platform !== 'win32',
+		},
+	);
+
+	wranglerChild = child;
+	child.on('exit', (code, signal) => {
+		if (child !== wranglerChild) {
+			return;
+		}
+
+		wranglerChild = null;
+
+		if (isStoppingForRebuild || shuttingDown) {
+			return;
+		}
+
+		if (stopWatching) {
+			stopWatching();
+		}
+
+		if (signal) {
+			process.kill(process.pid, signal);
+			return;
+		}
+
+		process.exit(code ?? 0);
+	});
+}
+
+async function restartWranglerAfterBuild() {
+	if (wranglerChild) {
+		isStoppingForRebuild = true;
+		await stopManagedProcess(wranglerChild);
+		isStoppingForRebuild = false;
+	}
+
+	if (!shuttingDown) {
+		startWrangler();
+	}
+}
+
+async function shutdownAndExit(code = 0) {
+	shuttingDown = true;
+	if (stopWatching) {
+		stopWatching();
+	}
+	await stopManagedProcess(wranglerChild);
+	process.exit(code);
+}
+
+process.on('SIGINT', () => {
+	void shutdownAndExit(130);
+});
+
+process.on('SIGTERM', () => {
+	void shutdownAndExit(143);
+});
 
 process.env.DOCS_LOCAL_DEV_MODE = process.env.DOCS_LOCAL_DEV_MODE ?? 'cloudflare';
 
@@ -77,17 +168,8 @@ runTenantBuildCycle({
 	fatal: true,
 });
 
-const wranglerConfig = resolve(tenantRoot, 'wrangler.toml');
-const child = spawnNodeBinary(
-	wranglerBin,
-	['dev', '--local', '--config', wranglerConfig, ...wranglerArgs],
-	{
-		cwd: tenantRoot,
-		env: watchMode ? { DOCS_PUBLIC_DEV_WATCH_RELOAD: 'true' } : {},
-	},
-);
+startWrangler();
 
-let stopWatching = null;
 if (watchMode) {
 	console.log('Starting unified Wrangler watch mode. Changes will rebuild the app and refresh the browser.');
 	stopWatching = startPollingWatch({
@@ -96,28 +178,23 @@ if (watchMode) {
 			console.log(
 				`Detected ${changedPaths.length} change${changedPaths.length === 1 ? '' : 's'}; rebuilding ${packageChanged ? 'package and tenant' : 'tenant'} output...`,
 			);
+
+			isStoppingForRebuild = true;
+			await stopManagedProcess(wranglerChild);
+			isStoppingForRebuild = false;
+
 			const ok = runTenantBuildCycle({
 				includePackageBuild: packageChanged,
 				fatal: false,
+				stagedOutput: false,
 			});
+
 			if (ok) {
-				console.log('Rebuild complete.');
+				startWrangler();
+				console.log('Rebuild complete. Wrangler restarted with the updated output.');
 			} else {
-				console.error('Rebuild failed. Wrangler and Mailpit are still running; fix the error and save again to retry.');
+				console.error('Rebuild failed. Wrangler remains stopped until the next successful save.');
 			}
 		},
 	});
 }
-
-child.on('exit', (code, signal) => {
-	if (stopWatching) {
-		stopWatching();
-	}
-
-	if (signal) {
-		process.kill(process.pid, signal);
-		return;
-	}
-
-	process.exit(code ?? 0);
-});
