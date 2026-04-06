@@ -145,8 +145,8 @@ export interface TreeseedTenantConfig {
 	content: TreeseedContentMap;
 	features: TreeseedFeatureModules;
 	overrides?: {
-		components?: Record<string, string>;
-		styles?: string[];
-		routes?: string[];
+		pagesRoot?: string;
+		stylesRoot?: string;
+		componentsRoot?: string;
 	};
 }

@@ -16,3 +16,10 @@ export {
 } from './deploy/config';
 export { defineTreeseedPlugin } from './plugins/plugin';
 export { loadTreeseedPluginRuntime, loadTreeseedPlugins } from './plugins/runtime';
+export {
+	buildTreeseedSiteLayers,
+	resolveTreeseedPageEntrypoint,
+	resolveTreeseedSiteResource,
+	resolveTreeseedStyleEntrypoint,
+	TREESEED_SITE_RESOURCE_KINDS,
+} from './site-resources';

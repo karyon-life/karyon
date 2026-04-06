@@ -252,6 +252,7 @@ function emitTypeDeclarations() {
 		resolve(srcRoot, 'types/agents.ts'),
 		resolve(srcRoot, 'types/cloudflare.ts'),
 		resolve(srcRoot, 'plugins/plugin.ts'),
+		resolve(srcRoot, 'site-resources.ts'),
 		resolve(srcRoot, 'utils/agents/contracts/messages.ts'),
 		resolve(srcRoot, 'utils/agents/contracts/run.ts'),
 	].filter((filePath) => existsSync(filePath));

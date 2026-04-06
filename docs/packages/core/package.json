@@ -117,6 +117,10 @@
       "types": "./dist/plugins/runtime.d.ts",
       "default": "./dist/plugins/runtime.js"
     },
+    "./site-resources": {
+      "types": "./dist/site-resources.d.ts",
+      "default": "./dist/site-resources.js"
+    },
     "./types/agents": "./dist/types/agents.js",
     "./types/cloudflare": "./dist/types/cloudflare.js",
     "./agents/registry-helper": "./dist/agents/registry-helper.js",

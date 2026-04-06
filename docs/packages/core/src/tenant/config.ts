@@ -92,7 +92,14 @@ export function loadTreeseedManifest(manifestPath = './src/manifest.yaml'): Tree
 				collectionName,
 				resolve(tenantRoot, String(rootPath)),
 			]),
-		),
+		) as unknown as TreeseedTenantConfig['content'],
+		overrides: parsed.overrides
+			? {
+					pagesRoot: parsed.overrides.pagesRoot ? resolve(tenantRoot, parsed.overrides.pagesRoot) : undefined,
+					stylesRoot: parsed.overrides.stylesRoot ? resolve(tenantRoot, parsed.overrides.stylesRoot) : undefined,
+					componentsRoot: parsed.overrides.componentsRoot ? resolve(tenantRoot, parsed.overrides.componentsRoot) : undefined,
+			  } satisfies NonNullable<TreeseedTenantConfig['overrides']>
+			: undefined,
 	}) as TreeseedTenantConfig;
 
 	Object.defineProperty(tenantConfig, '__tenantRoot', {

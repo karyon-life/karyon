@@ -7,12 +7,19 @@ import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
 import tailwindcss from '@tailwindcss/vite';
 import type { TreeseedDeployConfig, TreeseedTenantConfig } from './contracts';
+import type { TreeseedSiteExtensionContribution, TreeseedSiteRouteContribution } from './plugins/plugin';
 import { parseSiteConfig } from './utils/site-config-schema.js';
 import { buildTenantBookRuntime } from './utils/books-data';
 import { getStarlightSidebarConfigFromRuntime } from './utils/starlight-nav';
 import { buildTenantThemeCss } from './utils/theme.ts';
 import { loadTreeseedDeployConfig } from './deploy/config';
 import { loadTreeseedPluginRuntime } from './plugins/runtime';
+import {
+	buildTreeseedSiteLayers,
+	resolveTreeseedPageEntrypoint,
+	resolveTreeseedSiteResource,
+	resolveTreeseedStyleEntrypoint,
+} from './site-resources';
 
 const TENANT_THEME_VIRTUAL_ID = 'virtual:treeseed/tenant-theme.css';
 const RESOLVED_TENANT_THEME_VIRTUAL_ID = '\0treeseed:tenant-theme.css';
@@ -24,19 +31,10 @@ type SiteCreateDependencies = {
 type SiteRoute = {
 	pattern: string;
 	entrypoint: string;
+	resourcePath?: string;
 };
 
-type SiteExtensionContribution = {
-	routes?: SiteRoute[];
-	starlightComponents?: Record<string, string>;
-	customCss?: string[];
-	remarkPlugins?: unknown[];
-	rehypePlugins?: unknown[];
-	envSchema?: Record<string, unknown>;
-	vitePlugins?: unknown[];
-	integrations?: unknown[];
-	routeMiddleware?: unknown[];
-};
+type SiteExtensionContribution = TreeseedSiteExtensionContribution;
 
 function packageFile(relativePath: string) {
 	return fileURLToPath(new URL(relativePath, import.meta.url));
@@ -54,24 +52,24 @@ function packageModuleFile(relativeStem: string) {
 	throw new Error(`Unable to resolve package module for ${relativeStem}`);
 }
 
-const PACKAGE_ROUTE_ENTRIES: SiteRoute[] = [
-	{ pattern: '/', entrypoint: packageFile('./pages/index.astro') },
-	{ pattern: '/404', entrypoint: packageFile('./pages/404.astro') },
-	{ pattern: '/contact', entrypoint: packageFile('./pages/contact.astro') },
-	{ pattern: '/feed.xml', entrypoint: packageModuleFile('./pages/feed.xml') },
-	{ pattern: '/[slug]', entrypoint: packageFile('./pages/[slug].astro') },
-	{ pattern: '/agents', entrypoint: packageFile('./pages/agents/index.astro') },
-	{ pattern: '/agents/[slug]', entrypoint: packageFile('./pages/agents/[slug].astro') },
-	{ pattern: '/books', entrypoint: packageFile('./pages/books/index.astro') },
-	{ pattern: '/books/[slug]', entrypoint: packageFile('./pages/books/[slug].astro') },
-	{ pattern: '/notes', entrypoint: packageFile('./pages/notes/index.astro') },
-	{ pattern: '/notes/[slug]', entrypoint: packageFile('./pages/notes/[slug].astro') },
-	{ pattern: '/objectives', entrypoint: packageFile('./pages/objectives/index.astro') },
-	{ pattern: '/objectives/[slug]', entrypoint: packageFile('./pages/objectives/[slug].astro') },
-	{ pattern: '/people', entrypoint: packageFile('./pages/people/index.astro') },
-	{ pattern: '/people/[slug]', entrypoint: packageFile('./pages/people/[slug].astro') },
-	{ pattern: '/questions', entrypoint: packageFile('./pages/questions/index.astro') },
-	{ pattern: '/questions/[slug]', entrypoint: packageFile('./pages/questions/[slug].astro') },
+const PACKAGE_ROUTE_ENTRIES: Array<{ pattern: string; entrypoint?: string; resourcePath?: string }> = [
+	{ pattern: '/', resourcePath: 'pages/index.astro' },
+	{ pattern: '/404', resourcePath: 'pages/404.astro' },
+	{ pattern: '/contact', resourcePath: 'pages/contact.astro' },
+	{ pattern: '/feed.xml', resourcePath: 'pages/feed.xml' },
+	{ pattern: '/[slug]', resourcePath: 'pages/[slug].astro' },
+	{ pattern: '/agents', resourcePath: 'pages/agents/index.astro' },
+	{ pattern: '/agents/[slug]', resourcePath: 'pages/agents/[slug].astro' },
+	{ pattern: '/books', resourcePath: 'pages/books/index.astro' },
+	{ pattern: '/books/[slug]', resourcePath: 'pages/books/[slug].astro' },
+	{ pattern: '/notes', resourcePath: 'pages/notes/index.astro' },
+	{ pattern: '/notes/[slug]', resourcePath: 'pages/notes/[slug].astro' },
+	{ pattern: '/objectives', resourcePath: 'pages/objectives/index.astro' },
+	{ pattern: '/objectives/[slug]', resourcePath: 'pages/objectives/[slug].astro' },
+	{ pattern: '/people', resourcePath: 'pages/people/index.astro' },
+	{ pattern: '/people/[slug]', resourcePath: 'pages/people/[slug].astro' },
+	{ pattern: '/questions', resourcePath: 'pages/questions/index.astro' },
+	{ pattern: '/questions/[slug]', resourcePath: 'pages/questions/[slug].astro' },
 ];
 
 function createTreeseedRoutesIntegration(tenantConfig: TreeseedTenantConfig, extraRoutes: SiteRoute[] = []) {
@@ -97,6 +95,37 @@ function normalizeSiteHookContribution(contribution: unknown): SiteExtensionCont
 		return {};
 	}
 	return contribution as SiteExtensionContribution;
+}
+
+function resolveRouteEntry(
+	route: TreeseedSiteRouteContribution,
+	siteLayers: ReturnType<typeof buildTreeseedSiteLayers>,
+): SiteRoute {
+	if (route.entrypoint) {
+		return {
+			pattern: route.pattern,
+			entrypoint: route.entrypoint,
+			resourcePath: route.resourcePath,
+		};
+	}
+
+	if (route.resourcePath) {
+		return {
+			pattern: route.pattern,
+			entrypoint: resolveTreeseedPageEntrypoint(siteLayers, route.resourcePath),
+			resourcePath: route.resourcePath,
+		};
+	}
+
+	throw new Error(`Treeseed route "${route.pattern}" must define either entrypoint or resourcePath.`);
+}
+
+function resolveCoreComponentEntrypoint(
+	siteLayers: ReturnType<typeof buildTreeseedSiteLayers>,
+	resourcePath: string,
+	fallbackPath: string,
+) {
+	return resolveTreeseedSiteResource(siteLayers, 'components', resourcePath) ?? packageFile(fallbackPath);
 }
 
 function resolveSitePluginExtensions(
@@ -247,16 +276,27 @@ export function createTreeseedSite(
 	const pluginRuntime = loadTreeseedPluginRuntime(deployConfig);
 	const bookRuntime = buildTenantBookRuntime(tenantConfig, { projectRoot });
 	const tenantThemeCss = buildTenantThemeCss(siteConfig.site.theme);
+	const siteLayers = buildTreeseedSiteLayers(pluginRuntime, {
+		coreRoot: fileURLToPath(new URL('.', import.meta.url)),
+		projectRoot,
+		tenantConfig,
+		siteConfig,
+		deployConfig,
+	});
 	const siteExtensions = resolveSitePluginExtensions(pluginRuntime, {
 		projectRoot,
 		tenantConfig,
 		siteConfig,
 		deployConfig,
 	});
+	const resolvedRoutes = [...PACKAGE_ROUTE_ENTRIES, ...siteExtensions.routes].map((route) =>
+		resolveRouteEntry(route, siteLayers),
+	);
 	const injectedTenantConfig = JSON.stringify(tenantConfig);
 	const injectedProjectRoot = JSON.stringify(projectRoot);
 	const injectedSiteConfig = JSON.stringify(siteConfig);
 	const injectedDeployConfig = JSON.stringify(deployConfig);
+	const resolvedGlobalCss = resolveTreeseedStyleEntrypoint(siteLayers, 'styles/global.css');
 
 	return defineConfig({
 		output: 'static',
@@ -305,11 +345,11 @@ export function createTreeseedSite(
 			},
 		},
 		integrations: [
-			createTreeseedRoutesIntegration(tenantConfig, siteExtensions.routes),
+			createTreeseedRoutesIntegration(tenantConfig, resolvedRoutes),
 			starlight({
 				disable404Route: true,
 				expressiveCode: false,
-				customCss: [packageFile('./styles/global.css'), TENANT_THEME_VIRTUAL_ID, ...siteExtensions.customCss],
+				customCss: [resolvedGlobalCss, TENANT_THEME_VIRTUAL_ID, ...siteExtensions.customCss],
 				title: siteConfig.site.name,
 				logo: {
 					src: toStarlightLogoSrc(siteConfig.site.logo.src),
@@ -320,14 +360,14 @@ export function createTreeseedSite(
 					{ icon: 'discord', label: `${siteConfig.site.name} Discord`, href: siteConfig.site.discordLink },
 				],
 				components: {
-					Footer: packageFile('./components/docs/Footer.astro'),
-					Header: packageFile('./components/docs/Header.astro'),
-					PageTitle: packageFile('./components/docs/PageTitle.astro'),
-					PageFrame: packageFile('./components/docs/PageFrame.astro'),
-					PageSidebar: packageFile('./components/docs/PageSidebar.astro'),
-					Sidebar: packageFile('./components/docs/Sidebar.astro'),
-					SiteTitle: packageFile('./components/SiteTitle.astro'),
-					ThemeSelect: packageFile('./components/docs/ThemeSelect.astro'),
+					Footer: resolveCoreComponentEntrypoint(siteLayers, 'components/docs/Footer.astro', './components/docs/Footer.astro'),
+					Header: resolveCoreComponentEntrypoint(siteLayers, 'components/docs/Header.astro', './components/docs/Header.astro'),
+					PageTitle: resolveCoreComponentEntrypoint(siteLayers, 'components/docs/PageTitle.astro', './components/docs/PageTitle.astro'),
+					PageFrame: resolveCoreComponentEntrypoint(siteLayers, 'components/docs/PageFrame.astro', './components/docs/PageFrame.astro'),
+					PageSidebar: resolveCoreComponentEntrypoint(siteLayers, 'components/docs/PageSidebar.astro', './components/docs/PageSidebar.astro'),
+					Sidebar: resolveCoreComponentEntrypoint(siteLayers, 'components/docs/Sidebar.astro', './components/docs/Sidebar.astro'),
+					SiteTitle: resolveCoreComponentEntrypoint(siteLayers, 'components/SiteTitle.astro', './components/SiteTitle.astro'),
+					ThemeSelect: resolveCoreComponentEntrypoint(siteLayers, 'components/docs/ThemeSelect.astro', './components/docs/ThemeSelect.astro'),
 					...siteExtensions.starlightComponents,
 				},
 				sidebar: getStarlightSidebarConfigFromRuntime(bookRuntime),

@@ -1,10 +1,13 @@
 import type { TreeseedDeployConfig } from '../contracts';
 
-export function loadTreeseedPlugins(config?: TreeseedDeployConfig): Array<{
+export type LoadedTreeseedPluginEntry = {
 	package: string;
 	config: Record<string, unknown>;
+	baseDir: string;
 	plugin: Record<string, unknown>;
-}>;
+};
+
+export function loadTreeseedPlugins(config?: TreeseedDeployConfig): LoadedTreeseedPluginEntry[];
 
 export function loadTreeseedPluginRuntime(config?: TreeseedDeployConfig): {
 	config: TreeseedDeployConfig;

@@ -23,6 +23,13 @@ export {
 } from './deploy/runtime.ts';
 export { defineTreeseedPlugin } from './plugins/plugin';
 export { loadTreeseedPluginRuntime, loadTreeseedPlugins } from './plugins/runtime';
+export {
+	buildTreeseedSiteLayers,
+	resolveTreeseedPageEntrypoint,
+	resolveTreeseedSiteResource,
+	resolveTreeseedStyleEntrypoint,
+	TREESEED_SITE_RESOURCE_KINDS,
+} from './site-resources';
 export { parseSiteConfig } from './utils/site-config-schema.js';
 export { buildTenantBookRuntime } from './utils/books-data';
 export { Card, CardGrid, LinkCard } from './components/starlight';

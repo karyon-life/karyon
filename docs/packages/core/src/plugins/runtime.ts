@@ -11,8 +11,11 @@ const require = createRequire(import.meta.url);
 type LoadedPluginEntry = {
 	package: string;
 	config: Record<string, unknown>;
+	baseDir: string;
 	plugin: Record<string, any>;
 };
+
+export type LoadedTreeseedPluginEntry = LoadedPluginEntry;
 
 function normalizeLoadedPlugin(moduleExports: unknown, packageName: string) {
 	const plugin = (moduleExports as { default?: unknown } | undefined)?.default ?? moduleExports;
@@ -28,17 +31,27 @@ function isPathLikePluginReference(packageName: string) {
 
 function loadPluginModule(packageName: string, tenantRoot: string) {
 	if (packageName === TREESEED_DEFAULT_PLUGIN_PACKAGE) {
-		return builtinDefaultPlugin;
+		return {
+			moduleExports: builtinDefaultPlugin,
+			baseDir: fileURLToPath(new URL('..', import.meta.url)),
+		};
 	}
 
 	if (isPathLikePluginReference(packageName)) {
 		const resolvedPath = packageName.startsWith('file:')
 			? fileURLToPath(packageName)
 			: path.resolve(tenantRoot, packageName);
-		return require(resolvedPath);
+		return {
+			moduleExports: require(resolvedPath),
+			baseDir: path.dirname(resolvedPath),
+		};
 	}
 
-	return require(packageName);
+	const resolvedPath = require.resolve(packageName);
+	return {
+		moduleExports: require(resolvedPath),
+		baseDir: path.dirname(resolvedPath),
+	};
 }
 
 export function loadTreeseedPlugins(config: TreeseedDeployConfig = loadTreeseedDeployConfig()): LoadedPluginEntry[] {
@@ -51,10 +64,11 @@ export function loadTreeseedPlugins(config: TreeseedDeployConfig = loadTreeseedD
 		}
 
 		const loaded = loadPluginModule(pluginRef.package, tenantRoot);
-		const plugin = normalizeLoadedPlugin(loaded, pluginRef.package);
+		const plugin = normalizeLoadedPlugin(loaded.moduleExports, pluginRef.package);
 		plugins.push({
 			package: pluginRef.package,
 			config: pluginRef.config ?? {},
+			baseDir: loaded.baseDir,
 			plugin,
 		});
 	}
