@@ -204,7 +204,12 @@ Useful commands:
 - `npm run test:integration`: Cloudflare-local integration tests
 - `npm run test:e2e`: package-owned end-to-end coverage
 - `npm run test:scaffold`: scaffold smoke test
-- `npm run release:verify`: release verification flow before publishing
+- `npm run release:verify`: package-local release verification flow before publishing
+
+The workspace root also offers two release-smoke levels:
+
+- `npm run test:release`: faster tarball smoke for local iteration
+- `npm run test:release:full`: full tarball smoke including scaffold deploy dry-run
 
 When `@treeseed/sdk` changes, the workspace dev loop rebuilds `sdk`, then `core`, then the tenant runtime so local testing stays close to hot reload without publishing intermediate artifacts.
 

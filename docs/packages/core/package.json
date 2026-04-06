@@ -61,6 +61,7 @@
     "@treeseed/sdk": "^0.0.1",
     "@astrojs/check": "^0.9.8",
     "@astrojs/cloudflare": "^12.6.13",
+    "@astrojs/sitemap": "3.7.0",
     "@astrojs/starlight": "0.37.6",
     "@tailwindcss/vite": "^4.1.4",
     "astro": "^5.6.1",

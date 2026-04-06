@@ -136,7 +136,9 @@ function writeJsonModule(sourceFile, sourceRoot, outputRoot) {
 function rewriteScriptRuntimeSpecifiers(contents) {
 	return rewriteRuntimeSpecifiers(contents)
 		.replace(/(['"`])\.\.\/src\//g, '$1../')
-		.replace(/(['"`])\.\/src\//g, '$1./dist/');
+		.replace(/(['"`])\.\/src\//g, '$1./dist/')
+		.replaceAll("'src/worker/forms-worker.ts'", "'dist/worker/forms-worker.js'")
+		.replaceAll('"src/worker/forms-worker.ts"', '"dist/worker/forms-worker.js"');
 }
 
 async function compileModule(filePath, sourceRoot, outputRoot) {

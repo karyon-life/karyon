@@ -9,10 +9,13 @@ if (publishOrder.length === 0) {
 	process.exit(0);
 }
 
-run(process.execPath, [resolve(process.cwd(), 'scripts', 'release-verify.mjs'), '--changed']);
+console.log(`Publishing changed workspace packages in order: ${publishOrder.join(', ')}`);
+
+run(process.execPath, [resolve(process.cwd(), 'scripts', 'release-verify.mjs'), '--changed', '--full-smoke']);
 
 for (const key of publishOrder) {
 	const pkg = packageInfo(key);
+	console.log(`Publishing ${pkg.name}`);
 	run('npm', ['run', 'release:publish'], {
 		cwd: pkg.dir,
 	});

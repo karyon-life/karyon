@@ -30,9 +30,10 @@
     "test:integration": "treeseed test:integration",
     "test:e2e": "treeseed test:e2e",
     "test:release": "node ./scripts/release-verify.mjs",
+    "test:release:full": "node ./scripts/release-verify.mjs --full-smoke",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "agents": "treeseed agents",
-    "release:verify": "node ./scripts/release-verify.mjs",
+    "release:verify": "node ./scripts/release-verify.mjs --full-smoke",
     "release:publish:changed": "node ./scripts/publish-changed-packages.mjs"
   },
   "dependencies": {

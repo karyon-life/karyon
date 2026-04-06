@@ -80,7 +80,8 @@ Main commands:
 | `npm run preview` | Preview the built site locally |
 | `npm run cleanup:markdown -- <path>` | Normalize Markdown/MDX files |
 | `npm run test:unit` | Run workspace unit tests in dependency order: `sdk`, then `core` |
-| `npm run test:release` | Run tarball-based release verification for the publishable packages |
+| `npm run test:release` | Run the fast tarball-based release smoke path for the publishable packages |
+| `npm run test:release:full` | Run the full tarball-based release smoke path, including scaffold deploy dry-run |
 | `npm run test` | Run workspace unit tests plus Treeseed integration and end-to-end checks |
 
 Additional local helpers:

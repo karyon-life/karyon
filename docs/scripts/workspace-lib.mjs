@@ -35,13 +35,17 @@ export function run(command, args, options = {}) {
 		env: { ...process.env, ...(options.env ?? {}) },
 		stdio: options.capture ? 'pipe' : 'inherit',
 		encoding: 'utf8',
+		timeout: options.timeoutMs,
 	});
 
 	if (result.status !== 0) {
 		const message =
-			result.stderr?.trim()
-			|| result.stdout?.trim()
-			|| `${command} ${args.join(' ')} failed`;
+			(result.error?.message ? `${result.error.message}\n` : '')
+			+ (
+				result.stderr?.trim()
+				|| result.stdout?.trim()
+				|| `${command} ${args.join(' ')} failed`
+			);
 		throw new Error(message);
 	}
 
