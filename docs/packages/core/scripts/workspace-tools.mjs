@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
@@ -239,7 +239,9 @@ export function publishableWorkspacePackages(root = workspaceRoot()) {
 }
 
 export function createTempDir(prefix) {
-	return mkdtempSync(join(tmpdir(), prefix));
+	const baseRoot = resolve(process.env.TREESEED_TEMP_ROOT ?? resolve(workspaceRoot(), '.local', 'tmp'));
+	mkdirSync(baseRoot, { recursive: true });
+	return mkdtempSync(join(baseRoot, prefix));
 }
 
 export function cleanupDir(dirPath) {

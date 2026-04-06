@@ -1,6 +1,6 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { resolve, extname, join } from 'node:path';
-import { homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 import {
 	cleanupDir,
 	createTempDir,
@@ -19,9 +19,7 @@ const packagesToVerify = verifyChangedOnly
 const textExtensions = new Set(['.js', '.mjs', '.cjs', '.d.ts', '.ts', '.json', '.astro']);
 const npmCacheRoot = resolve(
 	process.env.TREESEED_RELEASE_NPM_CACHE_DIR
-		?? process.env.npm_config_cache
-		?? process.env.NPM_CONFIG_CACHE
-		?? resolve(homedir(), '.npm'),
+		?? resolve(tmpdir(), 'treeseed-npm-cache'),
 );
 const smokeTimeoutMs = Number(process.env.TREESEED_RELEASE_SMOKE_TIMEOUT_MS ?? 600000);
 const timings = [];
@@ -120,10 +118,15 @@ function cacheEnv() {
 }
 
 function packPackage(pkg) {
-	const output = run('npm', ['pack', '--silent', '--ignore-scripts'], {
-		cwd: pkg.dir,
+	const packRoot = createTempDir('treeseed-pack-');
+	const output = run('npm', ['pack', '--silent', '--ignore-scripts', pkg.dir], {
+		cwd: packRoot,
 		capture: true,
-		env: cacheEnv(),
+		env: {
+			...cacheEnv(),
+			npm_config_pack_destination: packRoot,
+			NPM_CONFIG_PACK_DESTINATION: packRoot,
+		},
 	});
 	const filename = output
 		.split('\n')
@@ -131,7 +134,7 @@ function packPackage(pkg) {
 		.filter(Boolean)
 		.at(-1)
 		|| `${pkg.name.replace(/^@/, '').replaceAll('/', '-')}-${pkg.packageJson.version}.tgz`;
-	return resolve(pkg.dir, filename);
+	return resolve(packRoot, filename);
 }
 
 function scanTarball(tarballPath, label) {
@@ -173,27 +176,22 @@ function tarballEnv(tarballs) {
 
 function genericInstallSmoke(pkg, tarballPath) {
 	const tempRoot = createTempDir('treeseed-package-release-');
+	const extractRoot = createTempDir('treeseed-package-extract-');
 	try {
-		writeFileSync(
-			resolve(tempRoot, 'package.json'),
-			`${JSON.stringify(
-				{
-					name: 'treeseed-package-release-smoke',
-					private: true,
-					type: 'module',
-					dependencies: {
-						[pkg.name]: tarballPath,
-					},
-				},
-				null,
-				2,
-			)}\n`,
-			'utf8',
-		);
-		run('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund'], {
-			cwd: tempRoot,
-			env: cacheEnv(),
-		});
+		run('tar', ['-xzf', tarballPath, '-C', extractRoot]);
+		const scopeRoot = resolve(tempRoot, 'node_modules', '@treeseed');
+		mkdirSync(scopeRoot, { recursive: true });
+		run('cp', ['-R', resolve(extractRoot, 'package'), resolve(scopeRoot, pkg.name.split('/')[1])]);
+		const sharedNodeModules = resolve(pkg.dir, '..', '..', 'node_modules');
+		for (const entry of readdirSync(sharedNodeModules, { withFileTypes: true })) {
+			if (entry.name === '.bin' || entry.name === '@treeseed') {
+				continue;
+			}
+			const linkPath = resolve(tempRoot, 'node_modules', entry.name);
+			mkdirSync(resolve(linkPath, '..'), { recursive: true });
+			symlinkSync(resolve(sharedNodeModules, entry.name), linkPath, 'dir');
+		}
+		writeFileSync(resolve(tempRoot, 'package.json'), `${JSON.stringify({ name: 'treeseed-package-release-smoke', private: true, type: 'module' }, null, 2)}\n`, 'utf8');
 		run(
 			process.execPath,
 			[
@@ -204,6 +202,7 @@ function genericInstallSmoke(pkg, tarballPath) {
 			{ cwd: tempRoot },
 		);
 	} finally {
+		cleanupDir(extractRoot);
 		cleanupDir(tempRoot);
 	}
 }

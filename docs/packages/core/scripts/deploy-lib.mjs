@@ -413,7 +413,7 @@ export function validateDestroyPrerequisites(tenantRoot, { requireRemote = true 
 	const deployConfig = loadTreeseedDeployConfig();
 	const issues = [];
 
-	if (isPlaceholderAccountId(deployConfig.cloudflare.accountId)) {
+	if (requireRemote && isPlaceholderAccountId(deployConfig.cloudflare.accountId)) {
 		issues.push(
 			`Set cloudflare.accountId in ${relative(tenantRoot, deployConfig.__configPath ?? resolve(tenantRoot, 'treeseed.site.yaml'))} or export CLOUDFLARE_ACCOUNT_ID.`,
 		);

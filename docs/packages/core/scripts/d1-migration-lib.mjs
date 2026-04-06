@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { wranglerBin } from './package-tools.mjs';
 
-const DATABASE_NAME = 'karyon-docs-site-data';
+const DATABASE_BINDING = 'SITE_DATA_DB';
 
 function runWrangler(args, { cwd, capture = false } = {}) {
 	return spawnSync(process.execPath, [wranglerBin, ...args], {
@@ -15,7 +15,7 @@ function runWrangler(args, { cwd, capture = false } = {}) {
 }
 
 function executeSqlFile({ cwd, wranglerConfig, filePath, persistTo }) {
-	const args = ['d1', 'execute', DATABASE_NAME, '--local', '--config', wranglerConfig, '--file', filePath];
+	const args = ['d1', 'execute', DATABASE_BINDING, '--local', '--config', wranglerConfig, '--file', filePath];
 	if (persistTo) {
 		args.push('--persist-to', persistTo);
 	}
@@ -27,7 +27,7 @@ function executeSqlFile({ cwd, wranglerConfig, filePath, persistTo }) {
 }
 
 function executeSqlCommand({ cwd, wranglerConfig, command, persistTo }) {
-	const args = ['d1', 'execute', DATABASE_NAME, '--local', '--config', wranglerConfig, '--command', command];
+	const args = ['d1', 'execute', DATABASE_BINDING, '--local', '--config', wranglerConfig, '--command', command];
 	if (persistTo) {
 		args.push('--persist-to', persistTo);
 	}
@@ -39,7 +39,7 @@ function executeSqlCommand({ cwd, wranglerConfig, command, persistTo }) {
 }
 
 function queryExistingColumns({ cwd, wranglerConfig, persistTo }) {
-	const args = ['d1', 'execute', DATABASE_NAME, '--local', '--config', wranglerConfig, '--json', '--command', "PRAGMA table_info('agent_runs');"];
+	const args = ['d1', 'execute', DATABASE_BINDING, '--local', '--config', wranglerConfig, '--json', '--command', "PRAGMA table_info('agent_runs');"];
 	if (persistTo) {
 		args.push('--persist-to', persistTo);
 	}

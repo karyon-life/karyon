@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { packageRoot, packageScriptPath, spawnNodeBinary, wranglerBin } from './package-tools.mjs';
 import { ensureGeneratedWranglerConfig } from './deploy-lib.mjs';
+import { loadTreeseedDeployConfig } from '../src/deploy/config.mjs';
 import {
 	createTenantWatchEntries,
 	isEditablePackageWorkspace,
@@ -19,6 +20,14 @@ let wranglerChild = null;
 let stopWatching = null;
 let isStoppingForRebuild = false;
 let shuttingDown = false;
+
+function shouldEnsureMailpit() {
+	if (process.env.TREESEED_DEV_FORCE_MAILPIT === '1') {
+		return true;
+	}
+
+	return loadTreeseedDeployConfig().smtp?.enabled === true;
+}
 
 function runStep(command, args, { cwd = tenantRoot, env = {}, fatal = true } = {}) {
 	const result = spawnSync(command, args, {
@@ -67,13 +76,18 @@ function runTenantBuildCycle({ includePackageBuild = false, includeSdkBuild = fa
 		}
 	}
 
-	for (const [scriptName, args] of [
+	const buildScripts = [
 		['patch-starlight-content-path', []],
 		['aggregate-book', []],
-		['ensure-mailpit', []],
 		['sync-dev-vars', envOverrides],
 		['tenant-d1-migrate-local', []],
-	]) {
+	];
+
+	if (shouldEnsureMailpit()) {
+		buildScripts.splice(2, 0, ['ensure-mailpit', []]);
+	}
+
+	for (const [scriptName, args] of buildScripts) {
 		const ok = runNodeScript(packageScriptPath(scriptName), args, { fatal });
 		if (!ok) {
 			return false;

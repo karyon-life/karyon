@@ -19,7 +19,7 @@ id = "replace-with-session-kv-id"
 preview_id = "replace-with-session-kv-preview-id"
 
 [[d1_databases]]
-binding = "SUBSCRIBERS_DB"
-database_name = "karyon-docs-subscribers"
-database_id = "replace-with-subscribers-db-id"
-preview_database_id = "replace-with-subscribers-db-preview-id"
+binding = "SITE_DATA_DB"
+database_name = "karyon-docs-site-data"
+database_id = "replace-with-site-data-db-id"
+preview_database_id = "replace-with-site-data-db-preview-id"

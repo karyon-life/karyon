@@ -70,6 +70,14 @@ export function resolveGitHubRepositorySlug(tenantRoot) {
 	return repository;
 }
 
+export function maybeResolveGitHubRepositorySlug(tenantRoot) {
+	try {
+		return resolveGitHubRepositorySlug(tenantRoot);
+	} catch {
+		return null;
+	}
+}
+
 export function resolveGitRepositoryRoot(tenantRoot) {
 	const result = runGit(['rev-parse', '--show-toplevel'], { cwd: tenantRoot, allowFailure: true });
 	return result.status === 0 ? result.stdout.trim() : tenantRoot;
@@ -159,7 +167,18 @@ export function formatMissingSecretsReport(repository, missingSecrets, reason = 
 }
 
 export function ensureGitHubSecrets(tenantRoot, { dryRun = false } = {}) {
-	const repository = resolveGitHubRepositorySlug(tenantRoot);
+	const repository = maybeResolveGitHubRepositorySlug(tenantRoot);
+	if (!repository) {
+		if (dryRun) {
+			return {
+				repository: null,
+				existing: [],
+				created: [],
+				skipped: 'missing_repository',
+			};
+		}
+		throw new Error('Unable to determine GitHub repository from the current tenant. Configure an origin remote before syncing GitHub secrets.');
+	}
 	const requiredSecrets = requiredGitHubSecrets(tenantRoot);
 	const existingSecrets = listGitHubSecretNames(repository, tenantRoot);
 	const missingRemote = requiredSecrets.filter((name) => !existingSecrets.has(name));

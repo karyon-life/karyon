@@ -1,18 +1,14 @@
 #!/usr/bin/env node
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { packageRoot, packageScriptPath } from './package-tools.mjs';
 
 const npmCacheDir = process.env.TREESEED_SCAFFOLD_NPM_CACHE_DIR
 	? resolve(process.env.TREESEED_SCAFFOLD_NPM_CACHE_DIR)
-	: resolve(
-		process.env.npm_config_cache
-			?? process.env.NPM_CONFIG_CACHE
-			?? resolve(homedir(), '.npm'),
-	);
+	: resolve(tmpdir(), 'treeseed-npm-cache');
 const packageJson = JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'));
 const sdkPackageRoot = resolve(packageRoot, '..', 'sdk');
 const sdkPackageJson = JSON.parse(readFileSync(resolve(sdkPackageRoot, 'package.json'), 'utf8'));
@@ -42,6 +38,8 @@ const scaffoldChecks = new Set(
 );
 const timings = [];
 const resetScaffoldCache = process.env.TREESEED_SCAFFOLD_RESET_CACHE === '1';
+const scaffoldTempRoot = resolve(process.env.TREESEED_SCAFFOLD_TEMP_ROOT ?? resolve(packageRoot, '.local', 'tmp'));
+mkdirSync(scaffoldTempRoot, { recursive: true });
 
 function logStep(message) {
 	console.log(`[treeseed:test-scaffold] ${message}`);
@@ -98,7 +96,7 @@ function runStep(command, args, { cwd = packageRoot, env = {}, capture = false }
 }
 
 function createTempSiteRoot() {
-	return mkdtempSync(join(tmpdir(), 'treeseed-scaffold-'));
+	return mkdtempSync(join(scaffoldTempRoot, 'treeseed-scaffold-'));
 }
 
 function rewriteScaffoldDependency(siteRoot, tarballPath, sdkTarballPath) {
@@ -108,6 +106,59 @@ function rewriteScaffoldDependency(siteRoot, tarballPath, sdkTarballPath) {
 	packageJson.dependencies['@treeseed/core'] = tarballPath;
 	packageJson.dependencies['@treeseed/sdk'] = sdkTarballPath;
 	writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8');
+}
+
+function installManualPackageTarball(siteRoot, tarballPath, packageName) {
+	const extractRoot = mkdtempSync(join(scaffoldTempRoot, 'treeseed-scaffold-package-'));
+	try {
+		runStep('tar', ['-xzf', tarballPath, '-C', extractRoot]);
+		const scopeRoot = resolve(siteRoot, 'node_modules', '@treeseed');
+		mkdirSync(scopeRoot, { recursive: true });
+		cpSync(resolve(extractRoot, 'package'), resolve(scopeRoot, packageName.split('/')[1]), { recursive: true });
+	} finally {
+		rmSync(extractRoot, { recursive: true, force: true });
+	}
+}
+
+function linkWorkspacePackage(siteRoot, packageName, sourceRoot) {
+	const scopeRoot = resolve(siteRoot, 'node_modules', '@treeseed');
+	mkdirSync(scopeRoot, { recursive: true });
+	symlinkSync(sourceRoot, resolve(scopeRoot, packageName.split('/')[1]), 'dir');
+}
+
+function mirrorSharedNodeModules(siteRoot) {
+	const sharedNodeModules = resolve(packageRoot, '..', '..', 'node_modules');
+	for (const entry of readdirSync(sharedNodeModules, { withFileTypes: true })) {
+		if (entry.name === '.bin' || entry.name === '@treeseed' || entry.name === '@astrojs') {
+			continue;
+		}
+		const sourcePath = resolve(sharedNodeModules, entry.name);
+		const targetPath = resolve(siteRoot, 'node_modules', entry.name);
+		mkdirSync(dirname(targetPath), { recursive: true });
+		if (entry.name === 'astro') {
+			cpSync(sourcePath, targetPath, { recursive: true });
+			continue;
+		}
+		symlinkSync(sourcePath, targetPath, 'dir');
+	}
+
+	const sharedAstroScope = resolve(sharedNodeModules, '@astrojs');
+	const targetAstroScope = resolve(siteRoot, 'node_modules', '@astrojs');
+	mkdirSync(targetAstroScope, { recursive: true });
+	for (const packageName of ['cloudflare', 'mdx', 'sitemap', 'starlight']) {
+		cpSync(resolve(sharedAstroScope, packageName), resolve(targetAstroScope, packageName), { recursive: true });
+	}
+}
+
+function linkTreeseedBins(siteRoot) {
+	const binRoot = resolve(siteRoot, 'node_modules', '.bin');
+	mkdirSync(binRoot, { recursive: true });
+	for (const [name, relativeTarget] of [
+		['treeseed', '../@treeseed/core/dist/scripts/treeseed.js'],
+		['treeseed-agents', '../@treeseed/core/dist/scripts/treeseed-agents.js'],
+	]) {
+		symlinkSync(relativeTarget, resolve(binRoot, name));
+	}
 }
 
 function createTarball(root, pkg) {
@@ -135,7 +186,15 @@ function scaffoldSite(siteRoot) {
 	runStep(process.execPath, [packageScriptPath('scaffold-site'), siteRoot, '--name', 'Smoke Site', '--site-url', 'https://smoke.example.com', '--contact-email', 'hello@example.com']);
 }
 
-function installScaffold(siteRoot) {
+function installScaffold(siteRoot, { coreTarballPath, sdkTarballPath }) {
+	if (coreTarballPath && sdkTarballPath) {
+		linkWorkspacePackage(siteRoot, sdkPackageJson.name, sdkPackageRoot);
+		linkWorkspacePackage(siteRoot, packageJson.name, packageRoot);
+		mirrorSharedNodeModules(siteRoot);
+		linkTreeseedBins(siteRoot);
+		return;
+	}
+
 	runStep('npm', ['install', '--cache', npmCacheDir, '--prefer-offline', '--no-audit', '--no-fund'], {
 		cwd: siteRoot,
 		env: {
@@ -189,7 +248,10 @@ try {
 	rewriteScaffoldDependency(siteRoot, tarballPath, sdkTarballPath);
 	logStep(`installing scaffolded tenant dependencies with checks: ${[...scaffoldChecks].join(', ') || 'none'}`);
 	withTiming('scaffold dependency install', () => {
-		installScaffold(siteRoot);
+		installScaffold(siteRoot, {
+			coreTarballPath: tarballPath,
+			sdkTarballPath,
+		});
 	});
 	logStep('running scaffold smoke checks');
 	runScaffoldChecks(siteRoot);

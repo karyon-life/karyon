@@ -108,6 +108,30 @@ function rewriteVendorImportSpecifiers(contents, importerFile) {
 		);
 }
 
+function rewriteAstroAssetSpecifiers(contents, importerFile) {
+	return contents.replace(
+		/(<script[^>]+src=)(['"])(\.{1,2}\/[^'"`\n]+)(\2)/g,
+		(match, prefix, quote, specifier, suffix) => {
+			if (
+				specifier.endsWith('/') ||
+				/\.(?:js|mjs|cjs|json|jsonc|css|astro|svg|png|jpg|jpeg|gif|webp|avif|woff2?|ttf|otf)$/.test(specifier)
+			) {
+				return match;
+			}
+
+			const resolvedPath = resolve(dirname(importerFile), specifier);
+			if (existsSync(`${resolvedPath}.js`)) {
+				return `${prefix}${quote}${specifier}.js${suffix}`;
+			}
+			if (existsSync(resolve(resolvedPath, 'index.js'))) {
+				return `${prefix}${quote}${specifier}/index.js${suffix}`;
+			}
+
+			return match;
+		},
+	);
+}
+
 function writeRawTextModule(sourceFile, sourceRoot, outputRoot) {
 	const relativePath = relative(sourceRoot, sourceFile);
 	const outputFile = resolve(outputRoot, `${relativePath}.js`);
@@ -265,6 +289,11 @@ async function compileVendorPackage(sourceRoot, outputRoot) {
 	}
 
 	for (const filePath of walkFiles(outputRoot)) {
+		if (filePath.endsWith('.astro')) {
+			const contents = readFileSync(filePath, 'utf8');
+			writeFileSync(filePath, rewriteAstroAssetSpecifiers(contents, filePath), 'utf8');
+			continue;
+		}
 		if (!filePath.endsWith('.js')) continue;
 		const contents = readFileSync(filePath, 'utf8');
 		writeFileSync(filePath, rewriteVendorImportSpecifiers(contents, filePath), 'utf8');

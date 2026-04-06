@@ -28,6 +28,12 @@ const COMMAND_MAP = new Map([
 
 const WORKSPACE_COMMANDS = new Map([
 	['test:unit', { script: packageScriptPath('workspace-test-unit'), extraArgs: [] }],
+	['preflight', { script: packageScriptPath('workspace-preflight'), extraArgs: [] }],
+	['auth:check', { script: packageScriptPath('workspace-preflight'), extraArgs: ['--require-auth'] }],
+	['test:e2e', { script: packageScriptPath('workspace-command-e2e'), extraArgs: [] }],
+	['test:e2e:local', { script: packageScriptPath('workspace-command-e2e'), extraArgs: ['--mode=local'] }],
+	['test:e2e:staging', { script: packageScriptPath('workspace-command-e2e'), extraArgs: ['--mode=staging'] }],
+	['test:e2e:full', { script: packageScriptPath('workspace-command-e2e'), extraArgs: ['--mode=full'] }],
 	['test:release', { script: packageScriptPath('workspace-release-verify'), extraArgs: [] }],
 	['test:release:full', { script: packageScriptPath('workspace-release-verify'), extraArgs: ['--full-smoke'] }],
 	['release:verify', { script: packageScriptPath('workspace-release-verify'), extraArgs: ['--full-smoke'] }],
