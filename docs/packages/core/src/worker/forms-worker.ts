@@ -116,7 +116,7 @@ function buildRuntime(env: WorkerEnv) {
 		bypassTurnstile: envBoolean(env.TREESEED_FORMS_LOCAL_BYPASS_TURNSTILE),
 		bypassCloudflareGuards: envBoolean(env.TREESEED_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS),
 		useMailpit: envBoolean(env.TREESEED_FORMS_LOCAL_USE_MAILPIT),
-		formsMode: __TREESEED_DEPLOY_CONFIG__.forms?.mode ?? 'store_only',
+		formsMode: __TREESEED_DEPLOY_CONFIG__.providers?.forms ?? 'store_only',
 		smtpEnabled: isSmtpEnabled(env),
 		turnstileEnabled: isTurnstileEnabled(env),
 	});

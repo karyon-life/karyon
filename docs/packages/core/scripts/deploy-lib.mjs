@@ -53,7 +53,9 @@ function relativeFromGeneratedRoot(targetPath) {
 
 function buildPublicVars(deployConfig) {
 	return {
-		TREESEED_AGENT_EXECUTION_MODE: deployConfig.agents?.mode ?? 'stub',
+		TREESEED_AGENT_EXECUTION_PROVIDER: deployConfig.providers?.agents?.execution ?? 'stub',
+		TREESEED_AGENT_REPOSITORY_PROVIDER: deployConfig.providers?.agents?.repository ?? 'stub',
+		TREESEED_AGENT_VERIFICATION_PROVIDER: deployConfig.providers?.agents?.verification ?? 'stub',
 		TREESEED_PUBLIC_TURNSTILE_SITE_KEY: envOrNull('TREESEED_PUBLIC_TURNSTILE_SITE_KEY') ?? '',
 	};
 }

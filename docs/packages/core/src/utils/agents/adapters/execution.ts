@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { normalizeAgentCliOptions, buildCopilotAllowToolArgs } from '../cli-tools.ts';
 import type { AgentExecutionAdapter } from '../runtime-types.ts';
-import { getTreeseedAgentMode } from '../../../deploy/runtime';
+import { getTreeseedAgentProviderSelections } from '../../../deploy/runtime';
 
 const execFileAsync = promisify(execFile);
 
@@ -83,7 +83,9 @@ export class ManualExecutionAdapter implements AgentExecutionAdapter {
 }
 
 export function createExecutionAdapter() {
-	const configuredMode = String(process.env.TREESEED_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase();
+	const configuredMode = String(
+		process.env.TREESEED_AGENT_EXECUTION_PROVIDER ?? getTreeseedAgentProviderSelections().execution,
+	).toLowerCase();
 	if (configuredMode === 'manual') {
 		return new ManualExecutionAdapter();
 	}

@@ -23,10 +23,21 @@ siteUrl: https://example.com
 contactEmail: hello@example.com
 cloudflare:
   accountId: account-123
-forms:
-  mode: notify_admin
-agents:
-  mode: manual
+plugins:
+  - package: '@treeseed/core/plugin-default'
+providers:
+  forms: notify_admin
+  agents:
+    execution: manual
+    mutation: local_branch
+    repository: stub
+    verification: stub
+    notification: stub
+    research: stub
+  deploy: cloudflare
+  content:
+    docs: default
+  site: default
 smtp:
   enabled: true
 turnstile:
@@ -43,8 +54,8 @@ describe('deploy config', () => {
 			process.chdir(tenantRoot);
 			const config = loadTreeseedDeployConfig();
 
-			expect(config.forms?.mode).toBe('notify_admin');
-			expect(config.agents?.mode).toBe('manual');
+			expect(config.providers.forms).toBe('notify_admin');
+			expect(config.providers.agents.execution).toBe('manual');
 			expect(config.cloudflare.accountId).toBe('account-123');
 			expect(deriveCloudflareWorkerName(config)).toBe('example-site');
 		} finally {
@@ -63,7 +74,7 @@ describe('deploy config', () => {
 			expect(wranglerToml).toContain('binding = "FORM_GUARD_KV"');
 			expect(wranglerToml).toContain('binding = "SESSION"');
 			expect(wranglerToml).toContain('binding = "SITE_DATA_DB"');
-			expect(wranglerToml).toContain('TREESEED_AGENT_EXECUTION_MODE = "manual"');
+			expect(wranglerToml).toContain('TREESEED_AGENT_EXECUTION_PROVIDER = "manual"');
 			expect(deployState).toContain('"workerName": "example-site"');
 		} finally {
 			await rm(tenantRoot, { recursive: true, force: true });

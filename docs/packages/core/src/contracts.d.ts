@@ -97,9 +97,28 @@ export interface TreeseedThemeConfig {
 	};
 }
 
-export type TreeseedFormsMode = 'store_only' | 'notify_admin' | 'full_email';
+export interface TreeseedPluginReference {
+	package: string;
+	enabled?: boolean;
+	config?: Record<string, unknown>;
+}
 
-export type TreeseedAgentMode = 'stub' | 'manual' | 'copilot';
+export interface TreeseedProviderSelections {
+	forms: string;
+	agents: {
+		execution: string;
+		mutation: string;
+		repository: string;
+		verification: string;
+		notification: string;
+		research: string;
+	};
+	deploy: string;
+	content?: {
+		docs: string;
+	};
+	site?: string;
+}
 
 export interface TreeseedDeployConfig {
 	name: string;
@@ -110,12 +129,8 @@ export interface TreeseedDeployConfig {
 		accountId: string;
 		workerName?: string;
 	};
-	forms?: {
-		mode?: TreeseedFormsMode;
-	};
-	agents?: {
-		mode?: TreeseedAgentMode;
-	};
+	plugins: TreeseedPluginReference[];
+	providers: TreeseedProviderSelections;
 	smtp?: {
 		enabled?: boolean;
 	};

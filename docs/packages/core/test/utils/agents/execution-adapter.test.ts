@@ -9,17 +9,19 @@ import {
 	StubExecutionAdapter,
 } from '../../../src/utils/agents/adapters/execution';
 import { resetTreeseedDeployConfigForTests } from '../../../src/deploy/runtime';
+import { resetTreeseedPluginRuntimeForTests } from '../../../src/utils/plugin-runtime';
 
 const originalCwd = process.cwd();
-const originalMode = process.env.TREESEED_AGENT_EXECUTION_MODE;
+const originalProvider = process.env.TREESEED_AGENT_EXECUTION_PROVIDER;
 
 afterEach(() => {
 	process.chdir(originalCwd);
 	resetTreeseedDeployConfigForTests();
-	if (originalMode === undefined) {
-		delete process.env.TREESEED_AGENT_EXECUTION_MODE;
+	resetTreeseedPluginRuntimeForTests();
+	if (originalProvider === undefined) {
+		delete process.env.TREESEED_AGENT_EXECUTION_PROVIDER;
 	} else {
-		process.env.TREESEED_AGENT_EXECUTION_MODE = originalMode;
+		process.env.TREESEED_AGENT_EXECUTION_PROVIDER = originalProvider;
 	}
 });
 
@@ -35,8 +37,21 @@ siteUrl: https://example.com
 contactEmail: hello@example.com
 cloudflare:
   accountId: account-123
-agents:
-  mode: ${agentMode}
+plugins:
+  - package: '@treeseed/core/plugin-default'
+providers:
+  forms: store_only
+  agents:
+    execution: ${agentMode}
+    mutation: local_branch
+    repository: stub
+    verification: stub
+    notification: stub
+    research: stub
+  deploy: cloudflare
+  content:
+    docs: default
+  site: default
 `,
 	);
 	return tenantRoot;
@@ -47,7 +62,7 @@ describe('execution adapter selection', () => {
 		const tenantRoot = await createTenantFixture('stub');
 		try {
 			process.chdir(tenantRoot);
-			delete process.env.TREESEED_AGENT_EXECUTION_MODE;
+			delete process.env.TREESEED_AGENT_EXECUTION_PROVIDER;
 			expect(createExecutionAdapter()).toBeInstanceOf(StubExecutionAdapter);
 		} finally {
 			await rm(tenantRoot, { recursive: true, force: true });
@@ -58,7 +73,7 @@ describe('execution adapter selection', () => {
 		const tenantRoot = await createTenantFixture('manual');
 		try {
 			process.chdir(tenantRoot);
-			delete process.env.TREESEED_AGENT_EXECUTION_MODE;
+			delete process.env.TREESEED_AGENT_EXECUTION_PROVIDER;
 			expect(createExecutionAdapter()).toBeInstanceOf(ManualExecutionAdapter);
 		} finally {
 			await rm(tenantRoot, { recursive: true, force: true });
@@ -69,7 +84,7 @@ describe('execution adapter selection', () => {
 		const tenantRoot = await createTenantFixture('stub');
 		try {
 			process.chdir(tenantRoot);
-			process.env.TREESEED_AGENT_EXECUTION_MODE = 'copilot';
+			process.env.TREESEED_AGENT_EXECUTION_PROVIDER = 'copilot';
 			expect(createExecutionAdapter()).toBeInstanceOf(CopilotExecutionAdapter);
 		} finally {
 			await rm(tenantRoot, { recursive: true, force: true });

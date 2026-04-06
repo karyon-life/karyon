@@ -14,3 +14,5 @@ export {
 	loadTreeseedDeployConfig,
 	resolveTreeseedDeployConfigPath,
 } from './deploy/config';
+export { defineTreeseedPlugin } from './plugins/plugin';
+export { loadTreeseedPluginRuntime, loadTreeseedPlugins } from './plugins/runtime';

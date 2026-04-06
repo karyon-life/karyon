@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { AgentVerificationAdapter } from '../runtime-types.ts';
-import { getTreeseedAgentMode } from '../../../deploy/runtime';
+import { getTreeseedAgentProviderSelections } from '../../../deploy/runtime';
 
 const execFileAsync = promisify(execFile);
 
@@ -62,7 +62,9 @@ export class LocalVerificationAdapter implements AgentVerificationAdapter {
 }
 
 export function createVerificationAdapter() {
-	return String(process.env.TREESEED_AGENT_EXECUTION_MODE ?? getTreeseedAgentMode()).toLowerCase() !== 'copilot'
+	return String(
+		process.env.TREESEED_AGENT_VERIFICATION_PROVIDER ?? getTreeseedAgentProviderSelections().verification,
+	).toLowerCase() !== 'local'
 		? new StubVerificationAdapter()
 		: new LocalVerificationAdapter();
 }

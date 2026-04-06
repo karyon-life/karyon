@@ -115,31 +115,164 @@ These are runtime artifacts, not source files.
 
 A tenant CI workflow should call `npm run deploy` from the tenant root so automated deploys use the same Treeseed provisioning and publish path as local deploys. Avoid separate `wrangler pages deploy` or ad hoc Worker publish steps that bypass the generated Treeseed deploy contract.
 
-## Forms Runtime
+## Plugin System
 
-The default forms mode is `store_only`.
+Treeseed now uses an explicit plugin system configured in `treeseed.site.yaml`.
 
-Supported modes:
+Each tenant declares:
+
+- `plugins`: an ordered list of plugin packages to load
+- `providers`: the selected implementation id for each singular extension point
+
+Treeseed loads plugins in declaration order, validates that each selected provider id exists, and then routes site build, forms runtime, worker runtime, agent runtime, and deploy behavior through the resolved plugin runtime.
+
+Typical config:
+
+```yaml
+plugins:
+  - package: '@treeseed/core/plugin-default'
+providers:
+  forms: store_only
+  agents:
+    execution: stub
+    mutation: local_branch
+    repository: stub
+    verification: stub
+    notification: stub
+    research: stub
+  deploy: cloudflare
+  content:
+    docs: default
+  site: default
+```
+
+### Built-In Plugin
+
+Treeseed currently ships one built-in first-party plugin:
+
+- `@treeseed/core/plugin-default`
+
+This plugin declares the built-in provider ids and handler ids that make the default Treeseed platform work out of the box. Tenants should usually keep this plugin in their `plugins` list unless they are replacing the entire default platform surface.
+
+### Built-In Provider Ids
+
+Forms providers:
 
 - `store_only`
 - `notify_admin`
 - `full_email`
 
-This keeps the default platform affordable and usable without SMTP, while still allowing richer behavior when a tenant explicitly enables it.
+Agent providers:
+
+- `agents.execution`: `stub`, `manual`, `copilot`
+- `agents.mutation`: `local_branch`
+- `agents.repository`: `stub`, `git`
+- `agents.verification`: `stub`, `local`
+- `agents.notification`: `stub`
+- `agents.research`: `stub`
+
+Other providers:
+
+- `deploy`: `cloudflare`
+- `content.docs`: `default`
+- `site`: `default`
+
+### Default Provider Behavior
+
+Forms:
+
+- `store_only`: persists contact and subscriber data, enforces guards and Turnstile, and sends no email
+- `notify_admin`: keeps the same persistence path and sends admin notifications when SMTP is available
+- `full_email`: requires SMTP, sends admin notifications, and also sends the built-in subscriber confirmation email
+
+Agents:
+
+- `stub` execution: returns a synthetic completed result without calling an external tool
+- `manual` execution: emits a manual handoff payload for operator-driven execution
+- `copilot` execution: invokes `gh copilot` with the normalized agent CLI options
+- `local_branch` mutation: writes artifacts into a git worktree/branch and commits them
+- `stub` repository inspection: returns a no-op branch inspection result
+- `git` repository inspection: inspects changed paths and HEAD sha from the local repo
+- `stub` verification: reports success without running commands
+- `local` verification: runs configured verification commands via `/bin/bash -lc`
+- `stub` notification: records prepared notifications without delivering them externally
+- `stub` research: returns placeholder research markdown
+
+Content and site:
+
+- `content.docs: default`: uses the Starlight docs loader and schema, keeps Treeseed’s generated knowledge doc ids, and extends docs entries with default tags
+- `site: default`: keeps the built-in routes, Starlight component overrides, theme injection, markdown plugins, env schema, and route middleware
+- `deploy: cloudflare`: keeps the current Cloudflare worker, D1, KV, generated Wrangler config, and worker artifact flow
+
+### Extension Points
+
+Plugin authors can now extend or replace these seams:
+
+- forms provider selection through `providers.forms`
+- agent adapter providers through `providers.agents.*`
+- agent handler registration through plugin-contributed handler ids
+- site provider selection through `providers.site`
+- additive site hooks for routes, Starlight component overrides, custom CSS, markdown plugins, env schema additions, Vite plugins, integrations, and route middleware
+- docs content provider selection through `providers.content.docs`
+
+In practical terms, the current runtime seams are:
+
+- forms runtime collaborators: guard store, subscriber store, contact store, email delivery, Turnstile verification, and provider-specific behavior
+- agent runtime collaborators: execution, mutation, repository inspection, verification, notification, research, and agent handlers
+- Astro site composition: routes, integrations, component overrides, markdown hooks, theme/css injection, env schema, and middleware
+- content composition: docs loader/schema resolution
+- deploy/runtime selection: the selected deploy provider id carried through deploy generation
+
+### Plugin Authoring Contract
+
+Core exports:
+
+- `defineTreeseedPlugin`
+- `loadTreeseedPlugins`
+- `loadTreeseedPluginRuntime`
+
+Third-party plugins may contribute:
+
+- metadata describing which provider ids they supply
+- `formsProviders`
+- `agentProviders`
+- `agentHandlers`
+- `siteProviders`
+- `siteHooks`
+- `contentProviders`
+
+Treeseed treats singular providers and additive hooks differently:
+
+- singular providers are selected by id through `providers`
+- additive hooks are composed in plugin declaration order
+
+Duplicate contributed provider ids are treated as startup errors. Unknown selected provider ids are also startup errors.
+
+## Forms Runtime
+
+Forms behavior now comes from the selected `providers.forms` plugin implementation in `treeseed.site.yaml`.
+
+The built-in forms provider ids are:
+
+- `store_only`
+- `notify_admin`
+- `full_email`
+
+This keeps the default platform affordable and usable without SMTP, while still allowing richer behavior when a tenant explicitly selects a richer provider.
 
 Turnstile is part of the standard production deploy contract. Treeseed deploy expects `TREESEED_PUBLIC_TURNSTILE_SITE_KEY` and `TREESEED_TURNSTILE_SECRET_KEY` to be provided for production publishes.
 
 ## Agent Runtime
 
-The default agent execution mode is `stub`.
+Agent execution behavior now comes from `providers.agents.execution` in `treeseed.site.yaml`.
 
-Supported modes:
+The built-in execution provider ids are:
 
 - `stub`
 - `manual`
 - `copilot`
 
-This keeps new sites usable without paid AI execution tooling and lets tenants opt into more capable execution later.
+This keeps new sites usable without paid AI execution tooling and lets tenants opt into more capable execution providers later.
 
 ## Local Development Model
 

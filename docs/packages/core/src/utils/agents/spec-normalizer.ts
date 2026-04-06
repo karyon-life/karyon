@@ -1,6 +1,5 @@
 import {
 	AGENT_CLI_ALLOW_TOOLS,
-	AGENT_HANDLER_KINDS,
 	type AgentExecutionConfig,
 	type AgentHandlerKind,
 	type AgentOutputContract,
@@ -192,14 +191,6 @@ function normalizeParts(
 ): AgentSpecParts | null {
 	const slug = ensureString(raw.slug ?? slugHint, 'slug', diagnostics, slugHint) || slugHint;
 	const handler = ensureString(raw.handler, 'handler', diagnostics, slug) as AgentHandlerKind;
-	if (!AGENT_HANDLER_KINDS.includes(handler)) {
-		diagnostics.push({
-			severity: 'error',
-			slug,
-			field: 'handler',
-			message: `Unsupported handler "${String(raw.handler ?? '')}".`,
-		});
-	}
 	const triggers = Array.isArray(raw.triggers)
 		? raw.triggers.map((entry, index) => normalizeTrigger(entry, index, diagnostics, slug)).filter((entry): entry is AgentTriggerConfig => Boolean(entry))
 		: [];

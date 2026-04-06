@@ -1,6 +1,6 @@
 import type { AgentRuntimeSpec } from '../../types/agents';
 import { AGENT_MESSAGE_TYPES } from './contracts/messages.ts';
-import { AGENT_HANDLER_REGISTRY } from '../../agents/registry.ts';
+import { listRegisteredAgentHandlers } from '../../agents/registry.ts';
 import { AgentSdk } from './sdk.ts';
 import { normalizeAgentRuntimeSpec } from './spec-normalizer.ts';
 import type {
@@ -45,7 +45,7 @@ export async function loadAgentSpecs(
 
 	for (const entry of entries as Record<string, unknown>[]) {
 		const result = normalizeAgentRuntimeSpec(extractRawSpec(entry), {
-			registeredHandlers: Object.keys(AGENT_HANDLER_REGISTRY) as NormalizedAgentRuntimeSpec['handler'][],
+			registeredHandlers: listRegisteredAgentHandlers() as NormalizedAgentRuntimeSpec['handler'][],
 			messageTypes: [...AGENT_MESSAGE_TYPES],
 		});
 		diagnostics.push(...result.diagnostics);

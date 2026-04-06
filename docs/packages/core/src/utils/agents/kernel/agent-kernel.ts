@@ -20,6 +20,8 @@ import type { AgentRunTrace, AgentErrorCategory } from '../contracts/run.ts';
 import { AgentSdk } from '../sdk.ts';
 import { resolveTriggerDecision } from './trigger-resolver.ts';
 import { loadActiveAgentSpecs, loadAllAgentSpecs, summarizeAgentSpec } from '../spec-loader.ts';
+import { getTreeseedAgentProviderSelections } from '../../../deploy/runtime';
+import { resolveAgentRuntimeProviders } from '../../plugin-runtime.ts';
 
 function nowIso() {
 	return new Date().toISOString();
@@ -47,12 +49,13 @@ export class AgentKernel {
 			research?: AgentResearchAdapter;
 		},
 	) {
-		this.execution = options?.execution ?? createExecutionAdapter();
-		this.mutations = options?.mutations ?? new LocalBranchMutationAdapter(repoRoot);
-		this.repository = options?.repository ?? createRepositoryInspectionAdapter();
-		this.verification = options?.verification ?? createVerificationAdapter();
-		this.notifications = options?.notifications ?? createNotificationAdapter();
-		this.research = options?.research ?? createResearchAdapter();
+		const runtimeProviders = resolveAgentRuntimeProviders(repoRoot, getTreeseedAgentProviderSelections());
+		this.execution = options?.execution ?? runtimeProviders.execution ?? createExecutionAdapter();
+		this.mutations = options?.mutations ?? runtimeProviders.mutations ?? new LocalBranchMutationAdapter(repoRoot);
+		this.repository = options?.repository ?? runtimeProviders.repository ?? createRepositoryInspectionAdapter();
+		this.verification = options?.verification ?? runtimeProviders.verification ?? createVerificationAdapter();
+		this.notifications = options?.notifications ?? runtimeProviders.notifications ?? createNotificationAdapter();
+		this.research = options?.research ?? runtimeProviders.research ?? createResearchAdapter();
 	}
 
 	async doctor() {

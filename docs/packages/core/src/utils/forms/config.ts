@@ -16,7 +16,7 @@ import {
 } from 'astro:env/server';
 import { SITE_EMAIL_NOTIFICATIONS } from '../site-config';
 import type { ContactRoutingMap, LocalDevMode } from '../../types/forms';
-import { getTreeseedFormsMode, isTreeseedSmtpEnabled, isTreeseedTurnstileEnabled } from '../../deploy/runtime';
+import { getTreeseedFormsProvider, isTreeseedSmtpEnabled, isTreeseedTurnstileEnabled } from '../../deploy/runtime';
 
 export function getFormSecret() {
 	return TREESEED_FORM_TOKEN_SECRET ?? '';
@@ -47,7 +47,7 @@ export function getSmtpConfig() {
 }
 
 export function getFormsMode() {
-	return getTreeseedFormsMode();
+	return getTreeseedFormsProvider();
 }
 
 export function getLocalDevMode(): LocalDevMode | null {

@@ -10,6 +10,7 @@ import { buildTenantBookRuntime } from './utils/books-data.mjs';
 import { getStarlightSidebarConfigFromRuntime } from './utils/starlight-nav.mjs';
 import { buildTenantThemeCss } from './utils/theme.ts';
 import { loadTreeseedDeployConfig } from './deploy/config.mjs';
+import { loadTreeseedPluginRuntime } from './plugins/runtime.mjs';
 
 const TENANT_THEME_VIRTUAL_ID = 'virtual:treeseed/tenant-theme.css';
 const RESOLVED_TENANT_THEME_VIRTUAL_ID = '\0treeseed:tenant-theme.css';
@@ -50,12 +51,12 @@ const PACKAGE_ROUTE_ENTRIES = [
 	{ pattern: '/questions/[slug]', entrypoint: packageFile('./pages/questions/[slug].astro') },
 ];
 
-function createTreeseedRoutesIntegration(tenantConfig) {
+function createTreeseedRoutesIntegration(tenantConfig, extraRoutes = []) {
 	return {
 		name: 'treeseed-routes',
 		hooks: {
 			'astro:config:setup'({ injectRoute }) {
-				for (const route of PACKAGE_ROUTE_ENTRIES) {
+				for (const route of [...PACKAGE_ROUTE_ENTRIES, ...extraRoutes]) {
 					if (route.pattern.startsWith('/agents') && tenantConfig.features?.agents === false) continue;
 					if (route.pattern.startsWith('/books') && tenantConfig.features?.books === false) continue;
 					if (route.pattern.startsWith('/notes') && tenantConfig.features?.notes === false) continue;
@@ -66,6 +67,63 @@ function createTreeseedRoutesIntegration(tenantConfig) {
 			},
 		},
 	};
+}
+
+function normalizeSiteHookContribution(contribution) {
+	if (!contribution || typeof contribution !== 'object') {
+		return {};
+	}
+	return contribution;
+}
+
+function resolveSitePluginExtensions(pluginRuntime, context) {
+	const selectedSiteProvider = pluginRuntime.config.providers.site;
+	const extensions = {
+		routes: [],
+		starlightComponents: {},
+		customCss: [],
+		remarkPlugins: [],
+		rehypePlugins: [],
+		envSchema: {},
+		vitePlugins: [],
+		integrations: [],
+		routeMiddleware: [],
+	};
+
+	if (selectedSiteProvider !== 'default') {
+		let matched = false;
+		for (const { plugin, package: packageName, config } of pluginRuntime.plugins) {
+			const providerFactory = plugin.siteProviders?.[selectedSiteProvider];
+			if (!providerFactory) {
+				continue;
+			}
+			matched = true;
+			Object.assign(extensions, normalizeSiteHookContribution(providerFactory({ ...context, pluginConfig: config ?? {} })));
+			break;
+		}
+		if (!matched) {
+			throw new Error(`Treeseed site provider "${selectedSiteProvider}" is not registered.`);
+		}
+	}
+
+	for (const { plugin, config } of pluginRuntime.plugins) {
+		const rawContribution =
+			typeof plugin.siteHooks === 'function'
+				? plugin.siteHooks({ ...context, pluginConfig: config ?? {} })
+				: plugin.siteHooks;
+		const contribution = normalizeSiteHookContribution(rawContribution);
+		extensions.routes.push(...(contribution.routes ?? []));
+		Object.assign(extensions.starlightComponents, contribution.starlightComponents ?? {});
+		extensions.customCss.push(...(contribution.customCss ?? []));
+		extensions.remarkPlugins.push(...(contribution.remarkPlugins ?? []));
+		extensions.rehypePlugins.push(...(contribution.rehypePlugins ?? []));
+		Object.assign(extensions.envSchema, contribution.envSchema ?? {});
+		extensions.vitePlugins.push(...(contribution.vitePlugins ?? []));
+		extensions.integrations.push(...(contribution.integrations ?? []));
+		extensions.routeMiddleware.push(...(contribution.routeMiddleware ?? []));
+	}
+
+	return extensions;
 }
 
 function toStarlightLogoSrc(publicPath) {
@@ -152,8 +210,15 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 	const projectRoot = process.cwd();
 	const siteConfig = parseSiteConfig(readFileSync(resolve(projectRoot, tenantConfig.siteConfigPath), 'utf8'));
 	const deployConfig = loadTreeseedDeployConfig();
+	const pluginRuntime = loadTreeseedPluginRuntime(deployConfig);
 	const bookRuntime = buildTenantBookRuntime(tenantConfig, { projectRoot });
 	const tenantThemeCss = buildTenantThemeCss(siteConfig.site.theme);
+	const siteExtensions = resolveSitePluginExtensions(pluginRuntime, {
+		projectRoot,
+		tenantConfig,
+		siteConfig,
+		deployConfig,
+	});
 	const injectedTenantConfig = JSON.stringify(tenantConfig);
 	const injectedProjectRoot = JSON.stringify(projectRoot);
 	const injectedSiteConfig = JSON.stringify(siteConfig);
@@ -172,6 +237,7 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 			plugins: [
 				createTenantThemeVitePlugin(tenantThemeCss),
 				/** @type {any} */ (tailwindcss()),
+				...siteExtensions.vitePlugins,
 			],
 			ssr: {
 				external: ['node:fs', 'node:path', 'node:url'],
@@ -179,8 +245,8 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 		},
 		markdown: {
 			syntaxHighlight: false,
-			remarkPlugins: [remarkMath, remarkNormalizeEscapedMath],
-			rehypePlugins: [rehypeNormalizeEscapedMath, [rehypeKatex, { strict: 'ignore' }]],
+			remarkPlugins: [remarkMath, remarkNormalizeEscapedMath, ...siteExtensions.remarkPlugins],
+			rehypePlugins: [rehypeNormalizeEscapedMath, [rehypeKatex, { strict: 'ignore' }], ...siteExtensions.rehypePlugins],
 		},
 		env: {
 			schema: {
@@ -201,14 +267,15 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 				TREESEED_FORMS_LOCAL_USE_MAILPIT: envField.boolean({ context: 'server', access: 'secret', optional: true }),
 				TREESEED_MAILPIT_SMTP_HOST: envField.string({ context: 'server', access: 'secret', optional: true }),
 				TREESEED_MAILPIT_SMTP_PORT: envField.number({ context: 'server', access: 'secret', optional: true }),
+				...siteExtensions.envSchema,
 			},
 		},
 		integrations: [
-			createTreeseedRoutesIntegration(tenantConfig),
+			createTreeseedRoutesIntegration(tenantConfig, siteExtensions.routes),
 			starlight({
 				disable404Route: true,
 				expressiveCode: false,
-				customCss: [packageFile('./styles/global.css'), TENANT_THEME_VIRTUAL_ID],
+				customCss: [packageFile('./styles/global.css'), TENANT_THEME_VIRTUAL_ID, ...siteExtensions.customCss],
 				title: siteConfig.site.name,
 				logo: {
 					src: toStarlightLogoSrc(siteConfig.site.logo.src),
@@ -227,10 +294,12 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 					Sidebar: packageFile('./components/docs/Sidebar.astro'),
 					SiteTitle: packageFile('./components/SiteTitle.astro'),
 					ThemeSelect: packageFile('./components/docs/ThemeSelect.astro'),
+					...siteExtensions.starlightComponents,
 				},
 				sidebar: getStarlightSidebarConfigFromRuntime(bookRuntime),
-				routeMiddleware: [packageModuleFile('./middleware/starlightRouteData')],
+				routeMiddleware: [packageModuleFile('./middleware/starlightRouteData'), ...siteExtensions.routeMiddleware],
 			}),
+			...siteExtensions.integrations,
 		],
 	});
 }

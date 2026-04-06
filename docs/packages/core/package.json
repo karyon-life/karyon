@@ -116,6 +116,18 @@
       "default": "./dist/tenant/config.js"
     },
     "./contracts": "./dist/contracts.js",
+    "./plugin-default": {
+      "types": "./dist/plugin-default.d.ts",
+      "default": "./dist/plugin-default.js"
+    },
+    "./plugins/plugin": {
+      "types": "./dist/plugins/plugin.d.ts",
+      "default": "./dist/plugins/plugin.js"
+    },
+    "./plugins/runtime": {
+      "types": "./dist/plugins/runtime.d.ts",
+      "default": "./dist/plugins/runtime.js"
+    },
     "./types/agents": "./dist/types/agents.js",
     "./types/cloudflare": "./dist/types/cloudflare.js",
     "./agents/registry-helper": "./dist/agents/registry-helper.js",

@@ -1,5 +1,9 @@
-import type { TreeseedAgentMode, TreeseedDeployConfig, TreeseedFormsMode } from '../contracts';
+import type { TreeseedDeployConfig } from '../contracts';
 import { loadTreeseedDeployConfig } from './config';
+import {
+	TREESEED_DEFAULT_PLUGIN_REFERENCES,
+	TREESEED_DEFAULT_PROVIDER_SELECTIONS,
+} from '../plugins/constants.mjs';
 
 declare const __TREESEED_DEPLOY_CONFIG__: TreeseedDeployConfig | undefined;
 
@@ -15,12 +19,8 @@ function defaultDeployConfig(): TreeseedDeployConfig {
 			accountId: '',
 			workerName: 'treeseed-site',
 		},
-		forms: {
-			mode: 'store_only',
-		},
-		agents: {
-			mode: 'stub',
-		},
+		plugins: [...TREESEED_DEFAULT_PLUGIN_REFERENCES],
+		providers: structuredClone(TREESEED_DEFAULT_PROVIDER_SELECTIONS),
 		smtp: {
 			enabled: false,
 		},
@@ -53,12 +53,24 @@ export function resetTreeseedDeployConfigForTests() {
 	cachedDeployConfig = null;
 }
 
-export function getTreeseedFormsMode(): TreeseedFormsMode {
-	return getTreeseedDeployConfig().forms?.mode ?? 'store_only';
+export function getTreeseedFormsProvider() {
+	return getTreeseedDeployConfig().providers?.forms ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.forms;
 }
 
-export function getTreeseedAgentMode(): TreeseedAgentMode {
-	return getTreeseedDeployConfig().agents?.mode ?? 'stub';
+export function getTreeseedAgentProviderSelections() {
+	return getTreeseedDeployConfig().providers?.agents ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.agents;
+}
+
+export function getTreeseedDeployProvider() {
+	return getTreeseedDeployConfig().providers?.deploy ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.deploy;
+}
+
+export function getTreeseedDocsProvider() {
+	return getTreeseedDeployConfig().providers?.content?.docs ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.content.docs;
+}
+
+export function getTreeseedSiteProvider() {
+	return getTreeseedDeployConfig().providers?.site ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.site;
 }
 
 export function isTreeseedSmtpEnabled() {

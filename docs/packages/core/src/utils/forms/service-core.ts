@@ -1,16 +1,6 @@
 import { CONTACT_TYPE_LABELS, FORM_SESSION_COOKIE, HONEYPOT_FIELD } from './constants';
 import { buildRedirectTarget, getRemoteIp, sanitizeRedirectTo } from './http';
-import {
-	assertNonceUnused,
-	assertNonceUnusedLocal,
-	applySubmissionRateLimit,
-	applySubmissionRateLimitLocal,
-} from './guard';
 import { issueFormToken, verifyIssuedToken, createSessionCookie } from './session';
-import { createContactSubmission } from './contact-submissions';
-import { upsertSubscriber } from './subscribers';
-import { sendEmail } from './smtp';
-import { verifyTurnstileToken } from './turnstile';
 import { parsePayload, validatePayload } from './validation';
 import { hashValue } from './crypto';
 import { resolveContactRecipientsFromMap } from './routing-core';
@@ -24,7 +14,8 @@ import type {
 	SubscribeSubmission,
 	SubscriberStore,
 } from '../../types/forms';
-import type { D1DatabaseLike, KvNamespaceLike } from '../../types/cloudflare';
+import { getTreeseedFormsProvider } from '../../deploy/runtime';
+import { resolveFormsProvider } from '../plugin-runtime';
 
 interface SmtpConfig {
 	host: string;
@@ -58,51 +49,6 @@ export interface FormRequestContext {
 	getCookie(name: string): string | undefined;
 	redirect(location: string, status: number): Response;
 	setCookie?(cookie: { name: string; value: string; options: Record<string, unknown> }): void;
-}
-
-function createGuardStore(runtime: FormRuntimeCapabilities, kv: KvNamespaceLike | null) {
-	return {
-		assertNonceUnused(nonce: string) {
-			if (runtime.isCloudflareRuntime && kv && !runtime.bypassCloudflareGuards) {
-				return assertNonceUnused(kv, nonce);
-			}
-
-			return assertNonceUnusedLocal(nonce);
-		},
-		applyRateLimit(remoteIp: string, email: string, formType: string) {
-			if (runtime.isCloudflareRuntime && kv && !runtime.bypassCloudflareGuards) {
-				return applySubmissionRateLimit(kv, remoteIp, email, formType);
-			}
-
-			return applySubmissionRateLimitLocal(remoteIp, email, formType);
-		},
-	};
-}
-
-function createSubscriberStore(runtime: FormRuntimeCapabilities, db: D1DatabaseLike | null): SubscriberStore {
-	return {
-		async upsert(input) {
-			if (runtime.isCloudflareRuntime && db) {
-				return upsertSubscriber(db, input);
-			}
-
-			const { upsertLocalSubscriber } = await import('./subscribers-local');
-			return upsertLocalSubscriber(input);
-		},
-	};
-}
-
-function createContactStore(runtime: FormRuntimeCapabilities, db: D1DatabaseLike | null): ContactSubmissionStore {
-	return {
-		async create(input) {
-			if (runtime.isCloudflareRuntime && db) {
-				return createContactSubmission(db, input);
-			}
-
-			const { createLocalContactSubmission } = await import('./contact-submissions-local');
-			return createLocalContactSubmission(input);
-		},
-	};
 }
 
 function resultFor(formType: FormSubmitPayload['formType'], redirectTo: string, ok: boolean, code: SubmitResult['code'], message: string): SubmitResult {
@@ -144,13 +90,14 @@ async function sendContactEmail(
 	request: Request,
 	runtime: FormRuntimeCapabilities,
 	config: FormServiceConfig,
+	formsProvider = resolveFormsProvider(getTreeseedFormsProvider()),
 ) {
 	const recipients = resolveContactRecipientsFromMap(config.contactRouting, payload.contactType);
 	if (!recipients.length) {
 		throw new Error('No contact recipients configured for this route.');
 	}
 
-	await sendEmail(
+	await formsProvider.sendEmail(
 		{
 			to: recipients,
 			subject: `[Karyon Contact] ${payload.subject}`,
@@ -187,6 +134,7 @@ async function handleSubscribe(
 	subscriberStore: SubscriberStore,
 	runtime: FormRuntimeCapabilities,
 	config: FormServiceConfig,
+	formsProvider = resolveFormsProvider(getTreeseedFormsProvider()),
 ) {
 	await subscriberStore.upsert({
 		email: payload.email,
@@ -198,7 +146,7 @@ async function handleSubscribe(
 	const notifyRecipients = config.subscribeRecipients;
 	const ipHash = await hashValue(remoteIp || 'unknown');
 
-	if (runtime.formsMode === 'store_only') {
+	if (!formsProvider.behavior.subscribe.notifyAdmin && !formsProvider.behavior.subscribe.sendConfirmation) {
 		return;
 	}
 
@@ -207,7 +155,7 @@ async function handleSubscribe(
 			return;
 		}
 
-		await sendEmail({
+		await formsProvider.sendEmail({
 			to: notifyRecipients,
 			subject: '[Karyon Updates] New subscriber',
 			text: [
@@ -222,8 +170,8 @@ async function handleSubscribe(
 		}, runtime, { smtp: config.smtpConfig, siteUrl: config.siteUrl });
 	};
 
-	if (runtime.formsMode === 'notify_admin') {
-		if (!runtime.smtpEnabled) {
+	if (!formsProvider.behavior.subscribe.sendConfirmation) {
+		if (formsProvider.behavior.subscribe.requireSmtp && !runtime.smtpEnabled) {
 			return;
 		}
 
@@ -241,7 +189,7 @@ async function handleSubscribe(
 
 	await notifyAdmin();
 
-	await sendEmail({
+	await formsProvider.sendEmail({
 		to: [payload.email],
 		subject: 'You are subscribed to Karyon updates',
 		text: [
@@ -285,9 +233,19 @@ export async function handleTokenRequestWithConfig(context: FormRequestContext, 
 export async function handleFormSubmissionWithConfig(context: FormRequestContext, config: FormServiceConfig) {
 	const bindings = config.bindings ?? {};
 	const runtime = config.runtime;
-	const guardStore = createGuardStore(runtime, bindings.FORM_GUARD_KV ?? null);
-	const subscriberStore = createSubscriberStore(runtime, bindings.SITE_DATA_DB ?? null);
-	const contactStore = createContactStore(runtime, bindings.SITE_DATA_DB ?? null);
+	const formsProvider = resolveFormsProvider(getTreeseedFormsProvider());
+	const guardStore = formsProvider.createGuardStore({
+		runtime,
+		kv: bindings.FORM_GUARD_KV ?? null,
+	});
+	const subscriberStore = formsProvider.createSubscriberStore({
+		runtime,
+		db: bindings.SITE_DATA_DB ?? null,
+	});
+	const contactStore = formsProvider.createContactStore({
+		runtime,
+		db: bindings.SITE_DATA_DB ?? null,
+	});
 	const formData = await context.request.formData();
 	const payload = parsePayload(formData);
 
@@ -350,7 +308,7 @@ export async function handleFormSubmissionWithConfig(context: FormRequestContext
 	}
 
 	const turnstileToken = typeof formData.get('cf-turnstile-response') === 'string' ? String(formData.get('cf-turnstile-response')) : '';
-	const turnstileResult = await verifyTurnstileToken(
+	const turnstileResult = await formsProvider.verifyTurnstileToken(
 		turnstileToken,
 		remoteIp,
 		payload.formType === 'contact' ? 'contact_submit' : 'subscribe_submit',
@@ -364,23 +322,24 @@ export async function handleFormSubmissionWithConfig(context: FormRequestContext
 	try {
 		if (payload.formType === 'contact') {
 			await persistContactSubmission(payload, remoteIp, context.request, contactStore);
-			if (runtime.formsMode === 'full_email') {
-				if (!runtime.smtpEnabled) {
-					return resultFor(payload.formType, redirectTo, false, 'config_error', 'SMTP must be configured for this form mode.');
+			if (formsProvider.behavior.contact.requireSmtp && !runtime.smtpEnabled) {
+				return resultFor(payload.formType, redirectTo, false, 'config_error', 'SMTP must be configured for this form mode.');
+			}
+			if (formsProvider.behavior.contact.notifyAdmin) {
+				if (!formsProvider.behavior.contact.requireSmtp && !runtime.smtpEnabled) {
+					return resultFor(payload.formType, redirectTo, true, 'success', 'Thanks, your submission has been received.');
 				}
-				await sendContactEmail(payload, remoteIp, context.request, runtime, config);
-			} else if (runtime.formsMode === 'notify_admin' && runtime.smtpEnabled) {
 				try {
-					await sendContactEmail(payload, remoteIp, context.request, runtime, config);
+					await sendContactEmail(payload, remoteIp, context.request, runtime, config, formsProvider);
 				} catch (error) {
 					console.warn('Contact notification email failed', error);
 				}
 			}
 		} else {
-			if (runtime.formsMode === 'full_email' && !runtime.smtpEnabled) {
+			if (formsProvider.behavior.subscribe.requireSmtp && !runtime.smtpEnabled) {
 				return resultFor(payload.formType, redirectTo, false, 'config_error', 'SMTP must be configured for this form mode.');
 			}
-			await handleSubscribe(payload, remoteIp, context.request, subscriberStore, runtime, config);
+			await handleSubscribe(payload, remoteIp, context.request, subscriberStore, runtime, config, formsProvider);
 		}
 	} catch (error) {
 		console.error('Form submission failed', error);

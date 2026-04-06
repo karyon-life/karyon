@@ -2,9 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { resolveTreeseedTenantRoot } from '../tenant/config.mjs';
-
-const FORMS_MODES = new Set(['store_only', 'notify_admin', 'full_email']);
-const AGENT_MODES = new Set(['stub', 'manual', 'copilot']);
+import {
+	TREESEED_DEFAULT_PLUGIN_REFERENCES,
+	TREESEED_DEFAULT_PROVIDER_SELECTIONS,
+} from '../plugins/constants.mjs';
 
 function expectString(value, label) {
 	if (typeof value !== 'string' || !value.trim()) {
@@ -34,37 +35,88 @@ function optionalBoolean(value, label) {
 	return value;
 }
 
-function optionalFormsMode(value) {
-	if (value === undefined) {
-		return 'store_only';
+function optionalRecord(value, label) {
+	if (value === undefined || value === null) {
+		return undefined;
 	}
 
-	const normalized = expectString(value, 'forms.mode');
-	if (!FORMS_MODES.has(normalized)) {
-		throw new Error(`Invalid deploy config: unsupported forms.mode "${normalized}".`);
+	if (typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error(`Invalid deploy config: expected ${label} to be an object when provided.`);
 	}
 
-	return normalized;
+	return value;
 }
 
-function optionalAgentMode(value) {
+function parsePluginReferences(value) {
 	if (value === undefined) {
-		return 'stub';
+		return [...TREESEED_DEFAULT_PLUGIN_REFERENCES];
 	}
 
-	const normalized = expectString(value, 'agents.mode');
-	if (!AGENT_MODES.has(normalized)) {
-		throw new Error(`Invalid deploy config: unsupported agents.mode "${normalized}".`);
+	if (!Array.isArray(value)) {
+		throw new Error('Invalid deploy config: expected plugins to be an array.');
 	}
 
-	return normalized;
+	return value.map((entry, index) => {
+		const record = optionalRecord(entry, `plugins[${index}]`);
+		return {
+			package: expectString(record?.package, `plugins[${index}].package`),
+			enabled: record?.enabled === undefined ? true : optionalBoolean(record.enabled, `plugins[${index}].enabled`),
+			config: record?.config === undefined ? {} : optionalRecord(record.config, `plugins[${index}].config`),
+		};
+	});
+}
+
+function parseProviderSelections(value) {
+	const record = optionalRecord(value, 'providers');
+	if (!record) {
+		return structuredClone(TREESEED_DEFAULT_PROVIDER_SELECTIONS);
+	}
+
+	const agentProviders = optionalRecord(record.agents, 'providers.agents') ?? {};
+	const contentProviders = optionalRecord(record.content, 'providers.content') ?? {};
+
+	return {
+		forms: expectString(record.forms ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.forms, 'providers.forms'),
+		agents: {
+			execution: expectString(
+				agentProviders.execution ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.agents.execution,
+				'providers.agents.execution',
+			),
+			mutation: expectString(
+				agentProviders.mutation ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.agents.mutation,
+				'providers.agents.mutation',
+			),
+			repository: expectString(
+				agentProviders.repository ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.agents.repository,
+				'providers.agents.repository',
+			),
+			verification: expectString(
+				agentProviders.verification ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.agents.verification,
+				'providers.agents.verification',
+			),
+			notification: expectString(
+				agentProviders.notification ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.agents.notification,
+				'providers.agents.notification',
+			),
+			research: expectString(
+				agentProviders.research ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.agents.research,
+				'providers.agents.research',
+			),
+		},
+		deploy: expectString(record.deploy ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.deploy, 'providers.deploy'),
+		content: {
+			docs: expectString(
+				contentProviders.docs ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.content.docs,
+				'providers.content.docs',
+			),
+		},
+		site: expectString(record.site ?? TREESEED_DEFAULT_PROVIDER_SELECTIONS.site, 'providers.site'),
+	};
 }
 
 function parseDeployConfig(raw) {
 	const parsed = parseYaml(raw) ?? {};
 	const cloudflare = parsed.cloudflare ?? {};
-	const forms = parsed.forms ?? {};
-	const agents = parsed.agents ?? {};
 	const smtp = parsed.smtp ?? {};
 	const turnstile = parsed.turnstile ?? {};
 	optionalBoolean(turnstile.enabled, 'turnstile.enabled');
@@ -78,12 +130,8 @@ function parseDeployConfig(raw) {
 			accountId: optionalString(cloudflare.accountId) ?? optionalString(process.env.CLOUDFLARE_ACCOUNT_ID) ?? 'replace-with-cloudflare-account-id',
 			workerName: optionalString(cloudflare.workerName),
 		},
-		forms: {
-			mode: optionalFormsMode(forms.mode),
-		},
-		agents: {
-			mode: optionalAgentMode(agents.mode),
-		},
+		plugins: parsePluginReferences(parsed.plugins),
+		providers: parseProviderSelections(parsed.providers),
 		smtp: {
 			enabled: optionalBoolean(smtp.enabled, 'smtp.enabled'),
 		},

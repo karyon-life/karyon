@@ -2,6 +2,8 @@ import { defineCollection, reference } from 'astro:content';
 import { z } from 'astro/zod';
 import { glob } from 'astro/loaders';
 import { AGENT_CLI_ALLOW_TOOLS } from './types/agents';
+import { loadTreeseedPluginRuntime } from './plugins/runtime.mjs';
+import { loadTreeseedDeployConfig } from './deploy/config.mjs';
 import {
 	AGENT_MODEL_DEFAULTS,
 	BOOK_MODEL_DEFAULTS,
@@ -19,7 +21,6 @@ const questionTypeValues = ['research', 'implementation', 'strategy', 'evaluatio
 const timeHorizonValues = ['near-term', 'mid-term', 'long-term'];
 const runtimeStatusValues = ['active', 'experimental', 'dormant'];
 const agentTriggerTypeValues = ['schedule', 'message', 'follow', 'startup'];
-const agentHandlerValues = ['planner', 'architect', 'engineer', 'notifier', 'researcher', 'reviewer', 'releaser'];
 const agentPermissionOperationValues = ['get', 'search', 'follow', 'pick', 'create', 'update'];
 
 function withOptionalDefault(schema, defaultValue) {
@@ -39,6 +40,40 @@ function createKnowledgeDocId({ entry, data }) {
 	}
 
 	return normalized ? `knowledge/${normalized}` : 'knowledge';
+}
+
+function resolveDocsCollectionProvider(tenantConfig, dependencies) {
+	const pluginRuntime = loadTreeseedPluginRuntime(loadTreeseedDeployConfig());
+	const selectedId = pluginRuntime.config.providers.content.docs;
+
+	if (selectedId === 'default') {
+		return {
+			loader: dependencies.docsLoader({ generateId: createKnowledgeDocId }),
+			schema: dependencies.docsSchema({
+				extend: z.object({
+					tags: z.array(z.string()).default(TREESEED_MODEL_DEFAULTS.tags ?? []),
+				}),
+			}),
+		};
+	}
+
+	for (const { plugin, config, package: packageName } of pluginRuntime.plugins) {
+		const docsProviders = plugin.contentProviders?.docs ?? {};
+		if (!(selectedId in docsProviders)) {
+			continue;
+		}
+		const resolved = docsProviders[selectedId]({
+			tenantConfig,
+			dependencies,
+			pluginConfig: config ?? {},
+		});
+		if (!resolved?.loader || !resolved?.schema) {
+			throw new Error(`Treeseed docs provider "${selectedId}" from "${packageName}" must return loader and schema.`);
+		}
+		return resolved;
+	}
+
+	throw new Error(`Treeseed docs provider "${selectedId}" is not registered.`);
 }
 
 export function createTreeseedCollections(tenantConfig, { docsLoader, docsSchema }) {
@@ -159,7 +194,7 @@ export function createTreeseedCollections(tenantConfig, { docsLoader, docsSchema
 	const agentSchema = z.object({
 		name: z.string(),
 		slug: z.string(),
-		handler: z.enum(agentHandlerValues),
+		handler: z.string(),
 		enabled: z.boolean().default(true),
 		description: z.string(),
 		summary: z.string(),
@@ -198,9 +233,7 @@ export function createTreeseedCollections(tenantConfig, { docsLoader, docsSchema
 		tags: z.array(z.string()).default(BOOK_MODEL_DEFAULTS.tags ?? []),
 	});
 
-	const docsExtensionSchema = z.object({
-		tags: z.array(z.string()).default(TREESEED_MODEL_DEFAULTS.tags ?? []),
-	});
+	const docsCollectionProvider = resolveDocsCollectionProvider(tenantConfig, { docsLoader, docsSchema });
 
 	return {
 		pages: defineCollection({ loader: glob({ pattern: '**/*.{md,mdx}', base: tenantConfig.content.pages }), schema: pageSchema }),
@@ -211,8 +244,8 @@ export function createTreeseedCollections(tenantConfig, { docsLoader, docsSchema
 		agents: defineCollection({ loader: glob({ pattern: '**/*.{md,mdx}', base: tenantConfig.content.agents }), schema: agentSchema }),
 		books: defineCollection({ loader: glob({ pattern: '**/*.{md,mdx}', base: tenantConfig.content.books }), schema: bookSchema }),
 		docs: defineCollection({
-			loader: docsLoader({ generateId: createKnowledgeDocId }),
-			schema: docsSchema({ extend: docsExtensionSchema }),
+			loader: docsCollectionProvider.loader,
+			schema: docsCollectionProvider.schema,
 		}),
 	};
 }

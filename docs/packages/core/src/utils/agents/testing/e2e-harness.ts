@@ -186,7 +186,7 @@ export async function createAgentTestRuntime(options?: {
 	const persistTo = path.join(rootDir, '.wrangler-state');
 	const docsRoot = resolveDocsRoot();
 	const previousContentRoot = process.env.TREESEED_AGENT_CONTENT_ROOT;
-	const previousExecutionMode = process.env.TREESEED_AGENT_EXECUTION_MODE;
+	const previousExecutionMode = process.env.TREESEED_AGENT_EXECUTION_PROVIDER;
 
 	await cp(docsRoot, repoRoot, {
 		recursive: true,
@@ -207,7 +207,7 @@ export async function createAgentTestRuntime(options?: {
 	});
 
 	process.env.TREESEED_AGENT_CONTENT_ROOT = path.join(repoRoot, 'src', 'content');
-	process.env.TREESEED_AGENT_EXECUTION_MODE = options?.executionMode ?? 'stub';
+	process.env.TREESEED_AGENT_EXECUTION_PROVIDER = options?.executionMode ?? 'stub';
 
 	await mkdir(persistTo, { recursive: true });
 	await initializeSandboxRepo(repoRoot);
@@ -368,9 +368,9 @@ export async function createAgentTestRuntime(options?: {
 				process.env.TREESEED_AGENT_CONTENT_ROOT = previousContentRoot;
 			}
 			if (previousExecutionMode === undefined) {
-				delete process.env.TREESEED_AGENT_EXECUTION_MODE;
+				delete process.env.TREESEED_AGENT_EXECUTION_PROVIDER;
 			} else {
-				process.env.TREESEED_AGENT_EXECUTION_MODE = previousExecutionMode;
+				process.env.TREESEED_AGENT_EXECUTION_PROVIDER = previousExecutionMode;
 			}
 			await rm(rootDir, { recursive: true, force: true });
 		},
