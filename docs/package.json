@@ -10,6 +10,7 @@
   "scripts": {
     "starlight:patch": "treeseed starlight:patch",
     "postinstall": "npm run starlight:patch",
+    "save": "treeseed save",
     "dev": "treeseed dev",
     "dev:watch": "treeseed dev --watch",
     "start": "npm run dev",

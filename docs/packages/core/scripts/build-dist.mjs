@@ -138,7 +138,15 @@ function rewriteScriptRuntimeSpecifiers(contents) {
 		.replace(/(['"`])\.\.\/src\//g, '$1../')
 		.replace(/(['"`])\.\/src\//g, '$1./dist/')
 		.replaceAll("'src/worker/forms-worker.ts'", "'dist/worker/forms-worker.js'")
-		.replaceAll('"src/worker/forms-worker.ts"', '"dist/worker/forms-worker.js"');
+		.replaceAll('"src/worker/forms-worker.ts"', '"dist/worker/forms-worker.js"')
+		.replaceAll("'../src/deploy/config.mjs'", "'../deploy/config.js'")
+		.replaceAll('"../src/deploy/config.mjs"', '"../deploy/config.js"')
+		.replaceAll("'./github-automation-lib.mjs'", "'./github-automation-lib.js'")
+		.replaceAll('"./github-automation-lib.mjs"', '"./github-automation-lib.js"')
+		.replaceAll("'./workspace-save-lib.mjs'", "'./workspace-save-lib.js'")
+		.replaceAll('"./workspace-save-lib.mjs"', '"./workspace-save-lib.js"')
+		.replaceAll("'./workspace-tools.mjs'", "'./workspace-tools.js'")
+		.replaceAll('"./workspace-tools.mjs"', '"./workspace-tools.js"');
 }
 
 async function compileModule(filePath, sourceRoot, outputRoot) {

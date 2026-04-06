@@ -13,6 +13,7 @@ import {
 	syncCloudflareSecrets,
 	validateDeployPrerequisites,
 } from './deploy-lib.mjs';
+import { ensureDeployWorkflow, ensureGitHubSecrets } from './github-automation-lib.mjs';
 import { packageScriptPath, wranglerBin } from './package-tools.mjs';
 
 const tenantRoot = process.cwd();
@@ -87,11 +88,21 @@ if (options.name) {
 	console.log(`Deploy target label: ${options.name}`);
 }
 
+const workflowStatus = ensureDeployWorkflow(tenantRoot);
+if (workflowStatus.changed) {
+	console.log(`Updated deploy workflow at ${workflowStatus.workflowPath}.`);
+}
+
 if (needsRemoteAccess) {
 	const { prompted, provided } = await promptForMissingDeployInputs(tenantRoot);
 	if (prompted && provided.length > 0) {
 		console.log(`Captured ${provided.length} missing deploy value(s) for this run.`);
 	}
+}
+
+const secretStatus = ensureGitHubSecrets(tenantRoot, { dryRun: options.dryRun });
+if (secretStatus.created.length > 0) {
+	console.log(`${options.dryRun ? 'Would create' : 'Created'} ${secretStatus.created.length} GitHub secret(s).`);
 }
 
 if (needsRemoteAccess) {

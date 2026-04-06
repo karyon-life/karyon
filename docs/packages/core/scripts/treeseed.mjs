@@ -32,6 +32,7 @@ const WORKSPACE_COMMANDS = new Map([
 	['test:release:full', { script: packageScriptPath('workspace-release-verify'), extraArgs: ['--full-smoke'] }],
 	['release:verify', { script: packageScriptPath('workspace-release-verify'), extraArgs: ['--full-smoke'] }],
 	['release:publish:changed', { script: packageScriptPath('workspace-publish-changed-packages'), extraArgs: [] }],
+	['save', { script: packageScriptPath('workspace-save'), extraArgs: [] }],
 ]);
 
 const PACKAGE_SCRIPT_COMMANDS = new Set(['test', 'test:unit', 'test:integration', 'test:e2e', 'test:smoke']);
