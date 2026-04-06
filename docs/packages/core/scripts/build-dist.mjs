@@ -459,6 +459,11 @@ async function main() {
 		"import { docsLoader } from './vendor/starlight/loaders.js';\nimport { docsSchema } from './vendor/starlight/schema.js';\nimport { createTreeseedCollections } from './content.js';\nimport { loadTreeseedManifest } from './tenant/config.js';\n\nexport function createTreeseedTenantCollections(manifestPath) {\n\tconst tenant = loadTreeseedManifest(manifestPath);\n\treturn createTreeseedCollections(tenant, { docsLoader, docsSchema });\n}"
 	);
 
+	writeCompatibilityEntrypoint(
+		resolve(vendoredStarlightRoot, 'utils', 'routing.js'),
+		"export * from './routing/index.js';"
+	);
+
 	copyAsset(resolve(packageRoot, 'tsconfigs/strict.json'), packageRoot, distRoot);
 	copyPackageAsset('@astrojs/mdx', 'template/content-module-types.d.ts', 'template/content-module-types.d.ts');
 	copyPackageAsset('@astrojs/mdx', 'dist/server.js', 'dist/server.js');

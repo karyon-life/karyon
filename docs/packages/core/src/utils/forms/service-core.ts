@@ -4,6 +4,7 @@ import { issueFormToken, verifyIssuedToken, createSessionCookie } from './sessio
 import { parsePayload, validatePayload } from './validation';
 import { hashValue } from './crypto';
 import { resolveContactRecipientsFromMap } from './routing-core';
+import type { TreeseedFormsProvider } from './provider-core';
 import type {
 	ContactSubmission,
 	ContactSubmissionStore,
@@ -14,8 +15,6 @@ import type {
 	SubscribeSubmission,
 	SubscriberStore,
 } from '../../types/forms';
-import { getTreeseedFormsProvider } from '../../deploy/runtime';
-import { resolveFormsProvider } from '../plugin-runtime';
 
 interface SmtpConfig {
 	host: string;
@@ -35,6 +34,7 @@ export interface FormServiceBindings {
 export interface FormServiceConfig {
 	runtime: FormRuntimeCapabilities;
 	bindings?: FormServiceBindings | null;
+	formsProvider: Required<TreeseedFormsProvider>;
 	formSecret: string;
 	turnstileSecret?: string;
 	contactRouting: ContactRoutingMap;
@@ -90,7 +90,7 @@ async function sendContactEmail(
 	request: Request,
 	runtime: FormRuntimeCapabilities,
 	config: FormServiceConfig,
-	formsProvider = resolveFormsProvider(getTreeseedFormsProvider()),
+	formsProvider = config.formsProvider,
 ) {
 	const recipients = resolveContactRecipientsFromMap(config.contactRouting, payload.contactType);
 	if (!recipients.length) {
@@ -134,7 +134,7 @@ async function handleSubscribe(
 	subscriberStore: SubscriberStore,
 	runtime: FormRuntimeCapabilities,
 	config: FormServiceConfig,
-	formsProvider = resolveFormsProvider(getTreeseedFormsProvider()),
+	formsProvider = config.formsProvider,
 ) {
 	await subscriberStore.upsert({
 		email: payload.email,
@@ -233,7 +233,7 @@ export async function handleTokenRequestWithConfig(context: FormRequestContext, 
 export async function handleFormSubmissionWithConfig(context: FormRequestContext, config: FormServiceConfig) {
 	const bindings = config.bindings ?? {};
 	const runtime = config.runtime;
-	const formsProvider = resolveFormsProvider(getTreeseedFormsProvider());
+	const formsProvider = config.formsProvider;
 	const guardStore = formsProvider.createGuardStore({
 		runtime,
 		kv: bindings.FORM_GUARD_KV ?? null,

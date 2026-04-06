@@ -72,12 +72,12 @@ const PACKAGE_ROUTE_ENTRIES: Array<{ pattern: string; entrypoint?: string; resou
 	{ pattern: '/questions/[slug]', resourcePath: 'pages/questions/[slug].astro' },
 ];
 
-function createTreeseedRoutesIntegration(tenantConfig: TreeseedTenantConfig, extraRoutes: SiteRoute[] = []) {
+function createTreeseedRoutesIntegration(tenantConfig: TreeseedTenantConfig, routes: SiteRoute[] = []) {
 	return {
 		name: 'treeseed-routes',
 		hooks: {
 			'astro:config:setup'({ injectRoute }: { injectRoute: (route: SiteRoute) => void }) {
-				for (const route of [...PACKAGE_ROUTE_ENTRIES, ...extraRoutes]) {
+				for (const route of routes) {
 					if (route.pattern.startsWith('/agents') && tenantConfig.features?.agents === false) continue;
 					if (route.pattern.startsWith('/books') && tenantConfig.features?.books === false) continue;
 					if (route.pattern.startsWith('/notes') && tenantConfig.features?.notes === false) continue;

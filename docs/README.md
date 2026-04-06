@@ -67,6 +67,111 @@ That install now sets up the local workspace for:
 
 Local contributors should treat `docs/` as the top-level orchestrator. Downstream consumers should still think of this as an npm-installed tenant.
 
+## Initialization And First Run
+
+If you are setting this project up on a machine for the first time, this is the fastest path to a working authoring environment.
+
+### 1. Prerequisites
+
+Install these tools first:
+
+- Node.js 20 or newer
+- npm 10 or newer
+- Docker Desktop or a compatible local Docker runtime
+- Git
+- GitHub CLI (`gh`) if you plan to use `treeseed save` or CI/deploy automation locally
+
+Why each one matters:
+
+- Node and npm run the tenant site, the Treeseed packages, the build pipeline, and the CLI
+- Docker is used for local Mailpit email testing
+- Git is required for save flows, release checks, and normal contributor workflow
+- `gh` is only required for GitHub automation and save/deploy workflows that sync workflow or secret state
+
+### 2. Install Dependencies
+
+From the `docs/` directory:
+
+```bash
+cd docs
+npm install
+```
+
+This workspace install prepares:
+
+- the Karyon tenant in `docs/`
+- `@treeseed/core` in `docs/packages/core`
+- `@treeseed/sdk` in `docs/packages/sdk`
+- `@treeseed/cli` in `docs/packages/cli`
+- `@treeseed/agent` in `docs/packages/agent`
+
+After install, the normal contributor entrypoint is the `treeseed` CLI exposed through `npm run ...` scripts in this directory.
+
+### 3. Create `.env.local`
+
+Copy the example file:
+
+```bash
+cp .env.local.example .env.local
+```
+
+For simple local content work, the example values are intentionally enough to get started. You do not need production secrets just to run the site, edit Markdown, or preview content locally.
+
+### 4. Start The Local Environment
+
+Run:
+
+```bash
+npm run dev
+```
+
+That command brings up the full local authoring environment:
+
+- the Astro site
+- the tiny Treeseed Worker runtime for `/api/*`
+- local D1 and KV bindings
+- Mailpit for local form email testing
+- generated book exports
+
+For active platform work across `sdk`, `core`, and the tenant, use:
+
+```bash
+npm run dev:watch
+```
+
+### 5. Make A Content Change
+
+The most common files to edit are:
+
+- `src/content/pages/*.mdx` for top-level site pages
+- `src/content/notes/*.mdx` for notes
+- `src/content/books/*.mdx` for books
+- `src/content/knowledge/**` for docs/starlight knowledge content
+- `src/content/objectives/*.mdx` for objectives
+- `src/content/questions/*.mdx` for questions
+- `src/content/people/*.mdx` for profiles
+
+Typical authoring loop:
+
+1. start `npm run dev`
+2. edit a content file
+3. reload the local site
+4. run `npm run check` before finishing a larger change
+5. run `npm run cleanup:markdown -- <path>` if a file needs formatting cleanup
+
+### 6. Validate Before Saving
+
+Treeseed now treats validation as part of the normal workflow.
+
+Useful commands:
+
+- `npm run lint`
+- `npm run test`
+- `npm run build`
+- `npm run check`
+
+`treeseed save` and `treeseed deploy` now run `lint`, `test`, and `build` before any real save or deploy mutation occurs.
+
 Main commands:
 
 | Command | Action |
@@ -113,6 +218,98 @@ Important notes:
 - production builds explicitly clear local-only bypass flags
 - the tenant no longer owns a `compose.yml`; Mailpit is managed by the package CLI
 
+### Required And Common Environment Variables
+
+This section is intentionally practical. The variables below are grouped by when you actually need them.
+
+#### Required For Basic Local Authoring
+
+These should exist in `.env.local` for a normal local setup:
+
+- `TREESEED_LOCAL_DEV_MODE=cloudflare`
+  Enables the local Cloudflare-style runtime contract used by Treeseed.
+
+- `TREESEED_FORM_TOKEN_SECRET`
+  Required for local form token issuance and validation. The example file already provides a safe local development value.
+
+- `TREESEED_FORMS_LOCAL_USE_MAILPIT=true`
+  Routes form email to Mailpit instead of a real SMTP server.
+
+- `TREESEED_MAILPIT_SMTP_HOST=127.0.0.1`
+- `TREESEED_MAILPIT_SMTP_PORT=1025`
+- `TREESEED_MAILPIT_UI_PORT=8025`
+  These define the local Mailpit runtime used during `npm run dev`.
+
+#### Recommended For Easy Local Form Testing
+
+- `TREESEED_FORMS_LOCAL_BYPASS_TURNSTILE=true`
+- `TREESEED_PUBLIC_FORMS_LOCAL_BYPASS_TURNSTILE=true`
+  These let local forms work without real Turnstile credentials during content and UI development.
+
+- `TREESEED_FORMS_LOCAL_BYPASS_CLOUDFLARE_GUARDS=false`
+  Normally leave this `false`. It keeps nonce and rate-limit behavior closer to real runtime expectations.
+
+- `TREESEED_SMTP_HOST=127.0.0.1`
+- `TREESEED_SMTP_PORT=1025`
+- `TREESEED_SMTP_FROM=Karyon Docs <docs@localhost.test>`
+- `TREESEED_SMTP_REPLY_TO=`
+- `TREESEED_SMTP_USERNAME=`
+- `TREESEED_SMTP_PASSWORD=`
+  With Mailpit enabled, these can stay local and non-secret.
+
+- `TREESEED_CONTACT_ROUTING_JSON=...`
+- `TREESEED_SUBSCRIBE_NOTIFY_RECIPIENTS=...`
+  These control where contact and subscription notifications go in local development.
+
+#### Needed For Real Turnstile Validation
+
+- `TREESEED_PUBLIC_TURNSTILE_SITE_KEY`
+- `TREESEED_TURNSTILE_SECRET_KEY`
+
+For local authoring, these may stay empty if Turnstile bypass is enabled.
+
+For production deploys, they should be treated as required.
+
+#### Needed For `treeseed save` Against A Real GitHub-Integrated Repo
+
+- valid `gh` authentication via `gh auth login -h github.com`
+
+If the save flow is expected to sync GitHub workflows and deploy secrets, the environment must also include:
+
+- `CLOUDFLARE_API_TOKEN`
+- `TREESEED_FORM_TOKEN_SECRET`
+- `TREESEED_PUBLIC_TURNSTILE_SITE_KEY`
+- `TREESEED_TURNSTILE_SECRET_KEY`
+
+Treeseed now fails save early if those are required and missing.
+
+#### Needed For Real Deploys
+
+- `CLOUDFLARE_API_TOKEN`
+- `TREESEED_FORM_TOKEN_SECRET`
+- `TREESEED_PUBLIC_TURNSTILE_SITE_KEY`
+- `TREESEED_TURNSTILE_SECRET_KEY`
+- SMTP credentials when SMTP-backed forms are enabled
+
+Cloudflare account and worker identity are read from `treeseed.site.yaml`, while secrets come from environment or CI secrets.
+
+### Environment Files And Their Roles
+
+- `.env.local`
+  The source-of-truth local environment file you edit by hand.
+
+- `.dev.vars`
+  A generated Wrangler-local environment file. Do not hand-edit this unless you are debugging generation behavior.
+
+- `.env.local.example`
+  A starter reference showing the expected local variable set.
+
+When in doubt:
+
+1. edit `.env.local`
+2. run `npm run sync:devvars`
+3. restart local dev if necessary
+
 ## Deployment
 
 Treeseed deploys this site with a single command:
@@ -148,6 +345,19 @@ For automated deploys, keep these secrets in GitHub Actions:
 - SMTP secrets when SMTP is enabled
 
 Treeseed deploy now treats Turnstile as part of the standard production contract, so production deploys should always provide the public site key and the secret key.
+
+### Minimal Deploy Checklist
+
+Before the first real deploy, confirm:
+
+1. `treeseed.site.yaml` has the correct `name`, `slug`, `siteUrl`, `cloudflare.accountId`, and `cloudflare.workerName`
+2. `.env.local` or CI secrets provide the required deploy secrets
+3. `npm run lint`
+4. `npm run test`
+5. `npm run build`
+6. `npm run deploy -- --dry-run`
+
+That is the safest way to go from local authoring to production publish.
 
 Generated deployment state is written to:
 
@@ -217,3 +427,5 @@ Because this package is still temporarily developed in the same repository, you 
 - If local form email does not appear, open `http://127.0.0.1:8025` and then run `npm run mailpit:logs`.
 - If local Cloudflare bindings drift, rerun `npm run sync:devvars` and `npm run d1:migrate:local`.
 - If a deploy looks wrong, inspect `.treeseed/generated/wrangler.toml` and rerun `npm run deploy -- --dry-run`.
+- If `treeseed save` fails before committing, read the structured report path if one was configured and fix the first failing gate: auth, env, lint, test, or build.
+- If `treeseed save` complains about GitHub auth, run `gh auth login -h github.com`.

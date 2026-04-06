@@ -9,6 +9,8 @@ const COMMAND_MAP = new Map([
 	['dev', packageScriptPath('tenant-dev')],
 	['dev:watch', packageScriptPath('tenant-dev')],
 	['build', packageScriptPath('tenant-build')],
+	['lint', packageScriptPath('tenant-lint')],
+	['test', packageScriptPath('tenant-test')],
 	['check', packageScriptPath('tenant-check')],
 	['deploy', packageScriptPath('tenant-deploy')],
 	['destroy', packageScriptPath('tenant-destroy')],
@@ -26,6 +28,8 @@ const COMMAND_MAP = new Map([
 ]);
 
 const WORKSPACE_COMMANDS = new Map([
+	['lint', { script: packageScriptPath('workspace-lint'), extraArgs: [] }],
+	['test', { script: packageScriptPath('workspace-test'), extraArgs: [] }],
 	['test:unit', { script: packageScriptPath('workspace-test-unit'), extraArgs: [] }],
 	['preflight', { script: packageScriptPath('workspace-preflight'), extraArgs: [] }],
 	['auth:check', { script: packageScriptPath('workspace-preflight'), extraArgs: ['--require-auth'] }],
@@ -39,8 +43,6 @@ const WORKSPACE_COMMANDS = new Map([
 	['release:publish:changed', { script: packageScriptPath('workspace-publish-changed-packages'), extraArgs: [] }],
 	['save', { script: packageScriptPath('workspace-save'), extraArgs: [] }],
 ]);
-
-const PACKAGE_SCRIPT_COMMANDS = new Set(['test', 'test:unit', 'test:integration', 'test:e2e', 'test:smoke']);
 
 if (!command) {
 	console.error('Usage: treeseed <command> [...args]');
@@ -62,15 +64,6 @@ if (workspaceCommand && isWorkspaceRoot(process.cwd())) {
 	const result = spawnSync(process.execPath, [workspaceCommand.script, ...workspaceCommand.extraArgs, ...args], {
 		stdio: 'inherit',
 		cwd: process.cwd(),
-		env: { ...process.env },
-	});
-	process.exit(result.status ?? 1);
-}
-
-if (PACKAGE_SCRIPT_COMMANDS.has(command)) {
-	const result = spawnSync('npm', ['run', command, '--', ...args], {
-		stdio: 'inherit',
-		cwd: packageRoot,
 		env: { ...process.env },
 	});
 	process.exit(result.status ?? 1);

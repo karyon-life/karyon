@@ -28,7 +28,7 @@ ensureDir(outFile);
 await build({
 	entryPoints: [workerEntry],
 	outfile: outFile,
-	bundle: false,
+	bundle: true,
 	format: 'esm',
 	platform: 'browser',
 	target: 'es2022',

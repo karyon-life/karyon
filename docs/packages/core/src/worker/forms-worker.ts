@@ -1,4 +1,5 @@
 import { deriveFormRuntimeCapabilities } from '../utils/forms/runtime-core';
+import { resolveBuiltinFormsProvider } from '../utils/forms/provider-core';
 import { handleFormSubmissionWithConfig, handleTokenRequestWithConfig } from '../utils/forms/service-core';
 import type { TreeseedDeployConfig } from '../contracts';
 import type { CloudflareRuntimeAssets, D1DatabaseLike, KvNamespaceLike } from '../types/cloudflare';
@@ -125,6 +126,7 @@ function buildRuntime(env: WorkerEnv) {
 function buildFormConfig(env: WorkerEnv) {
 	return {
 		runtime: buildRuntime(env),
+		formsProvider: resolveBuiltinFormsProvider(__TREESEED_DEPLOY_CONFIG__.providers?.forms ?? 'store_only'),
 		bindings: {
 			FORM_GUARD_KV: env.FORM_GUARD_KV,
 			SITE_DATA_DB: env.SITE_DATA_DB,

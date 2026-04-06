@@ -16,8 +16,10 @@
     "dev": "treeseed dev",
     "dev:watch": "treeseed dev --watch",
     "start": "npm run dev",
+    "lint": "treeseed lint",
     "build": "treeseed build",
     "check": "treeseed check",
+    "test": "treeseed test",
     "deploy": "treeseed deploy",
     "destroy": "treeseed destroy",
     "preview": "treeseed preview",
@@ -39,7 +41,6 @@
     "test:e2e:full": "treeseed test:e2e:full",
     "test:release": "treeseed test:release",
     "test:release:full": "treeseed test:release:full",
-    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "agents": "treeseed agents",
     "release:verify": "treeseed release:verify",
     "release:publish:changed": "treeseed release:publish:changed"

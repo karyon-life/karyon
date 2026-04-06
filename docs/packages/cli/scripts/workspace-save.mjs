@@ -17,6 +17,7 @@ import {
 } from './workspace-save-lib.mjs';
 import { run, workspaceRoot } from './workspace-tools.mjs';
 import { packageScriptPath } from './package-tools.mjs';
+import { runWorkspaceSavePreflight, validateSaveAutomationPrerequisites } from './save-deploy-preflight-lib.mjs';
 
 function writeSaveReport(payload) {
 	const target = process.env.TREESEED_SAVE_REPORT_PATH;
@@ -58,9 +59,41 @@ try {
 	process.exit(1);
 }
 
+try {
+	validateSaveAutomationPrerequisites({ cwd: root });
+} catch (error) {
+	const kind = error?.kind ?? 'auth_failed';
+	const payload = {
+		ok: false,
+		kind,
+		message: error instanceof Error ? error.message : String(error),
+		...(error?.missingEnv ? { missingEnv: error.missingEnv } : {}),
+		...(error?.details ? { details: error.details } : {}),
+	};
+	writeSaveReport(payload);
+	console.error(payload.message);
+	process.exit(1);
+}
+
+try {
+	runWorkspaceSavePreflight({ cwd: root });
+} catch (error) {
+	const kind = error?.kind ?? 'preflight_failed';
+	const payload = {
+		ok: false,
+		kind,
+		message: error instanceof Error ? error.message : String(error),
+	};
+	writeSaveReport(payload);
+	console.error(payload.message);
+	process.exit(error?.exitCode ?? 1);
+}
+
 ensureDeployWorkflow(root);
 
-const versionPlan = applyWorkspaceVersionChanges(planWorkspaceVersionChanges(root));
+const versionPlan = planWorkspaceVersionChanges(root);
+const shouldInstall = versionPlan.touched.size > 0;
+applyWorkspaceVersionChanges(versionPlan);
 
 if (!hasMeaningfulChanges(gitRoot)) {
 	writeSaveReport({ ok: false, kind: 'no_changes', message: 'Treeseed save found no meaningful repository changes to commit.' });
@@ -68,7 +101,9 @@ if (!hasMeaningfulChanges(gitRoot)) {
 	process.exit(1);
 }
 
-run('npm', ['install'], { cwd: root });
+if (shouldInstall) {
+	run('npm', ['install'], { cwd: root });
+}
 run('git', ['add', '-A'], { cwd: gitRoot });
 run('git', ['commit', '-m', message], { cwd: gitRoot });
 
@@ -99,6 +134,7 @@ const summary = {
 	repositoryRoot: gitRoot,
 	workflowChanged: automation.workflow.changed,
 	githubSecretsCreated: automation.secrets.created,
+	automationMode: automation.mode,
 	versionedPackages: [...versionPlan.bumped],
 };
 writeSaveReport(summary);

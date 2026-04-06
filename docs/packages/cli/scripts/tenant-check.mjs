@@ -1,8 +1,8 @@
-import { createProductionBuildEnv, packageScriptPath, runNodeScript } from './package-tools.mjs';
+import { astroBin, createProductionBuildEnv, packageScriptPath, runNodeBinary, runNodeScript } from './package-tools.mjs';
 
 runNodeScript(packageScriptPath('patch-starlight-content-path'), [], { cwd: process.cwd() });
 runNodeScript(packageScriptPath('aggregate-book'), [], { cwd: process.cwd() });
-runNodeScript(packageScriptPath('tenant-build'), [], {
+runNodeBinary(astroBin, ['check'], {
 	cwd: process.cwd(),
 	env: createProductionBuildEnv(),
 });

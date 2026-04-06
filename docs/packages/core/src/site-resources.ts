@@ -178,7 +178,9 @@ export function resolveTreeseedSiteResource(
 
 export function resolveTreeseedPageEntrypoint(layers: TreeseedSiteLayer[], resourcePath: string) {
 	const hasExplicitExtension = /\.[A-Za-z0-9]+$/u.test(resourcePath);
-	const candidates = hasExplicitExtension ? [resourcePath] : [resourcePath, `${resourcePath}.astro`, `${resourcePath}.ts`, `${resourcePath}.js`, `${resourcePath}.mjs`];
+	const candidates = hasExplicitExtension
+		? [resourcePath, `${resourcePath}.astro`, `${resourcePath}.ts`, `${resourcePath}.js`, `${resourcePath}.mjs`]
+		: [resourcePath, `${resourcePath}.astro`, `${resourcePath}.ts`, `${resourcePath}.js`, `${resourcePath}.mjs`];
 
 	for (const candidate of candidates) {
 		const resolved = resolveTreeseedSiteResource(layers, 'pages', candidate);

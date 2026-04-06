@@ -9,6 +9,14 @@ function envOrNull(key) {
 	return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+export function getGitHubAutomationMode() {
+	return process.env.TREESEED_GITHUB_AUTOMATION_MODE === 'stub' ? 'stub' : 'real';
+}
+
+function isGitHubAutomationStubbed() {
+	return getGitHubAutomationMode() === 'stub';
+}
+
 export function parseGitHubRepositoryFromRemote(remoteUrl) {
 	if (!remoteUrl) {
 		return null;
@@ -125,6 +133,15 @@ export function renderDeployWorkflow({ workingDirectory }) {
 }
 
 export function ensureDeployWorkflow(tenantRoot) {
+	if (isGitHubAutomationStubbed()) {
+		return {
+			workflowPath: resolve(tenantRoot, '.github', 'workflows', 'deploy.yml'),
+			changed: false,
+			workingDirectory: '.',
+			mode: 'stub',
+		};
+	}
+
 	const repositoryRoot = resolveGitRepositoryRoot(tenantRoot);
 	const workflowPath = resolve(tenantRoot, '.github', 'workflows', 'deploy.yml');
 	const workingDirectory = relative(repositoryRoot, tenantRoot).replaceAll('\\', '/') || '.';
@@ -167,6 +184,16 @@ export function formatMissingSecretsReport(repository, missingSecrets, reason = 
 }
 
 export function ensureGitHubSecrets(tenantRoot, { dryRun = false } = {}) {
+	if (isGitHubAutomationStubbed()) {
+		return {
+			repository: maybeResolveGitHubRepositorySlug(tenantRoot),
+			existing: [],
+			created: [],
+			skipped: 'stubbed',
+			mode: 'stub',
+		};
+	}
+
 	const repository = maybeResolveGitHubRepositorySlug(tenantRoot);
 	if (!repository) {
 		if (dryRun) {
@@ -214,6 +241,7 @@ export function ensureGitHubDeployAutomation(tenantRoot, { dryRun = false } = {}
 	const workflow = ensureDeployWorkflow(tenantRoot);
 	const secrets = ensureGitHubSecrets(tenantRoot, { dryRun });
 	return {
+		mode: getGitHubAutomationMode(),
 		workflow,
 		secrets,
 	};

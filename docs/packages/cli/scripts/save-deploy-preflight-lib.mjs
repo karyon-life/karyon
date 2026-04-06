@@ -1,0 +1,75 @@
+import { spawnSync } from 'node:child_process';
+import { packageScriptPath } from './package-tools.mjs';
+import { collectCliPreflight } from './workspace-preflight-lib.mjs';
+import { getGitHubAutomationMode, requiredGitHubSecrets } from './github-automation-lib.mjs';
+
+function runStep(label, scriptName, { cwd, env } = {}) {
+	const result = spawnSync(process.execPath, [packageScriptPath(scriptName)], {
+		cwd,
+		env: { ...process.env, ...(env ?? {}) },
+		stdio: 'inherit',
+	});
+
+	if (result.status !== 0) {
+		const error = new Error(`${label} failed.`);
+		error.kind = `${label}_failed`;
+		error.exitCode = result.status ?? 1;
+		throw error;
+	}
+}
+
+function missingRequiredEnv(requiredKeys) {
+	return requiredKeys.filter((key) => {
+		const value = process.env[key];
+		return typeof value !== 'string' || value.length === 0;
+	});
+}
+
+export function validateSaveAutomationPrerequisites({ cwd }) {
+	if (getGitHubAutomationMode() !== 'real') {
+		return {
+			ok: true,
+			mode: 'stub',
+			missingEnv: [],
+			preflight: null,
+		};
+	}
+
+	const preflight = collectCliPreflight({ cwd, requireAuth: true });
+	if (!preflight.ok) {
+		const error = new Error('Treeseed save prerequisites failed: GitHub/Wrangler auth is not ready.');
+		error.kind = 'auth_failed';
+		error.details = preflight;
+		throw error;
+	}
+
+	const requiredEnv = requiredGitHubSecrets(cwd);
+	const missingEnv = missingRequiredEnv(requiredEnv);
+	if (missingEnv.length > 0) {
+		const error = new Error(
+			`Treeseed save is missing required environment variables: ${missingEnv.join(', ')}.`,
+		);
+		error.kind = 'missing_required_env';
+		error.missingEnv = missingEnv;
+		throw error;
+	}
+
+	return {
+		ok: true,
+		mode: 'real',
+		missingEnv: [],
+		preflight,
+	};
+}
+
+export function runWorkspaceSavePreflight({ cwd }) {
+	runStep('lint', 'workspace-lint', { cwd });
+	runStep('test', 'workspace-test', { cwd });
+	runStep('build', 'tenant-build', { cwd });
+}
+
+export function runTenantDeployPreflight({ cwd }) {
+	runStep('lint', 'tenant-lint', { cwd });
+	runStep('test', 'tenant-test', { cwd });
+	runStep('build', 'tenant-build', { cwd });
+}

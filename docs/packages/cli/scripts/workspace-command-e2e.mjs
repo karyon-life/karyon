@@ -421,6 +421,21 @@ function cloneLocalWorkspace() {
 	};
 }
 
+function cloneLocalWorkspaceWithBareOrigin() {
+	const bareRoot = mkdtempSync(join(tmpdir(), 'treeseed-local-origin-'));
+	const cloneRoot = mkdtempSync(join(tmpdir(), 'treeseed-local-workspace-'));
+	run('git', ['clone', '--bare', resolve(root, '..'), bareRoot], { cwd: root });
+	run('git', ['clone', bareRoot, cloneRoot], { cwd: root });
+	const workingRoot = resolve(cloneRoot, 'docs');
+	run('git', ['config', 'user.name', 'Treeseed E2E'], { cwd: cloneRoot });
+	run('git', ['config', 'user.email', 'e2e@treeseed.dev'], { cwd: cloneRoot });
+	return {
+		bareRoot,
+		cloneRoot,
+		workingRoot,
+	};
+}
+
 function resolveRepositorySlug(repoDir) {
 	const remote = run('git', ['remote', 'get-url', 'origin'], { cwd: repoDir, capture: true }).trim();
 	return parseGitHubRepositoryFromRemote(remote);
@@ -613,6 +628,38 @@ async function runLocalSuite() {
 			});
 		} finally {
 			rmSync(clonedWorkspace.cloneRoot, { recursive: true, force: true });
+		}
+	});
+
+	await withStep('save success: local bare origin with stubbed automation', async () => {
+		const clonedWorkspace = cloneLocalWorkspaceWithBareOrigin();
+		try {
+			const notePath = resolve(clonedWorkspace.workingRoot, 'src/content/notes/first-note.mdx');
+			appendSaveMarker(notePath, 'treeseed-e2e-local-save-success');
+			const saveReportPath = resolve(artifactsRoot, 'save-local-success.json');
+			const result = runCommand('save-local-success', process.execPath, [packageScriptPath('treeseed'), 'save', 'test: local save success'], {
+				cwd: clonedWorkspace.workingRoot,
+				env: {
+					...cacheEnv(),
+					TREESEED_GITHUB_AUTOMATION_MODE: 'stub',
+					TREESEED_SAVE_REPORT_PATH: saveReportPath,
+				},
+				timeoutMs: 1800000,
+			});
+			const localHead = run('git', ['rev-parse', 'HEAD'], { cwd: clonedWorkspace.cloneRoot, capture: true }).trim();
+			const remoteHead = run('git', ['--git-dir', clonedWorkspace.bareRoot, 'rev-parse', 'refs/heads/main'], { cwd: root, capture: true }).trim();
+			if (localHead !== remoteHead) {
+				throw new Error(`Expected pushed head ${remoteHead} to match local head ${localHead}.`);
+			}
+			return {
+				...result,
+				saveReportPath,
+				localHead,
+				remoteHead,
+			};
+		} finally {
+			rmSync(clonedWorkspace.cloneRoot, { recursive: true, force: true });
+			rmSync(clonedWorkspace.bareRoot, { recursive: true, force: true });
 		}
 	});
 }

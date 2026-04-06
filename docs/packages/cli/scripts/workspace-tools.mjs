@@ -180,15 +180,38 @@ export function run(command, args, options = {}) {
 	return (result.stdout ?? '').trim();
 }
 
-function changedWorkspaceFiles(baseRef) {
+function canResolveGitRef(baseRef, cwd = workspaceRoot()) {
+	const result = spawnSync('git', ['rev-parse', '--verify', baseRef], {
+		cwd,
+		stdio: 'pipe',
+		encoding: 'utf8',
+	});
+	return result.status === 0;
+}
+
+function resolveChangedFilesBaseRef(baseRef, cwd = workspaceRoot()) {
+	if (canResolveGitRef(baseRef, cwd)) {
+		return baseRef;
+	}
+
+	return null;
+}
+
+function changedWorkspaceFiles(baseRef, cwd = workspaceRoot()) {
 	const changedFiles = new Set();
-	for (const args of [
-		['diff', '--name-only', baseRef, 'HEAD'],
+	const resolvedBaseRef = resolveChangedFilesBaseRef(baseRef, cwd);
+	const diffCommands = [
 		['diff', '--name-only'],
 		['diff', '--name-only', '--cached'],
 		['ls-files', '--others', '--exclude-standard'],
-	]) {
-		const output = run('git', args, { capture: true });
+	];
+
+	if (resolvedBaseRef) {
+		diffCommands.unshift(['diff', '--name-only', resolvedBaseRef, 'HEAD']);
+	}
+
+	for (const args of diffCommands) {
+		const output = run('git', args, { cwd, capture: true });
 		for (const line of output.split('\n').map((entry) => entry.trim()).filter(Boolean)) {
 			changedFiles.add(line);
 		}
@@ -201,7 +224,7 @@ export function changedWorkspacePackages(options = {}) {
 	const baseRef = options.baseRef ?? process.env.TREESEED_RELEASE_BASE_REF ?? 'HEAD^';
 	const includeDependents = options.includeDependents ?? false;
 	const packages = options.packages ?? workspacePackages(root);
-	const changedFiles = changedWorkspaceFiles(baseRef);
+	const changedFiles = changedWorkspaceFiles(baseRef, root);
 	const changed = new Set(
 		packages
 			.filter((pkg) => [...changedFiles].some((file) => file === pkg.relativeDir || file.startsWith(`${pkg.relativeDir}/`)))
