@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { packageRoot, packageScriptPath } from './package-tools.mjs';
+import { isWorkspaceRoot, packageRoot, packageScriptPath } from './package-tools.mjs';
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -26,11 +26,29 @@ const COMMAND_MAP = new Map([
 	['init', packageScriptPath('scaffold-site')],
 ]);
 
+const WORKSPACE_COMMANDS = new Map([
+	['test:unit', { script: packageScriptPath('workspace-test-unit'), extraArgs: [] }],
+	['test:release', { script: packageScriptPath('workspace-release-verify'), extraArgs: [] }],
+	['test:release:full', { script: packageScriptPath('workspace-release-verify'), extraArgs: ['--full-smoke'] }],
+	['release:verify', { script: packageScriptPath('workspace-release-verify'), extraArgs: ['--full-smoke'] }],
+	['release:publish:changed', { script: packageScriptPath('workspace-publish-changed-packages'), extraArgs: [] }],
+]);
+
 const PACKAGE_SCRIPT_COMMANDS = new Set(['test', 'test:unit', 'test:integration', 'test:e2e', 'test:smoke']);
 
 if (!command) {
 	console.error('Usage: treeseed <command> [...args]');
 	process.exit(1);
+}
+
+const workspaceCommand = WORKSPACE_COMMANDS.get(command);
+if (workspaceCommand && isWorkspaceRoot(process.cwd())) {
+	const result = spawnSync(process.execPath, [workspaceCommand.script, ...workspaceCommand.extraArgs, ...args], {
+		stdio: 'inherit',
+		cwd: process.cwd(),
+		env: { ...process.env },
+	});
+	process.exit(result.status ?? 1);
 }
 
 if (PACKAGE_SCRIPT_COMMANDS.has(command)) {

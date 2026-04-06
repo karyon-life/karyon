@@ -35,6 +35,24 @@ function resolvePackageBinary(packageName, binName = packageName) {
 export const astroBin = resolvePackageBinary('astro', 'astro');
 export const wranglerBin = resolvePackageBinary('wrangler', 'wrangler');
 
+export function loadPackageJson(root = process.cwd()) {
+	const packageJsonPath = resolve(root, 'package.json');
+	if (!existsSync(packageJsonPath)) {
+		return null;
+	}
+	return JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+}
+
+export function isWorkspaceRoot(root = process.cwd()) {
+	const packageJson = loadPackageJson(root);
+	const workspaces = Array.isArray(packageJson?.workspaces)
+		? packageJson.workspaces
+		: Array.isArray(packageJson?.workspaces?.packages)
+			? packageJson.workspaces.packages
+			: [];
+	return workspaces.length > 0;
+}
+
 export function createProductionBuildEnv(extraEnv = {}) {
 	return {
 		TREESEED_LOCAL_DEV_MODE: 'cloudflare',

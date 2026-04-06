@@ -16,11 +16,22 @@ const npmCacheDir = process.env.TREESEED_SCAFFOLD_NPM_CACHE_DIR
 const packageJson = JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'));
 const sdkPackageRoot = resolve(packageRoot, '..', 'sdk');
 const sdkPackageJson = JSON.parse(readFileSync(resolve(sdkPackageRoot, 'package.json'), 'utf8'));
+const workspaceTarballs = (() => {
+	try {
+		return JSON.parse(process.env.TREESEED_WORKSPACE_TARBALLS ?? '{}');
+	} catch {
+		return {};
+	}
+})();
 const externalCoreTarball = process.env.TREESEED_SCAFFOLD_CORE_TARBALL
 	? resolve(process.env.TREESEED_SCAFFOLD_CORE_TARBALL)
+	: typeof workspaceTarballs['@treeseed/core'] === 'string'
+		? resolve(workspaceTarballs['@treeseed/core'])
 	: null;
 const externalSdkTarball = process.env.TREESEED_SCAFFOLD_SDK_TARBALL
 	? resolve(process.env.TREESEED_SCAFFOLD_SDK_TARBALL)
+	: typeof workspaceTarballs['@treeseed/sdk'] === 'string'
+		? resolve(workspaceTarballs['@treeseed/sdk'])
 	: null;
 const reusesExternalTarballs = Boolean(externalCoreTarball || externalSdkTarball);
 const scaffoldChecks = new Set(

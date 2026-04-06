@@ -1,13 +1,21 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, extname, join } from 'node:path';
 import { homedir } from 'node:os';
-import { cleanupDir, packageInfo, packageJsonFor, run, changedWorkspacePackages } from './workspace-lib.mjs';
+import {
+	cleanupDir,
+	createTempDir,
+	publishableWorkspacePackages,
+	run,
+	changedWorkspacePackages,
+} from './workspace-tools.mjs';
 
 const cliArgs = new Set(process.argv.slice(2));
 const verifyChangedOnly = cliArgs.has('--changed');
 const fullSmoke = cliArgs.has('--full-smoke') || process.env.TREESEED_RELEASE_FULL_SMOKE === '1';
-const changed = verifyChangedOnly ? changedWorkspacePackages() : ['sdk', 'core'];
-const packagesToVerify = changed.filter((key) => ['sdk', 'core'].includes(key));
+const publishablePackages = publishableWorkspacePackages();
+const packagesToVerify = verifyChangedOnly
+	? changedWorkspacePackages({ packages: publishablePackages, includeDependents: true })
+	: publishablePackages;
 const textExtensions = new Set(['.js', '.mjs', '.cjs', '.d.ts', '.ts', '.json', '.astro']);
 const npmCacheRoot = resolve(
 	process.env.TREESEED_RELEASE_NPM_CACHE_DIR
@@ -20,10 +28,9 @@ const timings = [];
 const forbiddenPatterns = [
 	/['"`]file:[^'"`\n]+['"`]/,
 	/['"`]workspace:[^'"`\n]+['"`]/,
-	/['"`][^'"`\n]*\.\.\/sdk\/src\/[^'"`\n]*['"`]/,
-	/['"`][^'"`\n]*\/packages\/sdk\/[^'"`\n]*['"`]/,
-	/['"`][^'"`\n]*\/packages\/core\/[^'"`\n]*['"`]/,
-	/['"`][^'"`\n]*@treeseed\/sdk\/src\/[^'"`\n]*['"`]/,
+	/['"`](?:\.\.\/|\.\/)[^'"`\n]*src\/[^'"`\n]*\.(?:[cm]?js|ts|tsx|json|astro|css)['"`]/,
+	/['"`][^'"`\n]*\/packages\/[^'"`\n]*\/src\/[^'"`\n]*['"`]/,
+	/['"`][^'"`\n]*@treeseed\/[^'"`\n]*\/src\/[^'"`\n]*['"`]/,
 ];
 
 function nowLabel() {
@@ -112,9 +119,7 @@ function cacheEnv() {
 	};
 }
 
-function packPackage(key) {
-	const pkg = packageInfo(key);
-	const packageJson = packageJsonFor(key);
+function packPackage(pkg) {
 	const output = run('npm', ['pack', '--silent', '--ignore-scripts'], {
 		cwd: pkg.dir,
 		capture: true,
@@ -125,7 +130,7 @@ function packPackage(key) {
 		.map((line) => line.trim())
 		.filter(Boolean)
 		.at(-1)
-		|| `${packageJson.name.replace(/^@/, '').replaceAll('/', '-')}-${packageJson.version}.tgz`;
+		|| `${pkg.name.replace(/^@/, '').replaceAll('/', '-')}-${pkg.packageJson.version}.tgz`;
 	return resolve(pkg.dir, filename);
 }
 
@@ -136,6 +141,9 @@ function scanTarball(tarballPath, label) {
 		.filter(Boolean);
 
 	for (const filePath of files) {
+		if (filePath === 'package/package.json') {
+			continue;
+		}
 		if (!textExtensions.has(extname(filePath))) {
 			continue;
 		}
@@ -144,30 +152,37 @@ function scanTarball(tarballPath, label) {
 	}
 }
 
-function verifyManifest(key) {
-	const packageJson = packageJsonFor(key);
-	for (const [dep, value] of Object.entries(packageJson.dependencies ?? {})) {
+function verifyManifest(pkg) {
+	for (const [dep, value] of Object.entries(pkg.packageJson.dependencies ?? {})) {
 		if (!dep.startsWith('@treeseed/')) {
 			continue;
 		}
 		if (String(value).startsWith('file:') || String(value).startsWith('workspace:')) {
-			throw new Error(`${packageJson.name} dependency ${dep} must not use local-only specifier "${value}".`);
+			throw new Error(`${pkg.name} dependency ${dep} must not use local-only specifier "${value}".`);
 		}
 	}
 }
 
-function sdkInstallSmoke(sdkTarballPath) {
-	const tempRoot = createTempDir('treeseed-sdk-release-');
+function tarballEnv(tarballs) {
+	return {
+		TREESEED_WORKSPACE_TARBALLS: JSON.stringify(Object.fromEntries(tarballs)),
+		...(tarballs.get('@treeseed/core') ? { TREESEED_SCAFFOLD_CORE_TARBALL: tarballs.get('@treeseed/core') } : {}),
+		...(tarballs.get('@treeseed/sdk') ? { TREESEED_SCAFFOLD_SDK_TARBALL: tarballs.get('@treeseed/sdk') } : {}),
+	};
+}
+
+function genericInstallSmoke(pkg, tarballPath) {
+	const tempRoot = createTempDir('treeseed-package-release-');
 	try {
 		writeFileSync(
 			resolve(tempRoot, 'package.json'),
 			`${JSON.stringify(
 				{
-					name: 'treeseed-sdk-release-smoke',
+					name: 'treeseed-package-release-smoke',
 					private: true,
 					type: 'module',
 					dependencies: {
-						'@treeseed/sdk': sdkTarballPath,
+						[pkg.name]: tarballPath,
 					},
 				},
 				null,
@@ -184,13 +199,42 @@ function sdkInstallSmoke(sdkTarballPath) {
 			[
 				'--input-type=module',
 				'-e',
-				"const sdk = await import('@treeseed/sdk'); if (!sdk.AgentSdk) throw new Error('AgentSdk export missing');",
+				`await import(${JSON.stringify(pkg.name)});`,
 			],
 			{ cwd: tempRoot },
 		);
 	} finally {
 		cleanupDir(tempRoot);
 	}
+}
+
+async function smokePackage(pkg, tarballs) {
+	const env = {
+		...cacheEnv(),
+		...tarballEnv(tarballs),
+		TREESEED_SCAFFOLD_NPM_CACHE_DIR: npmCacheRoot,
+		TREESEED_SCAFFOLD_CHECKS: fullSmoke ? 'build,deploy' : 'build',
+	};
+
+	if (typeof pkg.packageJson.scripts?.['test:scaffold'] === 'string') {
+		run('npm', ['run', 'test:scaffold'], {
+			cwd: pkg.dir,
+			timeoutMs: smokeTimeoutMs,
+			env,
+		});
+		return;
+	}
+
+	if (typeof pkg.packageJson.scripts?.['test:smoke'] === 'string') {
+		run('npm', ['run', 'test:smoke'], {
+			cwd: pkg.dir,
+			timeoutMs: smokeTimeoutMs,
+			env,
+		});
+		return;
+	}
+
+	genericInstallSmoke(pkg, tarballs.get(pkg.name));
 }
 
 if (packagesToVerify.length === 0) {
@@ -202,12 +246,11 @@ const tarballs = new Map();
 
 try {
 	logStep(
-		`verifying ${packagesToVerify.join(', ')} with ${fullSmoke ? 'full' : 'fast'} smoke checks (timeout ${Math.round(smokeTimeoutMs / 1000)}s, cache ${npmCacheRoot})`,
+		`verifying ${packagesToVerify.map((pkg) => pkg.name).join(', ')} with ${fullSmoke ? 'full' : 'fast'} smoke checks (timeout ${Math.round(smokeTimeoutMs / 1000)}s, cache ${npmCacheRoot})`,
 	);
-	for (const key of packagesToVerify) {
-		const pkg = packageInfo(key);
+	for (const pkg of packagesToVerify) {
 		await withTiming(`${pkg.name} manifest verification`, async () => {
-			verifyManifest(key);
+			verifyManifest(pkg);
 		});
 		await withTiming(`${pkg.name} build`, async () => {
 			run('npm', ['run', 'build:dist'], { cwd: pkg.dir, timeoutMs: smokeTimeoutMs });
@@ -215,37 +258,28 @@ try {
 		await withTiming(`${pkg.name} dist leak scan`, async () => {
 			scanDirectory(resolve(pkg.dir, 'dist'), `${pkg.name}:dist`);
 		});
-		const tarballPath = await withTiming(`${pkg.name} pack`, async () => packPackage(key));
-		tarballs.set(key, tarballPath);
+		const tarballPath = await withTiming(`${pkg.name} pack`, async () => packPackage(pkg));
+		tarballs.set(pkg.name, tarballPath);
 		await withTiming(`${pkg.name} tarball leak scan`, async () => {
 			scanTarball(tarballPath, `${pkg.name}:tarball`);
 		});
 	}
 
-	if (packagesToVerify.includes('core')) {
-		await withTiming(`@treeseed/core scaffold smoke (${fullSmoke ? 'build+deploy' : 'build'})`, async () => {
-			run(
-				process.execPath,
-				[resolve(packageInfo('core').dir, 'scripts', 'test-scaffold.mjs')],
-				{
-					cwd: packageInfo('core').dir,
-					timeoutMs: smokeTimeoutMs,
-					env: {
-						TREESEED_SCAFFOLD_CORE_TARBALL: tarballs.get('core'),
-						TREESEED_SCAFFOLD_SDK_TARBALL: tarballs.get('sdk'),
-						TREESEED_SCAFFOLD_NPM_CACHE_DIR: npmCacheRoot,
-						TREESEED_SCAFFOLD_CHECKS: fullSmoke ? 'build,deploy' : 'build',
-					},
-				},
-			);
-		});
-	} else if (packagesToVerify.includes('sdk')) {
-		await withTiming('@treeseed/sdk install smoke', async () => {
-			sdkInstallSmoke(tarballs.get('sdk'));
-		});
+	for (const pkg of packagesToVerify) {
+		await withTiming(
+			`${pkg.name} smoke (${typeof pkg.packageJson.scripts?.['test:scaffold'] === 'string'
+				? (fullSmoke ? 'build+deploy' : 'build')
+				: typeof pkg.packageJson.scripts?.['test:smoke'] === 'string'
+					? 'package smoke'
+					: 'install'
+			})`,
+			async () => {
+				await smokePackage(pkg, tarballs);
+			},
+		);
 	}
 
-	console.log(`Release verification passed for: ${packagesToVerify.join(', ')}`);
+	console.log(`Release verification passed for: ${packagesToVerify.map((pkg) => pkg.name).join(', ')}`);
 } finally {
 	printSummary();
 	for (const tarballPath of tarballs.values()) {

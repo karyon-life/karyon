@@ -26,15 +26,15 @@
     "d1:migrate:local": "treeseed d1:migrate:local",
     "cleanup:markdown": "treeseed cleanup:markdown",
     "cleanup:markdown:check": "treeseed cleanup:markdown:check",
-    "test:unit": "node ./scripts/workspace-test-unit.mjs",
+    "test:unit": "treeseed test:unit",
     "test:integration": "treeseed test:integration",
     "test:e2e": "treeseed test:e2e",
-    "test:release": "node ./scripts/release-verify.mjs",
-    "test:release:full": "node ./scripts/release-verify.mjs --full-smoke",
+    "test:release": "treeseed test:release",
+    "test:release:full": "treeseed test:release:full",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "agents": "treeseed agents",
-    "release:verify": "node ./scripts/release-verify.mjs --full-smoke",
-    "release:publish:changed": "node ./scripts/publish-changed-packages.mjs"
+    "release:verify": "treeseed release:verify",
+    "release:publish:changed": "treeseed release:publish:changed"
   },
   "dependencies": {
     "@treeseed/core": "^0.0.1"
