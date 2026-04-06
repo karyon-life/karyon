@@ -18,6 +18,7 @@
     "mailpit:logs": "treeseed mailpit:logs"
   },
   "dependencies": {
+    "@treeseed/cli": "__CLI_VERSION__",
     "@treeseed/core": "__CORE_VERSION__"
   }
 }

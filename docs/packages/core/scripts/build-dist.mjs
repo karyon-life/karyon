@@ -164,13 +164,7 @@ function rewriteScriptRuntimeSpecifiers(contents) {
 		.replaceAll("'src/worker/forms-worker.ts'", "'dist/worker/forms-worker.js'")
 		.replaceAll('"src/worker/forms-worker.ts"', '"dist/worker/forms-worker.js"')
 		.replaceAll("'../src/deploy/config.mjs'", "'../deploy/config.js'")
-		.replaceAll('"../src/deploy/config.mjs"', '"../deploy/config.js"')
-		.replaceAll("'./github-automation-lib.mjs'", "'./github-automation-lib.js'")
-		.replaceAll('"./github-automation-lib.mjs"', '"./github-automation-lib.js"')
-		.replaceAll("'./workspace-save-lib.mjs'", "'./workspace-save-lib.js'")
-		.replaceAll('"./workspace-save-lib.mjs"', '"./workspace-save-lib.js"')
-		.replaceAll("'./workspace-tools.mjs'", "'./workspace-tools.js'")
-		.replaceAll('"./workspace-tools.mjs"', '"./workspace-tools.js"');
+		.replaceAll('"../src/deploy/config.mjs"', '"../deploy/config.js"');
 }
 
 async function compileModule(filePath, sourceRoot, outputRoot) {
@@ -191,7 +185,8 @@ async function compileModule(filePath, sourceRoot, outputRoot) {
 	});
 
 	const builtSource = readFileSync(outputFile, 'utf8');
-	writeFileSync(outputFile, rewriteRuntimeSpecifiers(builtSource), 'utf8');
+	const rewritten = rewriteVendorImportSpecifiers(rewriteRuntimeSpecifiers(builtSource), outputFile);
+	writeFileSync(outputFile, rewritten, 'utf8');
 }
 
 function copyAsset(filePath, sourceRoot, outputRoot) {
@@ -201,7 +196,10 @@ function copyAsset(filePath, sourceRoot, outputRoot) {
 
 	if (outputFile.endsWith('.astro') || outputFile.endsWith('.d.ts') || outputFile.endsWith('.js')) {
 		const contents = readFileSync(outputFile, 'utf8');
-		writeFileSync(outputFile, rewriteRuntimeSpecifiers(contents), 'utf8');
+		const rewritten = outputFile.endsWith('.js')
+			? rewriteVendorImportSpecifiers(rewriteRuntimeSpecifiers(contents), outputFile)
+			: rewriteRuntimeSpecifiers(contents);
+		writeFileSync(outputFile, rewritten, 'utf8');
 	}
 }
 
@@ -233,7 +231,8 @@ function transpileScript(filePath) {
 		: source;
 
 	ensureDir(outputFile);
-	writeFileSync(outputFile, rewriteScriptRuntimeSpecifiers(transformed), 'utf8');
+	const rewritten = rewriteVendorImportSpecifiers(rewriteScriptRuntimeSpecifiers(transformed), outputFile);
+	writeFileSync(outputFile, rewritten, 'utf8');
 	chmodSync(outputFile, 0o755);
 }
 

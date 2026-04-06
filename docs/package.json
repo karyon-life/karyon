@@ -5,7 +5,9 @@
   "version": "0.0.1",
   "workspaces": [
     "packages/core",
-    "packages/sdk"
+    "packages/sdk",
+    "packages/cli",
+    "packages/agent"
   ],
   "scripts": {
     "starlight:patch": "treeseed starlight:patch",
@@ -43,6 +45,7 @@
     "release:publish:changed": "treeseed release:publish:changed"
   },
   "dependencies": {
+    "@treeseed/cli": "^0.0.1",
     "@treeseed/core": "^0.0.1"
   }
 }

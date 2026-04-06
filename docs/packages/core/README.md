@@ -1,6 +1,6 @@
 # @treeseed/core
 
-`@treeseed/core` is the Treeseed platform package for content-driven sites deployed as:
+`@treeseed/core` is the Treeseed platform runtime package for content-driven sites deployed as:
 
 - a static Astro site
 - a tiny Cloudflare Worker for runtime API concerns
@@ -11,16 +11,16 @@ The package is designed to be installed from npm by downstream tenant repositori
 
 ## What The Package Owns
 
-`@treeseed/core` is intended to own nearly all framework and runtime behavior for a tenant site:
+`@treeseed/core` is intended to own Treeseed framework and platform runtime behavior for a tenant site:
 
 - Astro and Starlight integration
 - shared layouts, components, routes, and styles
 - forms runtime and Cloudflare Worker implementation
-- local dev and package CLI commands
-- Cloudflare deploy and destroy flows
+- plugin contracts and built-in provider/runtime behavior
+- shared deploy/site/content/forms runtime behavior
 - generated book exports
-- agent runtime framework, contracts, and shared helpers
-- tenant scaffolding through `treeseed init`
+- agent-facing plugin contracts, handler/runtime types, and built-in adapter behavior
+- starter/template assets consumed by `@treeseed/cli`
 
 A tenant repository should mainly keep:
 
@@ -39,7 +39,7 @@ A tenant repository should mainly keep:
 In a normal consumer repository:
 
 ```bash
-npm install @treeseed/core
+npm install @treeseed/core @treeseed/cli
 ```
 
 A typical tenant `package.json` is expected to expose Treeseed through scripts like:
@@ -62,7 +62,14 @@ Inside this monorepo, contributors develop through the npm workspace rooted at `
 
 ## Tenant CLI
 
-Installed tenants use the `treeseed` CLI.
+Installed tenants use the `treeseed` CLI from `@treeseed/cli`.
+
+Package roles:
+
+- `@treeseed/sdk`: minimal shared data/runtime base
+- `@treeseed/core`: framework and platform runtime
+- `@treeseed/cli`: operator-facing `treeseed` command package
+- `@treeseed/agent`: long-running agent service package behind `treeseed-agents`
 
 Core commands:
 
@@ -331,12 +338,7 @@ Useful commands:
 - `npm run build:dist`: build the published `dist/` package output
 - `npm run check`: validate the internal fixture app
 - `npm run build`: build the internal fixture app
-- `npm run dev`: run the internal fixture dev environment
-- `npm run dev:watch`: run the same fixture with rebuild and refresh support
 - `npm run test:unit`: fast package-level tests
-- `npm run test:integration`: Cloudflare-local integration tests
-- `npm run test:e2e`: package-owned end-to-end coverage
-- `npm run test:scaffold`: scaffold smoke test
 - `npm run release:verify`: package-local release verification flow before publishing
 
 The workspace root also offers two release-smoke levels:
@@ -369,4 +371,4 @@ A few repository details in this workspace are temporary and should not be treat
 - the Karyon tenant currently resolves the package through the local npm workspace during contributor development
 - fixture and workspace scripts exist to help package development before extraction
 
-The long-term contract is npm-first: tenants install `@treeseed/core` and interact with it through the `treeseed` CLI and exported entrypoints.
+The long-term contract is npm-first: tenants install `@treeseed/core` for runtime behavior and `@treeseed/cli` for commands, then interact with the platform through the `treeseed` CLI and core exported entrypoints.

@@ -5,8 +5,8 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "https://github.com/treeseed-ai/core.git",
-    "directory": "docs/packages/sdk"
+    "url": "https://github.com/treeseed-ai/sdk.git",
+    "directory": "."
   },
   "homepage": "https://treeseed.ai",
   "type": "module",
@@ -74,6 +74,10 @@
     "./sdk-filters": {
       "types": "./dist/sdk-filters.d.ts",
       "default": "./dist/sdk-filters.js"
+    },
+    "./cli-tools": {
+      "types": "./dist/cli-tools.d.ts",
+      "default": "./dist/cli-tools.js"
     },
     "./types": {
       "types": "./dist/sdk-types.d.ts",

@@ -1,7 +1,7 @@
 {
   "name": "@treeseed/core",
   "version": "0.0.1",
-  "description": "Package-first Treeseed platform for Astro, Starlight, forms, books, and agent runtime behavior.",
+  "description": "Treeseed platform runtime package for Astro, Starlight, forms, books, plugins, and shared platform behavior.",
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
@@ -18,43 +18,29 @@
     "README.md",
     "dist",
     "templates",
-    "services",
     "style",
     "utils"
   ],
   "publishConfig": {
     "access": "public"
   },
-  "scripts": {
+	"scripts": {
     "setup": "npm install",
     "setup:ci": "npm ci",
     "build:dist": "node ./scripts/build-dist.mjs",
     "prepare": "npm run build:dist",
     "prepack": "npm run build:dist",
     "starlight:patch": "node ./scripts/patch-starlight-content-path.mjs",
-    "sync:devvars": "node ./scripts/sync-dev-vars.mjs",
-    "mailpit:up": "node ./scripts/ensure-mailpit.mjs",
-    "mailpit:ensure": "node ./scripts/ensure-mailpit.mjs",
-    "mailpit:down": "node ./scripts/stop-mailpit.mjs",
-    "mailpit:logs": "node ./scripts/logs-mailpit.mjs",
     "precheck": "npm run starlight:patch",
-    "check": "node ./scripts/run-fixture-astro-command.mjs check",
-    "prebuild": "npm run starlight:patch && node ./scripts/aggregate-book.mjs",
-    "build": "TREESEED_LOCAL_DEV_MODE=cloudflare node ./scripts/run-fixture-astro-command.mjs build",
-    "dev": "node ./scripts/local-dev.mjs",
-    "dev:watch": "node ./scripts/local-dev.mjs --watch",
-    "deploy": "node ./scripts/tenant-deploy.mjs",
-    "destroy": "node ./scripts/tenant-destroy.mjs",
-    "preview": "node ./scripts/run-fixture-astro-command.mjs preview",
-    "test:unit": "vitest run --config ./vitest.config.ts",
-    "test:integration": "node ./scripts/test-cloudflare-local.mjs",
-    "test:e2e": "vitest run --config ./vitest.e2e.config.ts --maxWorkers=1",
-    "test:scaffold": "node ./scripts/test-scaffold.mjs",
-    "test:smoke": "node ./scripts/agents-smoke.mjs",
-    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
-    "release:setup": "npm run setup:ci",
-    "release:check-tag": "node ./scripts/assert-release-tag-version.mjs",
-    "release:verify": "npm run build:dist && npm run check && npm run build && npm run test:scaffold",
+		"check": "node ./scripts/run-fixture-astro-command.mjs check",
+		"prebuild": "npm run starlight:patch && node ./scripts/aggregate-book.mjs",
+		"build": "TREESEED_LOCAL_DEV_MODE=cloudflare node ./scripts/run-fixture-astro-command.mjs build",
+		"preview": "node ./scripts/run-fixture-astro-command.mjs preview",
+		"test:unit": "vitest run --config ./vitest.config.ts",
+		"test": "npm run test:unit",
+		"release:setup": "npm run setup:ci",
+		"release:check-tag": "node ./scripts/assert-release-tag-version.mjs",
+		"release:verify": "npm run build:dist && npm run check && npm run build && npm run test",
     "release:publish": "node ./scripts/publish-package.mjs"
   },
   "dependencies": {
@@ -85,10 +71,6 @@
   "devDependencies": {
     "@types/nodemailer": "^7.0.11"
   },
-  "bin": {
-    "treeseed": "./dist/scripts/treeseed.js",
-    "treeseed-agents": "./dist/scripts/treeseed-agents.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -101,6 +83,13 @@
     "./config": {
       "types": "./dist/config.d.ts",
       "default": "./dist/config.js"
+    },
+    "./deploy/config": {
+      "types": "./dist/deploy/config.d.ts",
+      "default": "./dist/deploy/config.js"
+    },
+    "./deploy/runtime": {
+      "default": "./dist/deploy/runtime.js"
     },
     "./content": {
       "types": "./dist/content.d.ts",
@@ -132,6 +121,8 @@
     "./types/cloudflare": "./dist/types/cloudflare.js",
     "./agents/registry-helper": "./dist/agents/registry-helper.js",
     "./utils/seo": "./dist/utils/seo.js",
+    "./utils/site-config-schema": "./dist/utils/site-config-schema.js",
+    "./utils/books-data": "./dist/utils/books-data.js",
     "./utils/agents/runtime-types": "./dist/utils/agents/runtime-types.js",
     "./utils/agents/contracts/messages": "./dist/utils/agents/contracts/messages.js",
     "./utils/agents/contracts/run": "./dist/utils/agents/contracts/run.js",

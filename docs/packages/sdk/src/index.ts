@@ -1,5 +1,6 @@
 export { AgentSdk, ScopedAgentSdk } from './sdk.ts';
 export { MODEL_REGISTRY, buildModelRegistry, resolveModelDefinition } from './model-registry.ts';
+export { normalizeAgentCliOptions, buildCopilotAllowToolArgs } from './cli-tools.ts';
 export type {
 	SdkContentEntry,
 	SdkCursorEntity,

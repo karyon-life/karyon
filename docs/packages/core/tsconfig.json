@@ -4,15 +4,14 @@
     "allowImportingTsExtensions": true,
     "types": ["node", "astro/client"]
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.d.ts",
-    "src/**/*.mjs",
-    "test/**/*.ts",
-    "scripts/**/*.mjs",
-    "vitest.config.ts",
-    "vitest.e2e.config.ts"
-  ],
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.d.ts",
+		"src/**/*.mjs",
+		"test/**/*.ts",
+		"scripts/**/*.mjs",
+		"vitest.config.ts"
+	],
   "exclude": [
     "dist",
     "fixture/dist",

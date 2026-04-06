@@ -14,7 +14,6 @@ function resolvePackageRoot() {
 
 const packageRoot = resolvePackageRoot();
 const packageFixtureRoot = resolve(packageRoot, 'fixture');
-const docsFixtureRoot = resolve(packageRoot, '../..');
 
 function collectTenantRootCandidates(start) {
 	const candidates = [];
@@ -41,7 +40,6 @@ function tenantRootCandidates() {
 		...collectTenantRootCandidates(process.cwd()),
 		...collectTenantRootCandidates(packageRoot),
 		packageFixtureRoot,
-		docsFixtureRoot,
 	]);
 }
 
@@ -61,7 +59,7 @@ function resolveTenantPath(manifestPath) {
 	}
 
 	throw new Error(
-		`Unable to resolve Treeseed tenant manifest at "${manifestPath}" from ${process.cwd()}, ${packageFixtureRoot}, or ${docsFixtureRoot}.`,
+		`Unable to resolve Treeseed tenant manifest at "${manifestPath}" from ${process.cwd()} or ${packageFixtureRoot}.`,
 	);
 }
 
@@ -75,7 +73,7 @@ function resolveTenantRoot() {
 	}
 
 	throw new Error(
-		`Unable to resolve a Treeseed tenant root from ${process.cwd()}, ${packageFixtureRoot}, or ${docsFixtureRoot}.`,
+		`Unable to resolve a Treeseed tenant root from ${process.cwd()} or ${packageFixtureRoot}.`,
 	);
 }
 

@@ -6,8 +6,6 @@ const packageCandidate = resolve(fileURLToPath(new URL('..', import.meta.url)));
 export const packageRoot = packageCandidate.endsWith('/dist')
 	? resolve(packageCandidate, '..')
 	: packageCandidate;
-export const servicesRoot = resolve(packageRoot, 'services');
-export const mailpitComposeFile = resolve(servicesRoot, 'compose.yml');
 export const fixtureRoot = resolve(packageRoot, 'fixture');
 export const fixtureWranglerConfig = resolve(fixtureRoot, 'wrangler.toml');
 export const fixtureMigrationsRoot = resolve(fixtureRoot, 'migrations');
