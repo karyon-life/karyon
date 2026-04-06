@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { AgentHandlerKind } from '../types/agents';
 import type { AgentHandler } from '../utils/agents/runtime-types.ts';
-import { resolveTreeseedTenantRoot } from '../tenant/config.mjs';
+import { resolveTreeseedTenantRoot } from '../tenant/config';
 import { resolveAgentRuntimeProviders } from '../utils/plugin-runtime.ts';
 import { getTreeseedAgentProviderSelections } from '../deploy/runtime';
 

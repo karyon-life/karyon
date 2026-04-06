@@ -1,14 +1,33 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { getTenantContentRoot } from '../tenant/config.mjs';
-import { RUNTIME_PROJECT_ROOT, RUNTIME_TENANT } from '../tenant/runtime-config.mjs';
+import type { TreeseedBookDefinition, TreeseedTenantConfig } from '../contracts';
+import { getTenantContentRoot } from '../tenant/config';
+import { RUNTIME_PROJECT_ROOT, RUNTIME_TENANT } from '../tenant/runtime-config';
 
-function sortPaths(paths) {
+interface DocsLibraryDownload {
+	downloadFileName: string;
+	downloadHref: string;
+	downloadTitle: string;
+}
+
+interface TenantBookRuntime {
+	BOOKS: TreeseedBookDefinition[];
+	BOOKS_LINK: {
+		label: string;
+		link: string;
+	};
+	TREESEED_LINKS: {
+		home: string;
+	};
+	TREESEED_LIBRARY_DOWNLOAD: DocsLibraryDownload;
+}
+
+function sortPaths(paths: string[]) {
 	return [...paths].sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
-function collectMarkdownFiles(rootPath) {
+function collectMarkdownFiles(rootPath: string): string[] {
 	const stats = statSync(rootPath);
 	if (stats.isFile()) {
 		return [rootPath];
@@ -30,20 +49,17 @@ function collectMarkdownFiles(rootPath) {
 	);
 }
 
-function parseFrontmatter(filePath) {
+function parseFrontmatter(filePath: string) {
 	const raw = readFileSync(filePath, 'utf8');
 	const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 	if (!match) {
 		throw new Error(`Book content entry is missing frontmatter: ${filePath}`);
 	}
 
-	return parseYaml(match[1]);
+	return parseYaml(match[1]) as Record<string, unknown>;
 }
 
-/**
- * @param {{ slug?: string, title?: string }} book
- */
-function inferDocsLibraryDownload(book) {
+function inferDocsLibraryDownload(book?: { slug?: string; title?: string }): DocsLibraryDownload {
 	const title = book?.title ? `${book.title} Library` : 'Knowledge Library';
 	return {
 		downloadFileName: 'karyon-knowledge.md',
@@ -52,18 +68,21 @@ function inferDocsLibraryDownload(book) {
 	};
 }
 
-/**
- * @param {{ content: Record<string, string> }} tenantConfig
- * @param {{ projectRoot?: string, docsHomePath?: string, docsLibraryDownload?: { downloadFileName: string, downloadHref: string, downloadTitle: string } }} [options]
- */
-export function buildTenantBookRuntime(tenantConfig, options = {}) {
+export function buildTenantBookRuntime(
+	tenantConfig: Pick<TreeseedTenantConfig, 'content'>,
+	options: {
+		projectRoot?: string;
+		docsHomePath?: string;
+		docsLibraryDownload?: DocsLibraryDownload;
+	} = {},
+): TenantBookRuntime {
 	const projectRoot = options.projectRoot ?? process.cwd();
 	const booksContentRoot = path.resolve(projectRoot, getTenantContentRoot(tenantConfig, 'books'));
 	const books = collectMarkdownFiles(booksContentRoot)
 		.map((filePath) => {
 			const frontmatter = parseFrontmatter(filePath);
 			return {
-				...frontmatter,
+				...(frontmatter as TreeseedBookDefinition),
 				id: path.basename(filePath, path.extname(filePath)),
 			};
 		})
@@ -86,12 +105,12 @@ export function buildTenantBookRuntime(tenantConfig, options = {}) {
 }
 
 const runtime = buildTenantBookRuntime(RUNTIME_TENANT, {
-		projectRoot: RUNTIME_PROJECT_ROOT,
-		docsLibraryDownload: {
+	projectRoot: RUNTIME_PROJECT_ROOT,
+	docsLibraryDownload: {
 		downloadFileName: 'karyon-knowledge.md',
 		downloadHref: '/books/karyon-knowledge.md',
 		downloadTitle: 'Karyon Knowledge Library',
-		},
+	},
 });
 
 export const { BOOKS, BOOKS_LINK, TREESEED_LINKS, TREESEED_LIBRARY_DOWNLOAD } = runtime;

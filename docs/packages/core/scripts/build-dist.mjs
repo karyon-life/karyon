@@ -164,7 +164,9 @@ function rewriteScriptRuntimeSpecifiers(contents) {
 		.replaceAll("'src/worker/forms-worker.ts'", "'dist/worker/forms-worker.js'")
 		.replaceAll('"src/worker/forms-worker.ts"', '"dist/worker/forms-worker.js"')
 		.replaceAll("'../src/deploy/config.mjs'", "'../deploy/config.js'")
-		.replaceAll('"../src/deploy/config.mjs"', '"../deploy/config.js"');
+		.replaceAll('"../src/deploy/config.mjs"', '"../deploy/config.js"')
+		.replaceAll("'../src/deploy/config.ts'", "'../deploy/config.js'")
+		.replaceAll('"../src/deploy/config.ts"', '"../deploy/config.js"');
 }
 
 async function compileModule(filePath, sourceRoot, outputRoot) {
@@ -241,6 +243,48 @@ function rewriteDeclarations() {
 		if (!filePath.endsWith('.d.ts')) continue;
 		const contents = readFileSync(filePath, 'utf8');
 		writeFileSync(filePath, rewriteRuntimeSpecifiers(contents), 'utf8');
+	}
+}
+
+function emitTypeDeclarations() {
+	const sourceFiles = [
+		resolve(srcRoot, 'contracts.ts'),
+		resolve(srcRoot, 'types/agents.ts'),
+		resolve(srcRoot, 'types/cloudflare.ts'),
+		resolve(srcRoot, 'plugins/plugin.ts'),
+		resolve(srcRoot, 'utils/agents/contracts/messages.ts'),
+		resolve(srcRoot, 'utils/agents/contracts/run.ts'),
+	].filter((filePath) => existsSync(filePath));
+
+	if (sourceFiles.length === 0) {
+		return;
+	}
+
+	const compilerOptions = {
+		allowImportingTsExtensions: true,
+		declaration: true,
+		emitDeclarationOnly: true,
+		module: ts.ModuleKind.ESNext,
+		moduleResolution: ts.ModuleResolutionKind.Bundler,
+		outDir: distRoot,
+		rootDir: srcRoot,
+		skipLibCheck: true,
+		target: ts.ScriptTarget.ES2022,
+	};
+
+	const program = ts.createProgram(sourceFiles, compilerOptions);
+	const emitResult = program.emit();
+	const diagnostics = ts.getPreEmitDiagnostics(program).concat(emitResult.diagnostics ?? []);
+
+	if (diagnostics.length > 0) {
+		const message = diagnostics
+			.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+			.join('\n');
+		throw new Error(`Failed to emit Treeseed core declarations:\n${message}`);
+	}
+
+	if (emitResult.emitSkipped) {
+		throw new Error('Failed to emit Treeseed core declarations.');
 	}
 }
 
@@ -387,6 +431,8 @@ async function main() {
 			transpileScript(filePath);
 		}
 	}
+
+	emitTypeDeclarations();
 
 
 	const starlightPackageRoot = dirname(require.resolve('@astrojs/starlight'));

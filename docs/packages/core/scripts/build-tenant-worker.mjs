@@ -1,8 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { build } from 'esbuild';
-import { loadTreeseedDeployConfig } from '../src/deploy/config.mjs';
-import { loadTreeseedManifest } from '../src/tenant/config.mjs';
+import { loadTreeseedDeployConfig } from '../src/deploy/config';
+import { loadTreeseedManifest } from '../src/tenant/config';
 import { parseSiteConfig } from '../src/utils/site-config-schema.js';
 import { packageRoot } from './package-tools.mjs';
 

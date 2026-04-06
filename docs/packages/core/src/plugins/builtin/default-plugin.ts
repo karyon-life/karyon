@@ -1,4 +1,4 @@
-import { defineTreeseedPlugin } from '../plugin.mjs';
+import { defineTreeseedPlugin } from '../plugin';
 
 export default defineTreeseedPlugin({
 	id: 'treeseed-core-default',

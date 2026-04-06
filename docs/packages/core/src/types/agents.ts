@@ -1,1 +1,1 @@
-export * from '../../../sdk/src/types/agents.ts';
+export * from '@treeseed/sdk/types/agents';

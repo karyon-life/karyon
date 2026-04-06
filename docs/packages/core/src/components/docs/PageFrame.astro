@@ -1,6 +1,6 @@
 ---
 import MobileMenuToggle from '@astrojs/starlight/components/MobileMenuToggle.astro';
-import { getBookForPath } from '../../utils/starlight-nav.mjs';
+import { getBookForPath } from '../../utils/starlight-nav';
 
 const { hasSidebar, toc } = Astro.locals.starlightRoute;
 const hasToc = Boolean(toc);

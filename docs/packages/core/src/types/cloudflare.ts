@@ -1,1 +1,1 @@
-export * from '../../../sdk/src/types/cloudflare.ts';
+export * from '@treeseed/sdk/types/cloudflare';

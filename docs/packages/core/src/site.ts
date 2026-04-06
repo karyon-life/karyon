@@ -1,25 +1,48 @@
 import { defineConfig, envField } from 'astro/config';
+import type { AstroUserConfig } from 'astro';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
 import tailwindcss from '@tailwindcss/vite';
+import type { TreeseedDeployConfig, TreeseedTenantConfig } from './contracts';
 import { parseSiteConfig } from './utils/site-config-schema.js';
-import { buildTenantBookRuntime } from './utils/books-data.mjs';
-import { getStarlightSidebarConfigFromRuntime } from './utils/starlight-nav.mjs';
+import { buildTenantBookRuntime } from './utils/books-data';
+import { getStarlightSidebarConfigFromRuntime } from './utils/starlight-nav';
 import { buildTenantThemeCss } from './utils/theme.ts';
-import { loadTreeseedDeployConfig } from './deploy/config.mjs';
-import { loadTreeseedPluginRuntime } from './plugins/runtime.mjs';
+import { loadTreeseedDeployConfig } from './deploy/config';
+import { loadTreeseedPluginRuntime } from './plugins/runtime';
 
 const TENANT_THEME_VIRTUAL_ID = 'virtual:treeseed/tenant-theme.css';
 const RESOLVED_TENANT_THEME_VIRTUAL_ID = '\0treeseed:tenant-theme.css';
 
-function packageFile(relativePath) {
+type SiteCreateDependencies = {
+	starlight: (config: Record<string, unknown>) => unknown;
+};
+
+type SiteRoute = {
+	pattern: string;
+	entrypoint: string;
+};
+
+type SiteExtensionContribution = {
+	routes?: SiteRoute[];
+	starlightComponents?: Record<string, string>;
+	customCss?: string[];
+	remarkPlugins?: unknown[];
+	rehypePlugins?: unknown[];
+	envSchema?: Record<string, unknown>;
+	vitePlugins?: unknown[];
+	integrations?: unknown[];
+	routeMiddleware?: unknown[];
+};
+
+function packageFile(relativePath: string) {
 	return fileURLToPath(new URL(relativePath, import.meta.url));
 }
 
-function packageModuleFile(relativeStem) {
+function packageModuleFile(relativeStem: string) {
 	for (const extension of ['.js', '.mjs', '.ts']) {
 		const candidateUrl = new URL(`${relativeStem}${extension}`, import.meta.url);
 		const candidatePath = fileURLToPath(candidateUrl);
@@ -31,7 +54,7 @@ function packageModuleFile(relativeStem) {
 	throw new Error(`Unable to resolve package module for ${relativeStem}`);
 }
 
-const PACKAGE_ROUTE_ENTRIES = [
+const PACKAGE_ROUTE_ENTRIES: SiteRoute[] = [
 	{ pattern: '/', entrypoint: packageFile('./pages/index.astro') },
 	{ pattern: '/404', entrypoint: packageFile('./pages/404.astro') },
 	{ pattern: '/contact', entrypoint: packageFile('./pages/contact.astro') },
@@ -51,11 +74,11 @@ const PACKAGE_ROUTE_ENTRIES = [
 	{ pattern: '/questions/[slug]', entrypoint: packageFile('./pages/questions/[slug].astro') },
 ];
 
-function createTreeseedRoutesIntegration(tenantConfig, extraRoutes = []) {
+function createTreeseedRoutesIntegration(tenantConfig: TreeseedTenantConfig, extraRoutes: SiteRoute[] = []) {
 	return {
 		name: 'treeseed-routes',
 		hooks: {
-			'astro:config:setup'({ injectRoute }) {
+			'astro:config:setup'({ injectRoute }: { injectRoute: (route: SiteRoute) => void }) {
 				for (const route of [...PACKAGE_ROUTE_ENTRIES, ...extraRoutes]) {
 					if (route.pattern.startsWith('/agents') && tenantConfig.features?.agents === false) continue;
 					if (route.pattern.startsWith('/books') && tenantConfig.features?.books === false) continue;
@@ -69,16 +92,24 @@ function createTreeseedRoutesIntegration(tenantConfig, extraRoutes = []) {
 	};
 }
 
-function normalizeSiteHookContribution(contribution) {
+function normalizeSiteHookContribution(contribution: unknown): SiteExtensionContribution {
 	if (!contribution || typeof contribution !== 'object') {
 		return {};
 	}
-	return contribution;
+	return contribution as SiteExtensionContribution;
 }
 
-function resolveSitePluginExtensions(pluginRuntime, context) {
+function resolveSitePluginExtensions(
+	pluginRuntime: ReturnType<typeof loadTreeseedPluginRuntime>,
+	context: {
+		projectRoot: string;
+		tenantConfig: TreeseedTenantConfig;
+		siteConfig: ReturnType<typeof parseSiteConfig>;
+		deployConfig: TreeseedDeployConfig;
+	},
+) {
 	const selectedSiteProvider = pluginRuntime.config.providers.site;
-	const extensions = {
+	const extensions: Required<SiteExtensionContribution> = {
 		routes: [],
 		starlightComponents: {},
 		customCss: [],
@@ -92,7 +123,7 @@ function resolveSitePluginExtensions(pluginRuntime, context) {
 
 	if (selectedSiteProvider !== 'default') {
 		let matched = false;
-		for (const { plugin, package: packageName, config } of pluginRuntime.plugins) {
+		for (const { plugin, config } of pluginRuntime.plugins) {
 			const providerFactory = plugin.siteProviders?.[selectedSiteProvider];
 			if (!providerFactory) {
 				continue;
@@ -126,23 +157,23 @@ function resolveSitePluginExtensions(pluginRuntime, context) {
 	return extensions;
 }
 
-function toStarlightLogoSrc(publicPath) {
+function toStarlightLogoSrc(publicPath: string) {
 	return publicPath.startsWith('/') ? `./public${publicPath}` : publicPath;
 }
 
-function createTenantThemeVitePlugin(themeCss) {
+function createTenantThemeVitePlugin(themeCss: string) {
 	return {
 		name: 'treeseed-tenant-theme',
-		resolveId(id) {
+		resolveId(id: string) {
 			return id === TENANT_THEME_VIRTUAL_ID ? RESOLVED_TENANT_THEME_VIRTUAL_ID : undefined;
 		},
-		load(id) {
+		load(id: string) {
 			return id === RESOLVED_TENANT_THEME_VIRTUAL_ID ? themeCss : undefined;
 		},
 	};
 }
 
-function normalizeEscapedMath(value) {
+function normalizeEscapedMath(value: string) {
 	return value
 		.replace(/\\\\([A-Za-z]+)/g, '\\$1')
 		.replace(/\\([\[\]])/g, '$1')
@@ -151,7 +182,7 @@ function normalizeEscapedMath(value) {
 		.replace(/\\([_=+\-])/g, '$1');
 }
 
-function walkTree(node, visitor) {
+function walkTree(node: any, visitor: (node: any) => void) {
 	visitor(node);
 	if (!node || !Array.isArray(node.children)) {
 		return;
@@ -163,7 +194,7 @@ function walkTree(node, visitor) {
 }
 
 function remarkNormalizeEscapedMath() {
-	return (tree) => {
+	return (tree: any) => {
 		walkTree(tree, (node) => {
 			if ((node.type === 'math' || node.type === 'inlineMath') && typeof node.value === 'string') {
 				const normalizedValue = normalizeEscapedMath(node.value);
@@ -182,7 +213,7 @@ function remarkNormalizeEscapedMath() {
 }
 
 function rehypeNormalizeEscapedMath() {
-	return (tree) => {
+	return (tree: any) => {
 		walkTree(tree, (node) => {
 			if (node?.type !== 'element' || node.tagName !== 'code') {
 				return;
@@ -206,7 +237,10 @@ function rehypeNormalizeEscapedMath() {
 	};
 }
 
-export function createTreeseedSite(tenantConfig, { starlight }) {
+export function createTreeseedSite(
+	tenantConfig: TreeseedTenantConfig,
+	{ starlight }: SiteCreateDependencies,
+): AstroUserConfig {
 	const projectRoot = process.cwd();
 	const siteConfig = parseSiteConfig(readFileSync(resolve(projectRoot, tenantConfig.siteConfigPath), 'utf8'));
 	const deployConfig = loadTreeseedDeployConfig();
@@ -236,7 +270,7 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 			},
 			plugins: [
 				createTenantThemeVitePlugin(tenantThemeCss),
-				/** @type {any} */ (tailwindcss()),
+				tailwindcss() as any,
 				...siteExtensions.vitePlugins,
 			],
 			ssr: {
@@ -298,7 +332,7 @@ export function createTreeseedSite(tenantConfig, { starlight }) {
 				},
 				sidebar: getStarlightSidebarConfigFromRuntime(bookRuntime),
 				routeMiddleware: [packageModuleFile('./middleware/starlightRouteData'), ...siteExtensions.routeMiddleware],
-			}),
+			} as any),
 			...siteExtensions.integrations,
 		],
 	});

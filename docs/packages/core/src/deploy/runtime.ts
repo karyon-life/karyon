@@ -3,7 +3,7 @@ import { loadTreeseedDeployConfig } from './config';
 import {
 	TREESEED_DEFAULT_PLUGIN_REFERENCES,
 	TREESEED_DEFAULT_PROVIDER_SELECTIONS,
-} from '../plugins/constants.mjs';
+} from '../plugins/constants';
 
 declare const __TREESEED_DEPLOY_CONFIG__: TreeseedDeployConfig | undefined;
 

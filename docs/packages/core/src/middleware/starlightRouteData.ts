@@ -1,6 +1,6 @@
 import { defineRouteMiddleware } from '@astrojs/starlight/route-data';
 import type { StarlightRouteData } from '@astrojs/starlight/route-data';
-import { BOOKS, TREESEED_LINKS, normalizeHref } from '../utils/starlight-nav.mjs';
+import { BOOKS, TREESEED_LINKS, normalizeHref } from '../utils/starlight-nav';
 
 type SidebarEntry = StarlightRouteData['sidebar'][number];
 type SidebarLink = Extract<SidebarEntry, { type: 'link' }>;

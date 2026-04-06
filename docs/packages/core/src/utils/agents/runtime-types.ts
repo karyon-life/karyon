@@ -5,8 +5,7 @@ import type {
 	AgentTriggerConfig,
 } from '../../types/agents';
 import type { AgentErrorCategory } from './contracts/run.ts';
-import type { ScopedAgentSdk } from './sdk.ts';
-import type { SdkMessageEntity } from './sdk-types';
+import type { ScopedAgentSdk, SdkMessageEntity } from '@treeseed/sdk';
 
 export interface AgentTriggerInvocation {
 	kind: 'startup' | 'schedule' | 'message' | 'manual' | 'follow';

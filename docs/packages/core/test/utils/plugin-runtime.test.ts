@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
-import { loadTreeseedPluginRuntime, loadTreeseedPlugins } from '../../src/plugins/runtime.mjs';
+import { loadTreeseedPluginRuntime, loadTreeseedPlugins } from '../../src/plugins/runtime';
 import { resetTreeseedDeployConfigForTests } from '../../src/deploy/runtime';
 import { resetTreeseedPluginRuntimeForTests, resolveFormsProvider } from '../../src/utils/plugin-runtime';
 

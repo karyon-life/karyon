@@ -1,13 +1,18 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { resolveTreeseedTenantRoot } from '../tenant/config.mjs';
+import type {
+	TreeseedDeployConfig,
+	TreeseedPluginReference,
+	TreeseedProviderSelections,
+} from '../contracts';
+import { resolveTreeseedTenantRoot } from '../tenant/config';
 import {
 	TREESEED_DEFAULT_PLUGIN_REFERENCES,
 	TREESEED_DEFAULT_PROVIDER_SELECTIONS,
-} from '../plugins/constants.mjs';
+} from '../plugins/constants';
 
-function expectString(value, label) {
+function expectString(value: unknown, label: string) {
 	if (typeof value !== 'string' || !value.trim()) {
 		throw new Error(`Invalid deploy config: expected ${label} to be a non-empty string.`);
 	}
@@ -15,7 +20,7 @@ function expectString(value, label) {
 	return value.trim();
 }
 
-function optionalString(value) {
+function optionalString(value: unknown) {
 	if (typeof value !== 'string' || !value.trim()) {
 		return undefined;
 	}
@@ -23,7 +28,7 @@ function optionalString(value) {
 	return value.trim();
 }
 
-function optionalBoolean(value, label) {
+function optionalBoolean(value: unknown, label: string) {
 	if (value === undefined) {
 		return undefined;
 	}
@@ -35,7 +40,7 @@ function optionalBoolean(value, label) {
 	return value;
 }
 
-function optionalRecord(value, label) {
+function optionalRecord(value: unknown, label: string) {
 	if (value === undefined || value === null) {
 		return undefined;
 	}
@@ -44,10 +49,10 @@ function optionalRecord(value, label) {
 		throw new Error(`Invalid deploy config: expected ${label} to be an object when provided.`);
 	}
 
-	return value;
+	return value as Record<string, unknown>;
 }
 
-function parsePluginReferences(value) {
+function parsePluginReferences(value: unknown): TreeseedPluginReference[] {
 	if (value === undefined) {
 		return [...TREESEED_DEFAULT_PLUGIN_REFERENCES];
 	}
@@ -66,7 +71,7 @@ function parsePluginReferences(value) {
 	});
 }
 
-function parseProviderSelections(value) {
+function parseProviderSelections(value: unknown): TreeseedProviderSelections {
 	const record = optionalRecord(value, 'providers');
 	if (!record) {
 		return structuredClone(TREESEED_DEFAULT_PROVIDER_SELECTIONS);
@@ -114,11 +119,11 @@ function parseProviderSelections(value) {
 	};
 }
 
-function parseDeployConfig(raw) {
-	const parsed = parseYaml(raw) ?? {};
-	const cloudflare = parsed.cloudflare ?? {};
-	const smtp = parsed.smtp ?? {};
-	const turnstile = parsed.turnstile ?? {};
+function parseDeployConfig(raw: string): TreeseedDeployConfig {
+	const parsed = (parseYaml(raw) ?? {}) as Record<string, unknown>;
+	const cloudflare = optionalRecord(parsed.cloudflare, 'cloudflare') ?? {};
+	const smtp = optionalRecord(parsed.smtp, 'smtp') ?? {};
+	const turnstile = optionalRecord(parsed.turnstile, 'turnstile') ?? {};
 	optionalBoolean(turnstile.enabled, 'turnstile.enabled');
 
 	return {
@@ -127,7 +132,10 @@ function parseDeployConfig(raw) {
 		siteUrl: expectString(parsed.siteUrl, 'siteUrl'),
 		contactEmail: expectString(parsed.contactEmail, 'contactEmail'),
 		cloudflare: {
-			accountId: optionalString(cloudflare.accountId) ?? optionalString(process.env.CLOUDFLARE_ACCOUNT_ID) ?? 'replace-with-cloudflare-account-id',
+			accountId:
+				optionalString(cloudflare.accountId)
+				?? optionalString(process.env.CLOUDFLARE_ACCOUNT_ID)
+				?? 'replace-with-cloudflare-account-id',
 			workerName: optionalString(cloudflare.workerName),
 		},
 		plugins: parsePluginReferences(parsed.plugins),
@@ -150,11 +158,11 @@ export function resolveTreeseedDeployConfigPath(configPath = 'treeseed.site.yaml
 	return candidate;
 }
 
-export function deriveCloudflareWorkerName(config) {
+export function deriveCloudflareWorkerName(config: TreeseedDeployConfig) {
 	return config.cloudflare.workerName?.trim() || config.slug;
 }
 
-export function loadTreeseedDeployConfig(configPath = 'treeseed.site.yaml') {
+export function loadTreeseedDeployConfig(configPath = 'treeseed.site.yaml'): TreeseedDeployConfig {
 	const resolvedConfigPath = resolveTreeseedDeployConfigPath(configPath);
 	const tenantRoot = dirname(resolvedConfigPath);
 	const parsed = parseDeployConfig(readFileSync(resolvedConfigPath, 'utf8'));

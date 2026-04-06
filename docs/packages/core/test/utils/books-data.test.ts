@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BOOKS } from '../../src/utils/books-data.mjs';
-import { buildBookSidebar, getBookForPath, getDocsDownloadForPath } from '../../src/utils/starlight-nav.mjs';
+import { BOOKS } from '../../src/utils/books-data';
+import { buildBookSidebar, getBookForPath, getDocsDownloadForPath } from '../../src/utils/starlight-nav';
 
 describe('book metadata integration', () => {
 	it('loads books from content entries in stable order', () => {

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
+import type { TreeseedTenantConfig } from '../contracts';
 
 function resolvePackageRoot() {
 	const moduleUrl = typeof import.meta?.url === 'string' ? import.meta.url : null;
@@ -15,8 +16,8 @@ function resolvePackageRoot() {
 const packageRoot = resolvePackageRoot();
 const packageFixtureRoot = resolve(packageRoot, 'fixture');
 
-function collectTenantRootCandidates(start) {
-	const candidates = [];
+function collectTenantRootCandidates(start: string) {
+	const candidates: string[] = [];
 	let current = resolve(start);
 
 	while (true) {
@@ -31,7 +32,7 @@ function collectTenantRootCandidates(start) {
 	return candidates;
 }
 
-function uniqueCandidates(entries) {
+function uniqueCandidates(entries: string[]) {
 	return [...new Set(entries.map((entry) => resolve(entry)))];
 }
 
@@ -43,14 +44,12 @@ function tenantRootCandidates() {
 	]);
 }
 
-function resolveTenantPath(manifestPath) {
+function resolveTenantPath(manifestPath: string) {
 	if (existsSync(manifestPath)) {
 		return resolve(manifestPath);
 	}
 
-	const candidates = [
-		...tenantRootCandidates().map((root) => resolve(root, manifestPath)),
-	];
+	const candidates = tenantRootCandidates().map((root) => resolve(root, manifestPath));
 
 	for (const candidate of candidates) {
 		if (existsSync(candidate)) {
@@ -77,22 +76,14 @@ function resolveTenantRoot() {
 	);
 }
 
-/**
- * @template T
- * @param {T} tenantConfig
- * @returns {T}
- */
-export function defineTreeseedTenant(tenantConfig) {
+export function defineTreeseedTenant<T>(tenantConfig: T): T {
 	return tenantConfig;
 }
 
-/**
- * @param {string} [manifestPath]
- */
-export function loadTreeseedManifest(manifestPath = './src/manifest.yaml') {
+export function loadTreeseedManifest(manifestPath = './src/manifest.yaml'): TreeseedTenantConfig {
 	const resolvedManifestPath = resolveTenantPath(manifestPath);
 	const tenantRoot = resolve(dirname(resolvedManifestPath), '..');
-	const parsed = parseYaml(readFileSync(resolvedManifestPath, 'utf8'));
+	const parsed = parseYaml(readFileSync(resolvedManifestPath, 'utf8')) as TreeseedTenantConfig;
 	const tenantConfig = defineTreeseedTenant({
 		...parsed,
 		siteConfigPath: resolve(tenantRoot, parsed.siteConfigPath),
@@ -102,7 +93,7 @@ export function loadTreeseedManifest(manifestPath = './src/manifest.yaml') {
 				resolve(tenantRoot, String(rootPath)),
 			]),
 		),
-	});
+	}) as TreeseedTenantConfig;
 
 	Object.defineProperty(tenantConfig, '__tenantRoot', {
 		value: tenantRoot,
@@ -115,12 +106,11 @@ export function loadTreeseedManifest(manifestPath = './src/manifest.yaml') {
 export const loadTreeseedTenantManifest = loadTreeseedManifest;
 export const resolveTreeseedTenantRoot = resolveTenantRoot;
 
-/**
- * @param {{ content: Record<string, string> }} tenantConfig
- * @param {string} collectionName
- */
-export function getTenantContentRoot(tenantConfig, collectionName) {
-	const root = tenantConfig.content[collectionName];
+export function getTenantContentRoot(
+	tenantConfig: Pick<TreeseedTenantConfig, 'content'>,
+	collectionName: string,
+) {
+	const root = tenantConfig.content[collectionName as keyof TreeseedTenantConfig['content']];
 	if (!root) {
 		throw new Error(`Unknown tenant content collection: ${collectionName}`);
 	}
@@ -128,10 +118,9 @@ export function getTenantContentRoot(tenantConfig, collectionName) {
 	return root;
 }
 
-/**
- * @param {{ features?: Record<string, boolean | undefined> }} tenantConfig
- * @param {string} featureName
- */
-export function tenantFeatureEnabled(tenantConfig, featureName) {
+export function tenantFeatureEnabled(
+	tenantConfig: Pick<TreeseedTenantConfig, 'features'>,
+	featureName: string,
+) {
 	return tenantConfig.features?.[featureName] !== false;
 }

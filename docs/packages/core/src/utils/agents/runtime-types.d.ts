@@ -1,11 +1,12 @@
 import type { AgentHandlerKind, AgentRuntimeSpec, AgentRunStatus, AgentTriggerConfig } from '../../types/agents';
+import type { ScopedAgentSdk, SdkMessageEntity } from '@treeseed/sdk';
 import type { AgentErrorCategory } from './contracts/run';
 
 export interface AgentTriggerInvocation {
 	kind: 'startup' | 'schedule' | 'message' | 'manual' | 'follow';
 	source: string;
 	trigger: AgentTriggerConfig;
-	message?: Record<string, unknown> | null;
+	message?: SdkMessageEntity | null;
 	followModels?: string[];
 	cursorValue?: string | null;
 }
@@ -112,7 +113,7 @@ export interface AgentContext {
 	runId: string;
 	repoRoot: string;
 	agent: AgentRuntimeSpec;
-	sdk: any;
+	sdk: ScopedAgentSdk;
 	trigger: AgentTriggerInvocation;
 	execution: AgentExecutionAdapter;
 	mutations: AgentMutationAdapter;

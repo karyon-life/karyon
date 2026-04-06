@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { BOOKS, TREESEED_LIBRARY_DOWNLOAD } from '../src/utils/books-data.mjs';
-import { PROJECT_TENANT } from '../src/tenant/bridge.mjs';
+import { BOOKS, TREESEED_LIBRARY_DOWNLOAD } from '../src/utils/books-data';
+import { PROJECT_TENANT } from '../src/tenant/bridge';
 
 const projectRoot = PROJECT_TENANT.__tenantRoot ?? process.cwd();
 const outputDir = path.join(projectRoot, 'public', 'books');

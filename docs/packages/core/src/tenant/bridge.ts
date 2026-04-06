@@ -1,3 +1,3 @@
-import { loadTreeseedManifest } from './config.mjs';
+import { loadTreeseedManifest } from './config';
 
 export const PROJECT_TENANT = loadTreeseedManifest();

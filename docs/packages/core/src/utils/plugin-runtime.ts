@@ -1,4 +1,4 @@
-import { loadTreeseedPluginRuntime } from '../plugins/runtime.mjs';
+import { loadTreeseedPluginRuntime } from '../plugins/runtime';
 import type {
 	ContactSubmissionStore,
 	FormRuntimeCapabilities,

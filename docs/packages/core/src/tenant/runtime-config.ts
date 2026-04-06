@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { loadTreeseedManifest } from './config.mjs';
+import type { TreeseedTenantConfig } from '../contracts';
+import { loadTreeseedManifest } from './config';
 import { parseSiteConfig } from '../utils/site-config-schema.js';
+
+declare const __TREESEED_TENANT_CONFIG__: TreeseedTenantConfig | undefined;
+declare const __TREESEED_PROJECT_ROOT__: string | undefined;
+declare const __TREESEED_SITE_CONFIG__: ReturnType<typeof parseSiteConfig> | undefined;
 
 const injectedTenantConfig =
 	typeof __TREESEED_TENANT_CONFIG__ !== 'undefined' ? __TREESEED_TENANT_CONFIG__ : null;

@@ -1,4 +1,4 @@
-import { RUNTIME_SITE_CONFIG, RUNTIME_TENANT } from '../tenant/runtime-config.mjs';
+import { RUNTIME_SITE_CONFIG, RUNTIME_TENANT } from '../tenant/runtime-config';
 import { buildTenantThemeCss } from './theme.ts';
 
 function requireRuntimeSiteConfig() {

@@ -1,25 +1,32 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadTreeseedDeployConfig } from '../deploy/config.mjs';
-import { TREESEED_DEFAULT_PLUGIN_PACKAGE } from './constants.mjs';
-import builtinDefaultPlugin from './builtin/default-plugin.mjs';
+import type { TreeseedDeployConfig } from '../contracts';
+import { loadTreeseedDeployConfig } from '../deploy/config';
+import { TREESEED_DEFAULT_PLUGIN_PACKAGE } from './constants';
+import builtinDefaultPlugin from './builtin/default-plugin';
 
 const require = createRequire(import.meta.url);
 
-function normalizeLoadedPlugin(moduleExports, packageName) {
-	const plugin = moduleExports?.default ?? moduleExports;
+type LoadedPluginEntry = {
+	package: string;
+	config: Record<string, unknown>;
+	plugin: Record<string, any>;
+};
+
+function normalizeLoadedPlugin(moduleExports: unknown, packageName: string) {
+	const plugin = (moduleExports as { default?: unknown } | undefined)?.default ?? moduleExports;
 	if (!plugin || typeof plugin !== 'object') {
 		throw new Error(`Treeseed plugin "${packageName}" did not export a plugin object.`);
 	}
-	return plugin;
+	return plugin as Record<string, any>;
 }
 
-function isPathLikePluginReference(packageName) {
+function isPathLikePluginReference(packageName: string) {
 	return packageName.startsWith('.') || packageName.startsWith('/') || packageName.startsWith('file:');
 }
 
-function loadPluginModule(packageName, tenantRoot) {
+function loadPluginModule(packageName: string, tenantRoot: string) {
 	if (packageName === TREESEED_DEFAULT_PLUGIN_PACKAGE) {
 		return builtinDefaultPlugin;
 	}
@@ -34,9 +41,9 @@ function loadPluginModule(packageName, tenantRoot) {
 	return require(packageName);
 }
 
-export function loadTreeseedPlugins(config = loadTreeseedDeployConfig()) {
-	const tenantRoot = config.__tenantRoot ?? process.cwd();
-	const plugins = [];
+export function loadTreeseedPlugins(config: TreeseedDeployConfig = loadTreeseedDeployConfig()): LoadedPluginEntry[] {
+	const tenantRoot = (config as TreeseedDeployConfig & { __tenantRoot?: string }).__tenantRoot ?? process.cwd();
+	const plugins: LoadedPluginEntry[] = [];
 
 	for (const pluginRef of config.plugins ?? []) {
 		if (pluginRef?.enabled === false) {
@@ -55,23 +62,23 @@ export function loadTreeseedPlugins(config = loadTreeseedDeployConfig()) {
 	return plugins;
 }
 
-function collectProvidedIds(plugins) {
+function collectProvidedIds(plugins: LoadedPluginEntry[]) {
 	const provided = {
-		forms: new Set(),
+		forms: new Set<string>(),
 		agents: {
-			execution: new Set(),
-			mutation: new Set(),
-			repository: new Set(),
-			verification: new Set(),
-			notification: new Set(),
-			research: new Set(),
-			handlers: new Set(),
+			execution: new Set<string>(),
+			mutation: new Set<string>(),
+			repository: new Set<string>(),
+			verification: new Set<string>(),
+			notification: new Set<string>(),
+			research: new Set<string>(),
+			handlers: new Set<string>(),
 		},
-		deploy: new Set(),
+		deploy: new Set<string>(),
 		content: {
-			docs: new Set(),
+			docs: new Set<string>(),
 		},
-		site: new Set(),
+		site: new Set<string>(),
 	};
 
 	for (const { plugin } of plugins) {
@@ -91,7 +98,7 @@ function collectProvidedIds(plugins) {
 	return provided;
 }
 
-function assertSelectedProvider(provided, label, id) {
+function assertSelectedProvider(provided: Set<string>, label: string, id?: string) {
 	if (!id) {
 		throw new Error(`Treeseed plugin runtime is missing selected provider id for ${label}.`);
 	}
@@ -100,7 +107,7 @@ function assertSelectedProvider(provided, label, id) {
 	}
 }
 
-export function loadTreeseedPluginRuntime(config = loadTreeseedDeployConfig()) {
+export function loadTreeseedPluginRuntime(config: TreeseedDeployConfig = loadTreeseedDeployConfig()) {
 	const plugins = loadTreeseedPlugins(config);
 	const provided = collectProvidedIds(plugins);
 	const providers = config.providers;

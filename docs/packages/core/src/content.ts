@@ -1,9 +1,10 @@
 import { defineCollection, reference } from 'astro:content';
 import { z } from 'astro/zod';
 import { glob } from 'astro/loaders';
+import type { TreeseedTenantConfig } from './contracts';
 import { AGENT_CLI_ALLOW_TOOLS } from './types/agents';
-import { loadTreeseedPluginRuntime } from './plugins/runtime.mjs';
-import { loadTreeseedDeployConfig } from './deploy/config.mjs';
+import { loadTreeseedPluginRuntime } from './plugins/runtime';
+import { loadTreeseedDeployConfig } from './deploy/config';
 import {
 	AGENT_MODEL_DEFAULTS,
 	BOOK_MODEL_DEFAULTS,
@@ -15,19 +16,32 @@ import {
 	QUESTION_MODEL_DEFAULTS,
 } from './utils/site-config';
 
-const statusValues = ['live', 'in progress', 'exploratory', 'planned', 'speculative'];
-const pageLayoutValues = ['article', 'bridge'];
-const questionTypeValues = ['research', 'implementation', 'strategy', 'evaluation'];
-const timeHorizonValues = ['near-term', 'mid-term', 'long-term'];
-const runtimeStatusValues = ['active', 'experimental', 'dormant'];
-const agentTriggerTypeValues = ['schedule', 'message', 'follow', 'startup'];
-const agentPermissionOperationValues = ['get', 'search', 'follow', 'pick', 'create', 'update'];
+const statusValues = ['live', 'in progress', 'exploratory', 'planned', 'speculative'] as const;
+const pageLayoutValues = ['article', 'bridge'] as const;
+const questionTypeValues = ['research', 'implementation', 'strategy', 'evaluation'] as const;
+const timeHorizonValues = ['near-term', 'mid-term', 'long-term'] as const;
+const runtimeStatusValues = ['active', 'experimental', 'dormant'] as const;
+const agentTriggerTypeValues = ['schedule', 'message', 'follow', 'startup'] as const;
+const agentPermissionOperationValues = ['get', 'search', 'follow', 'pick', 'create', 'update'] as const;
 
-function withOptionalDefault(schema, defaultValue) {
+type DocsDependencies = {
+	docsLoader: (options: Record<string, unknown>) => unknown;
+	docsSchema: (options: Record<string, unknown>) => unknown;
+};
+
+type DocsCollectionProvider = {
+	loader: unknown;
+	schema: unknown;
+};
+
+function withOptionalDefault<TSchema extends { default: (value: unknown) => TSchema }>(
+	schema: TSchema,
+	defaultValue: unknown,
+) {
 	return defaultValue === undefined ? schema : schema.default(defaultValue);
 }
 
-function createKnowledgeDocId({ entry, data }) {
+function createKnowledgeDocId({ entry, data }: { entry: string; data: Record<string, unknown> }) {
 	const rawSlug = typeof data.slug === 'string' ? data.slug : entry;
 	const normalized = rawSlug
 		.replace(/\\/g, '/')
@@ -42,7 +56,10 @@ function createKnowledgeDocId({ entry, data }) {
 	return normalized ? `knowledge/${normalized}` : 'knowledge';
 }
 
-function resolveDocsCollectionProvider(tenantConfig, dependencies) {
+function resolveDocsCollectionProvider(
+	tenantConfig: TreeseedTenantConfig,
+	dependencies: DocsDependencies,
+): DocsCollectionProvider {
 	const pluginRuntime = loadTreeseedPluginRuntime(loadTreeseedDeployConfig());
 	const selectedId = pluginRuntime.config.providers.content.docs;
 
@@ -70,15 +87,15 @@ function resolveDocsCollectionProvider(tenantConfig, dependencies) {
 		if (!resolved?.loader || !resolved?.schema) {
 			throw new Error(`Treeseed docs provider "${selectedId}" from "${packageName}" must return loader and schema.`);
 		}
-		return resolved;
+		return resolved as DocsCollectionProvider;
 	}
 
 	throw new Error(`Treeseed docs provider "${selectedId}" is not registered.`);
 }
 
-export function createTreeseedCollections(tenantConfig, { docsLoader, docsSchema }) {
+export function createTreeseedCollections(tenantConfig: TreeseedTenantConfig, { docsLoader, docsSchema }: DocsDependencies) {
 	const contributorReference = z.union([reference('people'), reference('agents')]);
-	const sidebarItemSchema = z.lazy(() =>
+	const sidebarItemSchema: z.ZodTypeAny = z.lazy(() =>
 		z.object({
 			label: z.string(),
 			link: z.string().optional(),
@@ -244,8 +261,8 @@ export function createTreeseedCollections(tenantConfig, { docsLoader, docsSchema
 		agents: defineCollection({ loader: glob({ pattern: '**/*.{md,mdx}', base: tenantConfig.content.agents }), schema: agentSchema }),
 		books: defineCollection({ loader: glob({ pattern: '**/*.{md,mdx}', base: tenantConfig.content.books }), schema: bookSchema }),
 		docs: defineCollection({
-			loader: docsCollectionProvider.loader,
-			schema: docsCollectionProvider.schema,
+			loader: docsCollectionProvider.loader as any,
+			schema: docsCollectionProvider.schema as any,
 		}),
 	};
 }
