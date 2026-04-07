@@ -15,7 +15,6 @@ import {
 	createPersistentDeployTarget,
 	ensureGeneratedWranglerConfig,
 	markDeploymentInitialized,
-	printDeploySummary,
 	provisionCloudflareResources,
 	syncCloudflareSecrets,
 } from './deploy-lib.ts';
@@ -59,6 +58,17 @@ function maskValue(value) {
 		return '********';
 	}
 	return `${value.slice(0, 3)}...${value.slice(-3)}`;
+}
+
+function writeDeploySummary(write, summary) {
+	write('Treeseed deployment summary');
+	write(`  Target: ${summary.target}`);
+	write(`  Worker: ${summary.workerName}`);
+	write(`  Site URL: ${summary.siteUrl}`);
+	write(`  Account ID: ${summary.accountId}`);
+	write(`  D1: ${summary.siteDataDb.databaseName} (${summary.siteDataDb.databaseId})`);
+	write(`  KV FORM_GUARD_KV: ${summary.formGuardKv.id}`);
+	write(`  KV SESSION: ${summary.sessionKv.id}`);
 }
 
 function loadOptionalTenantConfig() {
@@ -473,6 +483,7 @@ export async function runTreeseedConfigWizard({
 	sync = 'none',
 	prompt,
 	authStatus,
+	write = console.log,
 }) {
 	ensureTreeseedGitignoreEntries(tenantRoot);
 	const registry = collectTreeseedEnvironmentContext(tenantRoot);
@@ -493,11 +504,11 @@ export async function runTreeseedConfigWizard({
 			plugins: registry.context.plugins,
 		});
 
-		console.log(`\nTreeseed configuration for ${scope}`);
-		console.log(`Tenant: ${registry.context.deployConfig.name} (${registry.context.deployConfig.slug})`);
+		write(`\nTreeseed configuration for ${scope}`);
+		write(`Tenant: ${registry.context.deployConfig.name} (${registry.context.deployConfig.slug})`);
 		if (authStatus) {
-			console.log(`GitHub auth: ${authStatus.gh?.authenticated ? 'ready' : 'not ready'}`);
-			console.log(`Wrangler auth: ${authStatus.wrangler?.authenticated ? 'ready' : 'not ready'}`);
+			write(`GitHub auth: ${authStatus.gh?.authenticated ? 'ready' : 'not ready'}`);
+			write(`Wrangler auth: ${authStatus.wrangler?.authenticated ? 'ready' : 'not ready'}`);
 		}
 
 		for (const group of groups) {
@@ -511,17 +522,17 @@ export async function runTreeseedConfigWizard({
 				continue;
 			}
 
-			console.log(`\n[${group}]`);
+			write(`\n[${group}]`);
 			for (const entry of groupEntries) {
 				const currentValue = existingValues[entry.id];
 				const suggestedValue = suggested[entry.id];
 				const displayValue = currentValue ?? suggestedValue ?? '';
-				console.log(`\n${entry.label} (${entry.id})`);
-				console.log(`Why: ${entry.description}`);
-				console.log(`How to get it: ${entry.howToGet}`);
-				console.log(`Used for: ${entry.purposes.join(', ')}`);
-				console.log(`Targets: ${entry.targets.join(', ')}`);
-				console.log(`Current: ${entry.sensitivity === 'secret' ? maskValue(currentValue) : currentValue ?? '(unset)'}`);
+				write(`\n${entry.label} (${entry.id})`);
+				write(`Why: ${entry.description}`);
+				write(`How to get it: ${entry.howToGet}`);
+				write(`Used for: ${entry.purposes.join(', ')}`);
+				write(`Targets: ${entry.targets.join(', ')}`);
+				write(`Current: ${entry.sensitivity === 'secret' ? maskValue(currentValue) : currentValue ?? '(unset)'}`);
 
 				const answer = (await prompt(
 					`${entry.id}${displayValue ? ` [${entry.sensitivity === 'secret' ? 'keep current' : displayValue}]` : ''}: `,
@@ -573,7 +584,9 @@ export async function runTreeseedConfigWizard({
 		}
 
 		const initialized = initializeTreeseedPersistentEnvironment({ tenantRoot, scope });
-		printDeploySummary(initialized.summary);
+		if (write) {
+			writeDeploySummary(write, initialized.summary);
+		}
 		summary.initialized.push({
 			scope,
 			secrets: initialized.secrets.length,

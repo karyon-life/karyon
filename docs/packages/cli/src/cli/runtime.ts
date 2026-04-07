@@ -33,6 +33,7 @@ export function createTreeseedCommandContext(overrides: Partial<TreeseedCommandC
 		env: overrides.env ?? process.env,
 		write: overrides.write ?? (defaultWrite as TreeseedWriter),
 		spawn: overrides.spawn ?? (defaultSpawn as TreeseedSpawner),
+		outputFormat: overrides.outputFormat ?? 'human',
 	};
 }
 
@@ -64,21 +65,45 @@ async function executeHandler(spec: TreeseedCommandSpec, argv: string[], context
 	try {
 		const invocation = parseTreeseedInvocation(spec, argv);
 		const errors = validateTreeseedInvocation(spec, invocation);
+		const handlerContext: TreeseedCommandContext = {
+			...context,
+			outputFormat: invocation.args.json === true ? 'json' : (context.outputFormat ?? 'human'),
+		};
 		if (errors.length > 0) {
-			return writeResult({ exitCode: 1, stderr: [formatValidationError(spec, errors)] }, context);
+			return writeResult({
+				exitCode: 1,
+				stderr: [formatValidationError(spec, errors)],
+				report: {
+					command: spec.name,
+					ok: false,
+					error: errors.join(' '),
+					errors,
+					usage: renderUsage(spec),
+				},
+			}, handlerContext);
 		}
 
 		const handlerName = spec.handlerName;
 		if (!handlerName) {
-			return writeResult({ exitCode: 1, stderr: [`Treeseed command \`${spec.name}\` is missing a handler binding.`] }, context);
+			return writeResult({ exitCode: 1, stderr: [`Treeseed command \`${spec.name}\` is missing a handler binding.`] }, handlerContext);
 		}
 
 		const handler = COMMAND_HANDLERS[handlerName as keyof typeof COMMAND_HANDLERS];
-		const result = await handler(invocation, context);
-		return writeResult(result, context);
+		const result = await handler(invocation, handlerContext);
+		return writeResult(result, handlerContext);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		return writeResult({ exitCode: 1, stderr: [message, `Run \`treeseed help ${spec.name}\` for details.`] }, context);
+		const wantsJson = argv.includes('--json');
+		return writeResult({
+			exitCode: 1,
+			stderr: [message, `Run \`treeseed help ${spec.name}\` for details.`],
+			report: {
+				command: spec.name,
+				ok: false,
+				error: message,
+				hint: `treeseed help ${spec.name}`,
+			},
+		}, { ...context, outputFormat: wantsJson ? 'json' : (context.outputFormat ?? 'human') });
 	}
 }
 

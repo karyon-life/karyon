@@ -58,6 +58,7 @@ export type TreeseedCommandContext = {
 	env: NodeJS.ProcessEnv;
 	write: TreeseedWriter;
 	spawn: TreeseedSpawner;
+	outputFormat?: 'human' | 'json';
 };
 
 export type TreeseedCommandHandler = (

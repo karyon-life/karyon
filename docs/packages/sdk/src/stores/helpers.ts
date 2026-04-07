@@ -34,4 +34,11 @@ export class SqliteStoreBase {
 	protected async execute(query: string) {
 		await this.db.prepare(query).run();
 	}
+
+	protected async tableExists(tableName: string) {
+		const row = await this.selectFirst(
+			`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${toSqlValue(tableName)} LIMIT 1`,
+		);
+		return Boolean(row?.name);
+	}
 }

@@ -16,8 +16,10 @@ import {
 } from '../../../scripts/git-workflow-lib.ts';
 import { loadTreeseedDeployConfig } from '@treeseed/core/deploy/config';
 import { runWorkspaceSavePreflight } from '../../../scripts/save-deploy-preflight-lib.ts';
+import { guidedResult } from './utils.js';
 
 export const handleClose: TreeseedCommandHandler = (_invocation, context) => {
+	const commandName = _invocation.commandName || 'close';
 	const tenantRoot = context.cwd;
 	const featureBranch = assertFeatureBranch(tenantRoot);
 	const previewTarget = createBranchPreviewDeployTarget(featureBranch);
@@ -39,10 +41,23 @@ export const handleClose: TreeseedCommandHandler = (_invocation, context) => {
 	deleteLocalBranch(repoDir, featureBranch);
 
 	return {
-		exitCode: 0,
-		stdout: [
-			'Treeseed close completed successfully.',
-			`Merged ${featureBranch} into staging and removed branch artifacts.`,
-		],
+		...guidedResult({
+			command: commandName,
+			summary: `Treeseed ${commandName} completed successfully.`,
+			facts: [
+				{ label: 'Merged branch', value: featureBranch },
+				{ label: 'Merge target', value: 'staging' },
+				{ label: 'Preview cleanup', value: previewState.readiness?.initialized ? 'performed' : 'not needed' },
+			],
+			nextSteps: [
+				'treeseed deploy --environment staging',
+				'treeseed release --patch',
+			],
+			report: {
+				branchName: featureBranch,
+				mergeTarget: 'staging',
+				previewCleanup: previewState.readiness?.initialized === true,
+			},
+		}),
 	};
 };

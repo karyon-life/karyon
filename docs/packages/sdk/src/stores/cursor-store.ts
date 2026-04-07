@@ -6,6 +6,7 @@ import type {
 	SdkUpdateRequest,
 } from '../sdk-types.ts';
 import { SqliteStoreBase, nowIso, toSqlValue } from './helpers.ts';
+import { createCursorEnvelope, cursorEntityFromEnvelope, TRESEED_ENVELOPE_SCHEMA_VERSION } from './envelopes.ts';
 
 function cursorFromRow(row: Record<string, unknown>): SdkCursorEntity {
 	return {
@@ -41,10 +42,20 @@ function buildFilterSql(filters: SdkSearchRequest['filters'] = []) {
 }
 
 export class CursorStore extends SqliteStoreBase {
+	private async usesEnvelopeTable() {
+		return this.tableExists('cursor_state');
+	}
+
 	async getByKey(key: string) {
 		const [agentSlug, cursorKey] = key.split(':', 2);
 		if (!agentSlug || !cursorKey) {
 			return null;
+		}
+		if (await this.usesEnvelopeTable()) {
+			const row = await this.selectFirst(
+				`SELECT * FROM cursor_state WHERE agent_slug = ${toSqlValue(agentSlug)} AND cursor_key = ${toSqlValue(cursorKey)} LIMIT 1`,
+			);
+			return row ? cursorEntityFromEnvelope(row) : null;
 		}
 		const row = await this.selectFirst(
 			`SELECT * FROM agent_cursors WHERE agent_slug = ${toSqlValue(agentSlug)} AND cursor_key = ${toSqlValue(cursorKey)} LIMIT 1`,
@@ -53,6 +64,19 @@ export class CursorStore extends SqliteStoreBase {
 	}
 
 	async get(request: SdkGetCursorRequest) {
+		if (await this.usesEnvelopeTable()) {
+			const row = await this.selectFirst(
+				`SELECT payload_json FROM cursor_state WHERE agent_slug = ${toSqlValue(request.agentSlug)} AND cursor_key = ${toSqlValue(request.cursorKey)} LIMIT 1`,
+			);
+			if (typeof row?.payload_json !== 'string') {
+				return null;
+			}
+			try {
+				return String((JSON.parse(row.payload_json) as { cursorValue?: string }).cursorValue ?? '');
+			} catch {
+				return null;
+			}
+		}
 		const row = await this.selectFirst(
 			`SELECT cursor_value FROM agent_cursors WHERE agent_slug = ${toSqlValue(request.agentSlug)} AND cursor_key = ${toSqlValue(request.cursorKey)} LIMIT 1`,
 		);
@@ -60,6 +84,18 @@ export class CursorStore extends SqliteStoreBase {
 	}
 
 	async search(request: SdkSearchRequest) {
+		if (await this.usesEnvelopeTable()) {
+			const sql = [
+				'SELECT * FROM cursor_state',
+				buildEnvelopeFilterSql(request.filters),
+				request.sort?.length
+					? `ORDER BY ${request.sort.map((entry) => `${cursorSortColumn(entry.field)} ${entry.direction === 'asc' ? 'ASC' : 'DESC'}`).join(', ')}`
+					: '',
+				request.limit ? `LIMIT ${request.limit}` : '',
+			].filter(Boolean).join(' ');
+			const rows = await this.selectAll(sql);
+			return rows.map(cursorEntityFromEnvelope);
+		}
 		const sql = [
 			'SELECT * FROM agent_cursors',
 			buildFilterSql(request.filters),
@@ -73,6 +109,17 @@ export class CursorStore extends SqliteStoreBase {
 	}
 
 	async upsert(request: SdkCursorRequest) {
+		if (await this.usesEnvelopeTable()) {
+			const envelope = createCursorEnvelope({
+				agentSlug: request.agentSlug,
+				cursorKey: request.cursorKey,
+				cursorValue: request.cursorValue,
+			});
+			await this.execute(
+				`INSERT OR REPLACE INTO cursor_state (agent_slug, cursor_key, status, schema_version, updated_at, payload_json, meta_json) VALUES (${toSqlValue(request.agentSlug)}, ${toSqlValue(request.cursorKey)}, ${toSqlValue(envelope.status)}, ${TRESEED_ENVELOPE_SCHEMA_VERSION}, ${toSqlValue(nowIso())}, ${toSqlValue(JSON.stringify(envelope.payload))}, ${toSqlValue(JSON.stringify(envelope.meta))})`,
+			);
+			return;
+		}
 		await this.execute(
 			`INSERT OR REPLACE INTO agent_cursors (agent_slug, cursor_key, cursor_value, updated_at) VALUES (${toSqlValue(request.agentSlug)}, ${toSqlValue(request.cursorKey)}, ${toSqlValue(request.cursorValue)}, ${toSqlValue(nowIso())})`,
 		);
@@ -88,5 +135,56 @@ export class CursorStore extends SqliteStoreBase {
 			cursorValue,
 		});
 		return this.getByKey(`${agentSlug}:${cursorKey}`);
+	}
+}
+
+function buildEnvelopeFilterSql(filters: SdkSearchRequest['filters'] = []) {
+	return filters?.length
+		? `WHERE ${filters
+			.map((filter) => {
+				const field = cursorFilterColumn(filter.field);
+				switch (filter.op) {
+					case 'eq':
+						return `${field} = ${toSqlValue(filter.value)}`;
+					case 'in':
+						return `${field} IN (${(Array.isArray(filter.value) ? filter.value : [filter.value]).map(toSqlValue).join(', ')})`;
+					case 'updated_since':
+						return `updated_at >= ${toSqlValue(filter.value)}`;
+					default:
+						return `${field} LIKE ${toSqlValue(`%${String(filter.value ?? '')}%`)}`;
+				}
+			})
+			.join(' AND ')}`
+		: '';
+}
+
+function cursorFilterColumn(field: string) {
+	switch (field) {
+		case 'agentSlug':
+		case 'agent_slug':
+			return 'agent_slug';
+		case 'cursorKey':
+		case 'cursor_key':
+			return 'cursor_key';
+		case 'updatedAt':
+		case 'updated_at':
+			return 'updated_at';
+		default:
+			return `json_extract(payload_json, '$.${field}')`;
+	}
+}
+
+function cursorSortColumn(field: string) {
+	switch (field) {
+		case 'agentSlug':
+		case 'agent_slug':
+			return 'agent_slug';
+		case 'cursorKey':
+		case 'cursor_key':
+			return 'cursor_key';
+		case 'updatedAt':
+		case 'updated_at':
+		default:
+			return 'updated_at';
 	}
 }

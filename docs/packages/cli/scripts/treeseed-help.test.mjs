@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { findCommandSpec, listCommandNames, runTreeseedCli } from '../dist/cli/main.js';
 
 function makeWorkspaceRoot() {
@@ -12,6 +13,27 @@ function makeWorkspaceRoot() {
 		private: true,
 		workspaces: ['packages/*'],
 	}, null, 2));
+	return root;
+}
+
+function makeTenantWorkspace(branch = 'staging') {
+	const root = makeWorkspaceRoot();
+	mkdirSync(resolve(root, 'packages', 'placeholder'), { recursive: true });
+	writeFileSync(resolve(root, 'packages', 'placeholder', 'package.json'), JSON.stringify({
+		name: '@test/placeholder',
+		version: '0.0.1',
+	}, null, 2));
+	writeFileSync(resolve(root, 'treeseed.site.yaml'), [
+		'name: Test Site',
+		'slug: test-site',
+		'siteUrl: https://example.com',
+		'contactEmail: test@example.com',
+	].join('\n'));
+	spawnSync('git', ['init', '-b', branch], { cwd: root, stdio: 'ignore' });
+	spawnSync('git', ['config', 'user.name', 'Treeseed Test'], { cwd: root, stdio: 'ignore' });
+	spawnSync('git', ['config', 'user.email', 'treeseed@example.com'], { cwd: root, stdio: 'ignore' });
+	spawnSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
+	spawnSync('git', ['commit', '-m', 'init'], { cwd: root, stdio: 'ignore' });
 	return root;
 }
 
@@ -45,6 +67,8 @@ test('treeseed with no args prints top-level help and exits successfully', async
 	assert.equal(result.exitCode, 0);
 	assert.match(result.output, /Treeseed CLI/);
 	assert.match(result.output, /Primary Workflow/);
+	assert.match(result.output, /setup/);
+	assert.match(result.output, /work/);
 });
 
 test('treeseed help entrypoints produce top-level help', async () => {
@@ -70,7 +94,7 @@ test('treeseed command help renders without executing the command', async () => 
 });
 
 test('major workflow commands have usage, options, and examples in help', async () => {
-	for (const command of ['start', 'save', 'release', 'destroy', 'config']) {
+	for (const command of ['setup', 'work', 'ship', 'publish', 'promote', 'rollback', 'teardown', 'continue', 'status', 'next', 'doctor']) {
 		const result = await runCli(['help', command]);
 		assert.equal(result.exitCode, 0, `help for ${command} should exit successfully`);
 		assert.match(result.output, /Usage/);
@@ -92,6 +116,54 @@ test('workspace-only adapter commands still route correctly when not requesting 
 	assert.equal(result.exitCode, 0);
 	assert.equal(result.spawns.length, 1);
 	assert.match(result.spawns[0].args[0], /workspace-command-e2e/);
+});
+
+test('status and next support machine-readable json', async () => {
+	const workspaceRoot = makeTenantWorkspace('feature/json-status');
+	const statusResult = await runCli(['status', '--json'], { cwd: workspaceRoot });
+	const nextResult = await runCli(['next', '--json'], { cwd: workspaceRoot });
+	const continueResult = await runCli(['continue', '--json'], { cwd: workspaceRoot });
+	assert.equal(statusResult.exitCode, 0);
+	assert.equal(nextResult.exitCode, 0);
+	assert.equal(continueResult.exitCode, 0);
+	const statusJson = JSON.parse(statusResult.stdout);
+	const nextJson = JSON.parse(nextResult.stdout);
+	const continueJson = JSON.parse(continueResult.stdout);
+	assert.equal(statusJson.command, 'status');
+	assert.equal(statusJson.ok, true);
+	assert.equal(statusJson.state.branchRole, 'feature');
+	assert.equal(nextJson.command, 'next');
+	assert.ok(Array.isArray(nextJson.recommendations));
+	assert.equal(continueJson.command, 'continue');
+	assert.ok(continueJson.selected);
+});
+
+test('legacy workflow commands steer users toward simplified commands', async () => {
+	const result = await runCli(['help', 'deploy']);
+	assert.equal(result.exitCode, 0);
+	assert.match(result.output, /Prefer `treeseed publish`/);
+});
+
+test('doctor reports blocking issues with structured json', async () => {
+	const workspaceRoot = makeTenantWorkspace('staging');
+	const result = await runCli(['doctor', '--json'], { cwd: workspaceRoot });
+	assert.equal(result.exitCode, 1);
+	const payload = JSON.parse(result.stderr);
+	assert.equal(payload.command, 'doctor');
+	assert.equal(payload.ok, false);
+	assert.ok(Array.isArray(payload.mustFixNow));
+	assert.ok(payload.mustFixNow.some((entry) => /machine config/i.test(entry)));
+});
+
+test('setup bootstraps the local workspace and reports next steps', async () => {
+	const workspaceRoot = makeTenantWorkspace('staging');
+	const result = await runCli(['setup', '--json'], { cwd: workspaceRoot });
+	assert.equal(result.exitCode, 0);
+	const payload = JSON.parse(result.stdout);
+	assert.equal(payload.command, 'setup');
+	assert.equal(payload.ok, true);
+	assert.ok(Array.isArray(payload.scopes));
+	assert.ok(payload.scopes.includes('local'));
 });
 
 test('command metadata stays aligned with help coverage', () => {

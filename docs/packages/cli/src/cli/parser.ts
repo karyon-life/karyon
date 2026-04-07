@@ -87,16 +87,16 @@ export function validateTreeseedInvocation(command: TreeseedCommandSpec, invocat
 		}
 	}
 
-	if (command.name === 'release') {
+	if (command.name === 'release' || command.name === 'promote') {
 		const selected = ['major', 'minor', 'patch'].filter((name) => invocation.args[name] === true);
 		if (selected.length !== 1) {
-			errors.push('Treeseed release requires exactly one version bump flag: --major, --minor, or --patch.');
+			errors.push(`Treeseed ${command.name} requires exactly one version bump flag: --major, --minor, or --patch.`);
 		}
 	}
 
-	if (command.name === 'deploy') {
+	if (command.name === 'deploy' || command.name === 'publish') {
 		if (!invocation.args.environment && !invocation.args.targetBranch && !process.env.CI) {
-			errors.push('Treeseed deploy requires `--environment local|staging|prod` or `--target-branch <branch>` outside CI.');
+			errors.push(`Treeseed ${command.name} requires \`--environment local|staging|prod\` or \`--target-branch <branch>\` outside CI.`);
 		}
 	}
 

@@ -63,7 +63,10 @@ export function suggestTreeseedCommands(input: string) {
 export function renderTreeseedHelp(commandName?: string | null) {
 	if (!commandName) {
 		const groups = groupedCommands();
-		const primaryWorkflow = ['init', 'config', 'start', 'close', 'deploy', 'save', 'release', 'destroy']
+		const primaryWorkflow = ['setup', 'work', 'dev', 'ship', 'publish', 'promote', 'rollback', 'teardown']
+			.map((name) => findCommandSpec(name))
+			.filter((spec): spec is TreeseedCommandSpec => Boolean(spec));
+		const workflowGuidance = ['status', 'next', 'continue', 'doctor']
 			.map((name) => findCommandSpec(name))
 			.filter((spec): spec is TreeseedCommandSpec => Boolean(spec));
 
@@ -80,6 +83,11 @@ export function renderTreeseedHelp(commandName?: string | null) {
 				return `  ${command.name}${spacer}${command.summary}`;
 			})),
 			'',
+			formatSection('Workflow Guidance', workflowGuidance.map((command) => {
+				const spacer = command.name.length < 18 ? ' '.repeat(18 - command.name.length) : ' ';
+				return `  ${command.name}${spacer}${command.summary}`;
+			})),
+			'',
 			...GROUP_ORDER
 				.filter((group) => group !== 'Workflow')
 				.map((group) => formatSection(group, (groups.get(group) ?? []).map((command) => {
@@ -89,22 +97,25 @@ export function renderTreeseedHelp(commandName?: string | null) {
 				.filter(Boolean),
 			'',
 			formatSection('Common Flows', [
-				'  treeseed config --environment local',
-				'  treeseed start feature/my-change --preview',
-				'  treeseed save "feat: describe your change"',
-				'  treeseed close',
-				'  treeseed release --patch',
+				'  treeseed setup',
+				'  treeseed work feature/my-change --preview',
+				'  treeseed ship "feat: describe your change"',
+				'  treeseed publish --environment staging',
+				'  treeseed promote --patch',
+				'  treeseed teardown',
 			]),
 			'',
 			formatSection('Help', [
 				'  treeseed --help',
-				'  treeseed help deploy',
-				'  treeseed deploy --help',
+				'  treeseed help publish',
+				'  treeseed publish --help',
 			]),
 			'',
 			'Notes',
 			'  - Workspace-only commands must be run from a Treeseed workspace root.',
-			'  - Persistent environments are configured with `treeseed config` and published with `treeseed deploy`.',
+			'  - Use `treeseed setup`, `treeseed work`, `treeseed ship`, `treeseed publish`, `treeseed promote`, and `treeseed teardown` for the simplified workflow.',
+			'  - `config`, `deploy`, `start`, `save`, `release`, `close`, and `destroy` remain available as compatibility commands.',
+			'  - Use `--json` on guidance and main workflow commands when an AI agent or script needs machine-readable output.',
 		];
 
 		return sections.filter(Boolean).join('\n');

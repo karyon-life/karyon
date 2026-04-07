@@ -11,6 +11,7 @@ import {
 	validateDestroyPrerequisites,
 } from '../../../scripts/deploy-lib.ts';
 import type { TreeseedCommandContext } from '../types.js';
+import { guidedResult } from './utils.js';
 
 function printDangerMessage(context: TreeseedCommandContext, deployConfig: any, state: any, expectedConfirmation: string) {
 	context.write('DANGER: treeseed destroy will permanently delete this site and its Cloudflare resources.', 'stderr');
@@ -25,6 +26,7 @@ function printDangerMessage(context: TreeseedCommandContext, deployConfig: any, 
 }
 
 export const handleDestroy: TreeseedCommandHandler = async (invocation, context) => {
+	const commandName = invocation.commandName || 'destroy';
 	const tenantRoot = context.cwd;
 	const scope = String(invocation.args.environment);
 	const target = createPersistentDeployTarget(scope);
@@ -62,9 +64,40 @@ export const handleDestroy: TreeseedCommandHandler = async (invocation, context)
 	printDestroySummary(result);
 
 	if (dryRun) {
-		return { exitCode: 0, stdout: ['Dry run: no remote resources were deleted.'] };
+		return guidedResult({
+			command: commandName,
+			summary: `Treeseed ${commandName} dry run completed.`,
+			facts: [
+				{ label: 'Environment', value: scope },
+				{ label: 'Remote deletion', value: 'skipped' },
+			],
+			nextSteps: ['treeseed status'],
+			report: {
+				scope,
+				dryRun: true,
+				force,
+				removeBuildArtifacts,
+			},
+		});
 	}
 
 	cleanupDestroyedState(tenantRoot, { target, removeBuildArtifacts });
-	return { exitCode: 0, stdout: ['Treeseed destroy completed and local deployment state was removed.'] };
+	return guidedResult({
+		command: commandName,
+		summary: `Treeseed ${commandName} completed and local deployment state was removed.`,
+		facts: [
+			{ label: 'Environment', value: scope },
+			{ label: 'Removed build artifacts', value: removeBuildArtifacts ? 'yes' : 'no' },
+		],
+		nextSteps: [
+			`treeseed config --environment ${scope}`,
+			'treeseed status',
+		],
+		report: {
+			scope,
+			dryRun: false,
+			force,
+			removeBuildArtifacts,
+		},
+	});
 };

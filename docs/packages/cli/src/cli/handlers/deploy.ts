@@ -12,6 +12,7 @@ import {
 import { currentManagedBranch, PRODUCTION_BRANCH, STAGING_BRANCH } from '../../../scripts/git-workflow-lib.ts';
 import { packageScriptPath, wranglerBin } from '../../../scripts/package-tools.ts';
 import { runTenantDeployPreflight } from '../../../scripts/save-deploy-preflight-lib.ts';
+import { guidedResult } from './utils.js';
 
 function inferEnvironmentFromBranch(tenantRoot: string) {
 	const branch = currentManagedBranch(tenantRoot);
@@ -21,6 +22,7 @@ function inferEnvironmentFromBranch(tenantRoot: string) {
 }
 
 export const handleDeploy: TreeseedCommandHandler = (invocation, context) => {
+	const commandName = invocation.commandName || 'deploy';
 	const tenantRoot = context.cwd;
 	const environment = typeof invocation.args.environment === 'string' ? invocation.args.environment : undefined;
 	const targetBranch = typeof invocation.args.targetBranch === 'string' ? invocation.args.targetBranch : undefined;
@@ -32,6 +34,10 @@ export const handleDeploy: TreeseedCommandHandler = (invocation, context) => {
 		? createBranchPreviewDeployTarget(targetBranch)
 		: createPersistentDeployTarget(environment ?? (context.env.CI ? inferEnvironmentFromBranch(tenantRoot) : null));
 	const scope = targetBranch ? 'staging' : String(environment ?? (context.env.CI ? inferEnvironmentFromBranch(tenantRoot) : ''));
+	const executedSteps: string[] = [];
+	const nextSteps: string[] = [];
+	let deployUrl: string | null = null;
+	let migratedDatabase: string | null = null;
 
 	applyTreeseedEnvironmentToProcess({ tenantRoot, scope });
 
@@ -41,9 +47,6 @@ export const handleDeploy: TreeseedCommandHandler = (invocation, context) => {
 	}
 
 	const shouldRun = (step: string) => !only || only === step;
-	if (name) {
-		context.write(`Deploy target label: ${name}`, 'stdout');
-	}
 
 	if (scope === 'local') {
 		runTenantDeployPreflight({ cwd: tenantRoot, scope: 'local' });
@@ -52,10 +55,23 @@ export const handleDeploy: TreeseedCommandHandler = (invocation, context) => {
 			env: { ...context.env },
 			stdio: 'inherit',
 		});
-		return {
+		return guidedResult({
+			command: commandName,
+			summary: buildOnly.status === 0 ? 'Treeseed local deploy completed as a build-only publish target.' : 'Treeseed local deploy failed.',
 			exitCode: buildOnly.status ?? 1,
-			stdout: buildOnly.status === 0 ? ['Treeseed local deploy completed as a build-only publish target.'] : [],
-		};
+			facts: [
+				{ label: 'Target', value: 'local' },
+				{ label: 'Dry run', value: dryRun ? 'yes' : 'no' },
+			],
+			nextSteps: buildOnly.status === 0 ? ['treeseed preview', 'treeseed save "describe your change"'] : ['treeseed doctor'],
+			report: {
+				target: 'local',
+				dryRun,
+				only,
+				name,
+				executedSteps: ['build'],
+			},
+		});
 	}
 
 	assertDeploymentInitialized(tenantRoot, { target });
@@ -64,12 +80,13 @@ export const handleDeploy: TreeseedCommandHandler = (invocation, context) => {
 
 	if (shouldRun('migrate')) {
 		const result = runRemoteD1Migrations(tenantRoot, { dryRun, target });
-		context.write(`${dryRun ? 'Planned' : 'Applied'} remote migrations for ${result.databaseName}.`, 'stdout');
+		executedSteps.push('migrate');
+		migratedDatabase = result.databaseName;
 	}
 
 	if (shouldRun('build')) {
 		if (dryRun) {
-			context.write('Dry run: skipped tenant build.', 'stdout');
+			executedSteps.push('build');
 		} else {
 			const buildResult = context.spawn(process.execPath, [packageScriptPath('tenant-build')], {
 				cwd: tenantRoot,
@@ -79,12 +96,13 @@ export const handleDeploy: TreeseedCommandHandler = (invocation, context) => {
 			if ((buildResult.status ?? 1) !== 0) {
 				return { exitCode: buildResult.status ?? 1 };
 			}
+			executedSteps.push('build');
 		}
 	}
 
 	if (shouldRun('publish')) {
 		if (dryRun) {
-			context.write(`Dry run: would deploy ${deployTargetLabel(target)} with generated Wrangler config at ${wranglerPath}.`, 'stdout');
+			executedSteps.push('publish');
 		} else {
 			const publishResult = context.spawn(process.execPath, [wranglerBin, 'deploy', '--config', wranglerPath], {
 				cwd: tenantRoot,
@@ -94,9 +112,41 @@ export const handleDeploy: TreeseedCommandHandler = (invocation, context) => {
 			if ((publishResult.status ?? 1) !== 0) {
 				return { exitCode: publishResult.status ?? 1 };
 			}
-			finalizeDeploymentState(tenantRoot, { target });
+			const finalizedState = finalizeDeploymentState(tenantRoot, { target });
+			deployUrl = finalizedState.lastDeployedUrl ?? null;
+			executedSteps.push('publish');
 		}
 	}
 
-	return { exitCode: 0 };
+	if (scope === 'staging') {
+		nextSteps.push('treeseed release --patch');
+	}
+	if (scope !== 'local') {
+		nextSteps.push(`treeseed status`);
+	}
+
+	return guidedResult({
+		command: commandName,
+		summary: dryRun ? `Treeseed ${commandName} dry run completed for ${deployTargetLabel(target)}.` : `Treeseed ${commandName} completed for ${deployTargetLabel(target)}.`,
+		facts: [
+			{ label: 'Target', value: deployTargetLabel(target) },
+			{ label: 'Target label', value: name ?? '(none)' },
+			{ label: 'Dry run', value: dryRun ? 'yes' : 'no' },
+			{ label: 'Executed steps', value: executedSteps.join(', ') || '(none)' },
+			{ label: 'Migrated database', value: migratedDatabase ?? '(none)' },
+			{ label: 'Preview URL', value: deployUrl ?? (dryRun ? '(dry run)' : '(not reported)') },
+		],
+		nextSteps,
+		report: {
+			target: deployTargetLabel(target),
+			scope,
+			dryRun,
+			only,
+			name,
+			wranglerPath,
+			executedSteps,
+			migratedDatabase,
+			deployUrl,
+		},
+	});
 };

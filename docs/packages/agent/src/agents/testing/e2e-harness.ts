@@ -317,7 +317,30 @@ export async function createAgentTestRuntime(options?: {
 				return database.inspectRuns().map((row) => runFromRecord(row));
 			}
 			const rows = database.db
-				? await database.db.prepare('SELECT * FROM agent_runs ORDER BY started_at ASC').all<Record<string, unknown>>()
+				? await database.db.prepare(`
+					SELECT
+						record_key AS run_id,
+						lookup_key AS agent_slug,
+						status,
+						json_extract(payload_json, '$.triggerSource') AS trigger_source,
+						json_extract(payload_json, '$.handlerKind') AS handler_kind,
+						json_extract(payload_json, '$.triggerKind') AS trigger_kind,
+						json_extract(payload_json, '$.selectedItemKey') AS selected_item_key,
+						json_extract(payload_json, '$.selectedMessageId') AS selected_message_id,
+						json_extract(payload_json, '$.claimedMessageId') AS claimed_message_id,
+						json_extract(payload_json, '$.branchName') AS branch_name,
+						secondary_key AS commit_sha,
+						json_extract(payload_json, '$.prUrl') AS pr_url,
+						json_extract(payload_json, '$.summary') AS summary,
+						json_extract(payload_json, '$.error') AS error,
+						json_extract(payload_json, '$.errorCategory') AS error_category,
+						json_extract(payload_json, '$.changedPaths') AS changed_paths,
+						created_at AS started_at,
+						json_extract(payload_json, '$.finishedAt') AS finished_at
+					FROM runtime_records
+					WHERE record_type = 'agent_run'
+					ORDER BY created_at ASC
+				`).all<Record<string, unknown>>()
 				: { results: [] };
 			return rows.results.map((row) => runFromRecord(row));
 		},
@@ -332,7 +355,7 @@ export async function createAgentTestRuntime(options?: {
 			if (!database.db) {
 				return [];
 			}
-			const rows = await database.db.prepare('SELECT * FROM content_leases ORDER BY item_key ASC').all<Record<string, unknown>>();
+			const rows = await database.db.prepare('SELECT * FROM lease_state ORDER BY item_key ASC').all<Record<string, unknown>>();
 			return rows.results;
 		},
 		async readSandboxArtifacts() {

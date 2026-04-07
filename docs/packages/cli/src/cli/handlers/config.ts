@@ -9,8 +9,10 @@ import {
 	runTreeseedConfigWizard,
 	writeTreeseedLocalEnvironmentFiles,
 } from '../../../scripts/config-runtime-lib.ts';
+import { guidedResult } from './utils.js';
 
 export const handleConfig: TreeseedCommandHandler = async (invocation, context) => {
+	const commandName = invocation.commandName || 'config';
 	const tenantRoot = context.cwd;
 	const scopes = Array.isArray(invocation.args.environment)
 		? invocation.args.environment
@@ -24,15 +26,18 @@ export const handleConfig: TreeseedCommandHandler = async (invocation, context) 
 	const rl = readline.createInterface({ input, output });
 
 	try {
-		context.write('Treeseed configuration wizard', 'stdout');
-		context.write('This command writes a local machine config, generates .env.local and .dev.vars, and can sync GitHub or Cloudflare settings.', 'stdout');
-		context.write('Enter a value to set it, press Enter to keep the current/default value, or enter "-" to clear a value.\n', 'stdout');
+		if (context.outputFormat !== 'json') {
+			context.write('Treeseed configuration wizard', 'stdout');
+			context.write('This command writes a local machine config, generates .env.local and .dev.vars, and can sync GitHub or Cloudflare settings.', 'stdout');
+			context.write('Enter a value to set it, press Enter to keep the current/default value, or enter "-" to clear a value.\n', 'stdout');
+		}
 
 		const result = await runTreeseedConfigWizard({
 			tenantRoot,
 			scopes,
 			sync,
 			authStatus: preflight.checks.auth,
+			write: context.outputFormat === 'json' ? () => {} : ((line: string) => context.write(line, 'stdout')),
 			prompt: async (message: string) => {
 				if (!process.stdin.isTTY || !process.stdout.isTTY) {
 					return '';
@@ -48,25 +53,29 @@ export const handleConfig: TreeseedCommandHandler = async (invocation, context) 
 		writeTreeseedLocalEnvironmentFiles(tenantRoot);
 		applyTreeseedEnvironmentToProcess({ tenantRoot, scope: 'local' });
 		const { configPath, keyPath } = getTreeseedMachineConfigPaths(tenantRoot);
-
-		context.write('\nTreeseed config completed.', 'stdout');
-		context.write(`Machine config: ${configPath}`, 'stdout');
-		context.write(`Machine key: ${keyPath}`, 'stdout');
-		context.write(`Updated values: ${result.updated.length}`, 'stdout');
-		context.write(`Initialized environments: ${result.initialized.length}`, 'stdout');
-		if (result.synced.github) {
-			context.write(
-				`GitHub sync: ${result.synced.github.secrets.length} secrets, ${result.synced.github.variables.length} variables (${result.synced.github.repository})`,
-				'stdout',
-			);
-		}
-		if (result.synced.cloudflare) {
-			context.write(
-				`Cloudflare sync: ${result.synced.cloudflare.secrets.length} secrets, ${result.synced.cloudflare.varsManagedByWranglerConfig.length} vars via Wrangler config`,
-				'stdout',
-			);
-		}
-		return { exitCode: 0 };
+		return guidedResult({
+			command: commandName,
+			summary: `Treeseed ${commandName} completed successfully.`,
+			facts: [
+				{ label: 'Machine config', value: configPath },
+				{ label: 'Machine key', value: keyPath },
+				{ label: 'Updated values', value: result.updated.length },
+				{ label: 'Initialized environments', value: result.initialized.map((entry: { scope: string }) => entry.scope).join(', ') || '(none)' },
+				{ label: 'GitHub sync', value: result.synced.github ? `${result.synced.github.secrets.length} secrets, ${result.synced.github.variables.length} variables` : 'not run' },
+				{ label: 'Cloudflare sync', value: result.synced.cloudflare ? `${result.synced.cloudflare.secrets.length} secrets, ${result.synced.cloudflare.varsManagedByWranglerConfig.length} vars` : 'not run' },
+			],
+			nextSteps: [
+				...(scopes.includes('local') ? ['treeseed dev'] : []),
+				...(scopes.includes('staging') ? ['treeseed deploy --environment staging'] : []),
+				...(scopes.includes('prod') ? ['treeseed deploy --environment prod'] : []),
+			],
+			report: {
+				scopes,
+				sync,
+				result,
+				preflight,
+			},
+		});
 	} finally {
 		rl.close();
 	}

@@ -11,8 +11,10 @@ import {
 import { PRODUCTION_BRANCH, STAGING_BRANCH, remoteBranchExists } from '../../../scripts/git-workflow-lib.ts';
 import { run, workspaceRoot } from '../../../scripts/workspace-tools.ts';
 import { runWorkspaceSavePreflight } from '../../../scripts/save-deploy-preflight-lib.ts';
+import { guidedResult } from './utils.js';
 
 export const handleSave: TreeseedCommandHandler = (invocation, context) => {
+	const commandName = invocation.commandName || 'save';
 	const optionsHotfix = invocation.args.hotfix === true;
 	const message = invocation.positionals.join(' ').trim();
 	const root = workspaceRoot();
@@ -22,7 +24,7 @@ export const handleSave: TreeseedCommandHandler = (invocation, context) => {
 	applyTreeseedEnvironmentToProcess({ tenantRoot: root, scope });
 
 	if (!message) {
-		return { exitCode: 1, stderr: ['Treeseed save requires a commit message. Usage: treeseed save <message>'] };
+		return { exitCode: 1, stderr: [`Treeseed ${commandName} requires a commit message. Usage: treeseed ${commandName} <message>`] };
 	}
 	if (!branch) {
 		return { exitCode: 1, stderr: ['Treeseed save requires an active git branch.'] };
@@ -30,14 +32,14 @@ export const handleSave: TreeseedCommandHandler = (invocation, context) => {
 	if (branch === PRODUCTION_BRANCH && !optionsHotfix) {
 		return {
 			exitCode: 1,
-			stderr: ['Treeseed save is blocked on main. Use `treeseed release` for normal production promotion or `treeseed save --hotfix` for an explicit hotfix.'],
+			stderr: [`Treeseed ${commandName} is blocked on main. Use \`treeseed promote\` for normal production promotion or \`treeseed ${commandName} --hotfix\` for an explicit hotfix.`],
 		};
 	}
 
 	try {
 		originRemoteUrl(gitRoot);
 	} catch {
-		return { exitCode: 1, stderr: ['Treeseed save requires an origin remote.'] };
+		return { exitCode: 1, stderr: [`Treeseed ${commandName} requires an origin remote.`] };
 	}
 
 	try {
@@ -47,7 +49,7 @@ export const handleSave: TreeseedCommandHandler = (invocation, context) => {
 	}
 
 	if (!hasMeaningfulChanges(gitRoot)) {
-		return { exitCode: 1, stderr: ['Treeseed save found no meaningful repository changes to commit.'] };
+		return { exitCode: 1, stderr: [`Treeseed ${commandName} found no meaningful repository changes to commit.`] };
 	}
 
 	run('git', ['add', '-A'], { cwd: gitRoot });
@@ -69,7 +71,23 @@ export const handleSave: TreeseedCommandHandler = (invocation, context) => {
 	}
 
 	return {
-		exitCode: 0,
-		stdout: ['Treeseed save completed successfully.', `Branch: ${branch}`, `Environment scope: ${scope}`],
+		...guidedResult({
+			command: commandName,
+			summary: `Treeseed ${commandName} completed successfully.`,
+			facts: [
+				{ label: 'Branch', value: branch },
+				{ label: 'Environment scope', value: scope },
+				{ label: 'Hotfix', value: optionsHotfix ? 'yes' : 'no' },
+			],
+			nextSteps: [
+				branch === STAGING_BRANCH ? 'treeseed deploy --environment staging' : branch === PRODUCTION_BRANCH ? 'Monitor CI or run `treeseed deploy --environment prod` only if you intentionally need a manual production publish.' : 'treeseed close',
+			],
+			report: {
+				branch,
+				scope,
+				hotfix: optionsHotfix,
+				message,
+			},
+		}),
 	};
 };

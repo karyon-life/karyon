@@ -7,6 +7,7 @@ import type {
 	SdkUpdateRequest,
 } from '../sdk-types.ts';
 import { SqliteStoreBase, nowIso, toSqlValue, type DatabaseRow } from './helpers.ts';
+import { createMessageEnvelope, messageEntityFromEnvelope, TRESEED_ENVELOPE_SCHEMA_VERSION } from './envelopes.ts';
 
 export function messageFromRow(row: DatabaseRow): SdkMessageEntity {
 	return {
@@ -54,12 +55,30 @@ function buildOrderSql(sort: SdkSearchRequest['sort'] = []) {
 }
 
 export class MessageStore extends SqliteStoreBase {
+	private async usesEnvelopeTable() {
+		return this.tableExists('message_queue');
+	}
+
 	async getById(id: number) {
+		if (await this.usesEnvelopeTable()) {
+			const row = await this.selectFirst(`SELECT * FROM message_queue WHERE id = ${id} LIMIT 1`);
+			return row ? messageEntityFromEnvelope(row) : null;
+		}
 		const row = await this.selectFirst(`SELECT * FROM messages WHERE id = ${id} LIMIT 1`);
 		return row ? messageFromRow(row) : null;
 	}
 
 	async search(request: SdkSearchRequest) {
+		if (await this.usesEnvelopeTable()) {
+			const sql = [
+				'SELECT * FROM message_queue',
+				buildEnvelopeFilterSql(request.filters),
+				buildEnvelopeOrderSql(request.sort),
+				request.limit ? `LIMIT ${request.limit}` : '',
+			].filter(Boolean).join(' ');
+			const rows = await this.selectAll(sql);
+			return rows.map(messageEntityFromEnvelope);
+		}
 		const sql = [
 			'SELECT * FROM messages',
 			buildFilterSql(request.filters),
@@ -71,6 +90,23 @@ export class MessageStore extends SqliteStoreBase {
 	}
 
 	async claim(request: SdkClaimMessageRequest) {
+		if (await this.usesEnvelopeTable()) {
+			const typeClause = request.messageTypes?.length
+				? ` AND message_type IN (${request.messageTypes.map(toSqlValue).join(', ')})`
+				: '';
+			const row = await this.selectFirst(
+				`SELECT * FROM message_queue WHERE status IN ('pending', 'failed') AND available_at <= ${toSqlValue(nowIso())}${typeClause} ORDER BY priority DESC, available_at ASC LIMIT 1`,
+			);
+			if (!row) {
+				return null;
+			}
+			const id = Number(row.id);
+			const claimedAt = nowIso();
+			await this.execute(
+				`UPDATE message_queue SET status = 'claimed', claimed_by = ${toSqlValue(request.workerId)}, claimed_at = ${toSqlValue(claimedAt)}, lease_expires_at = ${toSqlValue(new Date(Date.now() + request.leaseSeconds * 1000).toISOString())}, attempts = attempts + 1, updated_at = ${toSqlValue(claimedAt)} WHERE id = ${id} AND status IN ('pending', 'failed')`,
+			);
+			return this.getById(id);
+		}
 		const typeClause = request.messageTypes?.length
 			? ` AND type IN (${request.messageTypes.map(toSqlValue).join(', ')})`
 			: '';
@@ -89,11 +125,30 @@ export class MessageStore extends SqliteStoreBase {
 	}
 
 	async ack(request: SdkAckMessageRequest) {
+		if (await this.usesEnvelopeTable()) {
+			await this.execute(`UPDATE message_queue SET status = ${toSqlValue(request.status)}, updated_at = ${toSqlValue(nowIso())} WHERE id = ${request.id}`);
+			return;
+		}
 		await this.execute(`UPDATE messages SET status = ${toSqlValue(request.status)}, updated_at = ${toSqlValue(nowIso())} WHERE id = ${request.id}`);
 	}
 
 	async create(request: SdkCreateMessageRequest) {
 		const timestamp = nowIso();
+		if (await this.usesEnvelopeTable()) {
+			const envelope = createMessageEnvelope({
+				type: request.type,
+				payload: request.payload,
+				meta: { actor: request.actor },
+			});
+			await this.execute(
+				`INSERT INTO message_queue (message_type, status, schema_version, related_model, related_id, priority, available_at, attempts, max_attempts, created_at, updated_at, payload_json, meta_json) VALUES (${toSqlValue(request.type)}, ${toSqlValue(envelope.status)}, ${TRESEED_ENVELOPE_SCHEMA_VERSION}, ${toSqlValue(request.relatedModel ?? null)}, ${toSqlValue(request.relatedId ?? null)}, ${request.priority ?? 0}, ${toSqlValue(timestamp)}, 0, ${request.maxAttempts ?? 3}, ${toSqlValue(timestamp)}, ${toSqlValue(timestamp)}, ${toSqlValue(JSON.stringify(envelope.payload))}, ${toSqlValue(JSON.stringify(envelope.meta))})`,
+			);
+			const row = await this.selectFirst('SELECT * FROM message_queue ORDER BY id DESC LIMIT 1');
+			if (!row) {
+				throw new Error('Failed to create message record.');
+			}
+			return messageEntityFromEnvelope(row);
+		}
 		await this.execute(
 			`INSERT INTO messages (type, status, payload_json, related_model, related_id, priority, available_at, attempts, max_attempts, created_at, updated_at) VALUES (${toSqlValue(request.type)}, 'pending', ${toSqlValue(JSON.stringify(request.payload))}, ${toSqlValue(request.relatedModel ?? null)}, ${toSqlValue(request.relatedId ?? null)}, ${request.priority ?? 0}, ${toSqlValue(timestamp)}, 0, ${request.maxAttempts ?? 3}, ${toSqlValue(timestamp)}, ${toSqlValue(timestamp)})`,
 		);
@@ -109,6 +164,24 @@ export class MessageStore extends SqliteStoreBase {
 		if (!id) {
 			throw new Error('Message update requires an id.');
 		}
+		if (await this.usesEnvelopeTable()) {
+			const fields: string[] = [];
+			for (const [key, value] of Object.entries(request.data)) {
+				if (key === 'payload') {
+					fields.push(`payload_json = ${toSqlValue(JSON.stringify({ body: value }))}`);
+					continue;
+				}
+				if (key === 'meta') {
+					fields.push(`meta_json = ${toSqlValue(JSON.stringify(value))}`);
+					continue;
+				}
+				const column = messageEnvelopeColumn(key);
+				fields.push(`${column} = ${toSqlValue(value)}`);
+			}
+			fields.push(`updated_at = ${toSqlValue(nowIso())}`);
+			await this.execute(`UPDATE message_queue SET ${fields.join(', ')} WHERE id = ${id}`);
+			return this.getById(id);
+		}
 		const fields: string[] = [];
 		for (const [key, value] of Object.entries(request.data)) {
 			if (key === 'payload') {
@@ -121,5 +194,91 @@ export class MessageStore extends SqliteStoreBase {
 		fields.push(`updated_at = ${toSqlValue(nowIso())}`);
 		await this.execute(`UPDATE messages SET ${fields.join(', ')} WHERE id = ${id}`);
 		return this.getById(id);
+	}
+}
+
+function buildEnvelopeFilterSql(filters: SdkSearchRequest['filters'] = []) {
+	return filters?.length
+		? `WHERE ${filters
+			.map((filter) => {
+				const field = messageFilterColumn(filter.field);
+				switch (filter.op) {
+					case 'eq':
+						return `${field} = ${toSqlValue(filter.value)}`;
+					case 'in':
+						return `${field} IN (${(Array.isArray(filter.value) ? filter.value : [filter.value]).map(toSqlValue).join(', ')})`;
+					case 'updated_since':
+						return `updated_at >= ${toSqlValue(filter.value)}`;
+					default:
+						return `${field} LIKE ${toSqlValue(`%${String(filter.value ?? '')}%`)}`;
+				}
+			})
+			.join(' AND ')}`
+		: '';
+}
+
+function buildEnvelopeOrderSql(sort: SdkSearchRequest['sort'] = []) {
+	return sort?.length
+		? `ORDER BY ${sort.map((entry) => `${messageSortColumn(entry.field)} ${entry.direction === 'asc' ? 'ASC' : 'DESC'}`).join(', ')}`
+		: '';
+}
+
+function messageFilterColumn(field: string) {
+	switch (field) {
+		case 'type':
+			return 'message_type';
+		case 'status':
+		case 'priority':
+		case 'available_at':
+		case 'availableAt':
+		case 'created_at':
+		case 'createdAt':
+		case 'updated_at':
+		case 'updatedAt':
+			return field.replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);
+		default:
+			return `json_extract(payload_json, '$.body.${field}')`;
+	}
+}
+
+function messageSortColumn(field: string) {
+	switch (field) {
+		case 'type':
+			return 'message_type';
+		case 'priority':
+			return 'priority';
+		case 'available_at':
+		case 'availableAt':
+			return 'available_at';
+		case 'created_at':
+		case 'createdAt':
+			return 'created_at';
+		case 'updated_at':
+		case 'updatedAt':
+		default:
+			return 'updated_at';
+	}
+}
+
+function messageEnvelopeColumn(field: string) {
+	switch (field) {
+		case 'type':
+			return 'message_type';
+		case 'relatedModel':
+			return 'related_model';
+		case 'relatedId':
+			return 'related_id';
+		case 'maxAttempts':
+			return 'max_attempts';
+		case 'availableAt':
+			return 'available_at';
+		case 'claimedBy':
+			return 'claimed_by';
+		case 'claimedAt':
+			return 'claimed_at';
+		case 'leaseExpiresAt':
+			return 'lease_expires_at';
+		default:
+			return field.replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);
 	}
 }

@@ -16,24 +16,10 @@ import {
 } from '../../../scripts/deploy-lib.ts';
 import { createFeatureBranchFromStaging, pushBranch } from '../../../scripts/git-workflow-lib.ts';
 import { packageScriptPath, wranglerBin } from '../../../scripts/package-tools.ts';
+import { guidedResult } from './utils.js';
 
-export const handleStart: TreeseedCommandHandler = (invocation, context) => {
-	const branchName = invocation.positionals[0];
-	const preview = invocation.args.preview === true;
+export function provisionBranchPreview(branchName: string, context: Parameters<TreeseedCommandHandler>[1], commandName = 'start') {
 	const tenantRoot = context.cwd;
-	const result = createFeatureBranchFromStaging(tenantRoot, branchName);
-	pushBranch(result.repoDir, branchName, { setUpstream: true });
-
-	if (!preview) {
-		return {
-			exitCode: 0,
-			stdout: [
-				`Created feature branch ${branchName} from staging.`,
-				'Preview mode is disabled. Use local development for this branch.',
-			],
-		};
-	}
-
 	applyTreeseedEnvironmentToProcess({ tenantRoot, scope: 'staging' });
 	assertTreeseedCommandEnvironment({ tenantRoot, scope: 'staging', purpose: 'deploy' });
 	validateDeployPrerequisites(tenantRoot, { requireRemote: true });
@@ -64,12 +50,53 @@ export const handleStart: TreeseedCommandHandler = (invocation, context) => {
 	}
 
 	const state = finalizeDeploymentState(tenantRoot, { target });
-	return {
-		exitCode: 0,
-		stdout: [
-			`Treeseed start preview completed for ${branchName}.`,
-			`Target: ${deployTargetLabel(target)}`,
-			`Preview URL: ${state.lastDeployedUrl}`,
+	return guidedResult({
+		command: commandName,
+		summary: `Treeseed ${commandName} preview completed for ${branchName}.`,
+		facts: [
+			{ label: 'Target', value: deployTargetLabel(target) },
+			{ label: 'Preview URL', value: state.lastDeployedUrl },
 		],
-	};
+		nextSteps: [
+			'treeseed save "describe your change"',
+			`treeseed deploy --target-branch ${branchName}`,
+		],
+		report: {
+			branchName,
+			preview: true,
+			target: deployTargetLabel(target),
+			previewUrl: state.lastDeployedUrl,
+		},
+	});
+}
+
+export const handleStart: TreeseedCommandHandler = (invocation, context) => {
+	const commandName = invocation.commandName || 'start';
+	const branchName = invocation.positionals[0];
+	const preview = invocation.args.preview === true;
+	const tenantRoot = context.cwd;
+	const result = createFeatureBranchFromStaging(tenantRoot, branchName);
+	pushBranch(result.repoDir, branchName, { setUpstream: true });
+
+	if (!preview) {
+		return guidedResult({
+			command: commandName,
+			summary: `Created feature branch ${branchName} from staging.`,
+			facts: [
+				{ label: 'Branch', value: branchName },
+				{ label: 'Preview', value: 'disabled' },
+			],
+			nextSteps: [
+				'treeseed dev',
+				'treeseed save "describe your change"',
+			],
+			report: {
+				branchName,
+				preview: false,
+				baseBranch: result.baseBranch,
+			},
+		});
+	}
+
+	return provisionBranchPreview(branchName, context, commandName);
 };

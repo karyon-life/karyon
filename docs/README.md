@@ -16,7 +16,7 @@ Source-of-truth tenant files:
 - `src/content/**`: tenant-owned content
 - `src/agents/*.ts`: tenant-owned agent implementations
 - `public/`: static public assets such as logos, images, and downloads
-- `astro.config.mjs`: thin package-mounted Astro entrypoint
+- `astro.config.ts`: thin package-mounted Astro entrypoint
 - `src/content.config.ts`: thin package-mounted content collections entrypoint
 - `src/env.d.ts`: tenant-side type surface for the local app
 - `migrations/`: tenant-owned D1 schema migrations
@@ -79,7 +79,7 @@ Install these tools first:
 - npm 10 or newer
 - Docker Desktop or a compatible local Docker runtime
 - Git
-- GitHub CLI (`gh`) if you plan to use `treeseed save` or CI/deploy automation locally
+- GitHub CLI (`gh`) if you plan to use `treeseed ship`, `treeseed promote`, or CI/deploy automation locally
 
 Why each one matters:
 
@@ -105,9 +105,19 @@ This workspace install prepares:
 - `@treeseed/cli` in `docs/packages/cli`
 - `@treeseed/agent` in `docs/packages/agent`
 
-After install, the normal contributor entrypoint is the `treeseed` CLI exposed through `npm run ...` scripts in this directory.
+After install, the normal contributor entrypoint is the `treeseed` CLI. `npm run ...` remains available only as a compatibility layer.
 
-### 3. Create `.env.local`
+### 3. Run Doctor
+
+Start with:
+
+```bash
+treeseed doctor
+```
+
+That validates local tooling, auth state, repository shape, and the generated files Treeseed expects.
+
+### 4. Create `.env.local`
 
 Copy the example file:
 
@@ -117,12 +127,22 @@ cp .env.local.example .env.local
 
 For simple local content work, the example values are intentionally enough to get started. You do not need production secrets just to run the site, edit Markdown, or preview content locally.
 
-### 4. Start The Local Environment
+### 5. Configure Treeseed
 
 Run:
 
 ```bash
-npm run dev
+treeseed setup
+```
+
+For explicit persistent environment preparation later, use `treeseed prepare --environment staging --environment prod`.
+
+### 6. Start The Local Environment
+
+Run:
+
+```bash
+treeseed dev
 ```
 
 That command brings up the full local authoring environment:
@@ -136,10 +156,10 @@ That command brings up the full local authoring environment:
 For active platform work across `sdk`, `core`, and the tenant, use:
 
 ```bash
-npm run dev:watch
+treeseed dev:watch
 ```
 
-### 5. Make A Content Change
+### 7. Make A Content Change
 
 The most common files to edit are:
 
@@ -153,57 +173,62 @@ The most common files to edit are:
 
 Typical authoring loop:
 
-1. start `npm run dev`
+1. start `treeseed dev`
 2. edit a content file
 3. reload the local site
-4. run `npm run check` before finishing a larger change
-5. run `npm run cleanup:markdown -- <path>` if a file needs formatting cleanup
+4. run `treeseed check` before finishing a larger change
+5. run `treeseed cleanup:markdown -- <path>` if a file needs formatting cleanup
 
-### 6. Validate Before Saving
+### 8. Validate Before Saving
 
 Treeseed now treats validation as part of the normal workflow.
 
 Useful commands:
 
-- `npm run lint`
-- `npm run test`
-- `npm run build`
-- `npm run check`
+- `treeseed lint`
+- `treeseed test`
+- `treeseed build`
+- `treeseed check`
 
-`treeseed save`, `treeseed close`, `treeseed release`, and `treeseed deploy` run validation before mutating git history or publishing.
+`treeseed ship`, `treeseed teardown`, `treeseed promote`, and `treeseed publish` run validation before mutating git history or publishing.
 
 Main commands:
 
 | Command | Action |
 | :------ | :----- |
-| `npm run dev` | Start the unified local Treeseed environment: static site, tiny Worker, Mailpit, local D1/KV, and generated books |
-| `npm run dev:watch` | Start the same environment with layered rebuilds and browser refresh across `sdk`, `core`, and the tenant |
-| `npm run build` | Build the static site and generated Worker artifacts |
-| `npm run check` | Run the package-owned validation flow for the tenant |
-| `treeseed config --environment <local|staging|prod>` | Validate and initialize the selected persistent environment |
-| `treeseed start <branch-name> [--preview]` | Create a feature branch from the latest `staging`, optionally with a Cloudflare preview deployment |
-| `treeseed close` | Merge the current feature branch into `staging` and remove any preview artifacts for that branch |
-| `npm run deploy -- --environment <staging|prod|local>` | Run phase-2 deploy against an already initialized environment |
-| `npm run save -- "<message>"` | Commit and push the current branch only |
-| `treeseed release --major|--minor|--patch` | Bump versions on `staging`, merge `staging` into `main`, and let CI deploy production |
-| `npm run destroy -- --environment <staging|prod|local>` | Dangerously delete the selected persistent environment after typed confirmation |
-| `npm run preview` | Preview the built site locally |
-| `npm run cleanup:markdown -- <path>` | Normalize Markdown/MDX files |
-| `npm run test:unit` | Run workspace unit tests in dependency order: `sdk`, then `core` |
-| `npm run test:release` | Run the fast tarball-based release smoke path for the publishable packages |
-| `npm run test:release:full` | Run the full tarball-based release smoke path, including scaffold deploy dry-run |
-| `npm run test` | Run workspace unit tests plus Treeseed integration and end-to-end checks |
+| `treeseed doctor` | Diagnose tooling, auth, repository shape, and generated Treeseed files |
+| `treeseed status` | Show the current branch, environment mapping, initialized environments, and preview state |
+| `treeseed next` | Recommend the next 1-3 workflow commands for the current state |
+| `treeseed continue` | Show the single safest next workflow command from the current state |
+| `treeseed setup` | Bootstrap the local Treeseed workspace and initialize the local environment |
+| `treeseed dev` | Start the unified local Treeseed environment: static site, tiny Worker, Mailpit, local D1/KV, and generated books |
+| `treeseed dev:watch` | Start the same environment with layered rebuilds and browser refresh across `sdk`, `core`, and the tenant |
+| `treeseed build` | Build the static site and generated Worker artifacts |
+| `treeseed check` | Run the package-owned validation flow for the tenant |
+| `treeseed work <branch-name> [--preview]` | Create or resume a feature branch from `staging`, optionally with a Cloudflare preview deployment |
+| `treeseed ship "<message>"` | Commit and push the current branch only, refreshing preview deployments when applicable |
+| `treeseed prepare --environment <local|staging|prod>` | Validate and initialize the selected persistent environment |
+| `treeseed publish --environment <staging|prod|local>` | Run phase-2 publication against an already initialized environment |
+| `treeseed promote --major|--minor|--patch` | Bump versions on `staging`, merge `staging` into `main`, and let CI deploy production |
+| `treeseed rollback <staging|prod> [--to <commit>]` | Roll back staging or production to a recorded deployment |
+| `treeseed teardown [--environment <staging|prod|local>]` | Clean up the current feature branch or destroy a persistent environment |
+| `treeseed preview` | Preview the built site locally |
+| `treeseed cleanup:markdown -- <path>` | Normalize Markdown/MDX files |
+| `treeseed test:unit` | Run workspace unit tests in dependency order: `sdk`, then `core` |
+| `treeseed test:release` | Run the fast tarball-based release smoke path for the publishable packages |
+| `treeseed test:release:full` | Run the full tarball-based release smoke path, including scaffold deploy dry-run |
+| `treeseed test` | Run workspace unit tests plus Treeseed integration and end-to-end checks |
 
 Additional local helpers:
 
 | Command | Action |
 | :------ | :----- |
-| `npm run mailpit:up` | Start the package-managed Mailpit service |
-| `npm run mailpit:down` | Stop the package-managed Mailpit service |
-| `npm run mailpit:logs` | View Mailpit logs |
-| `npm run sync:devvars` | Regenerate `.dev.vars` from local env |
-| `npm run d1:migrate:local` | Apply local D1 migrations |
-| `npm run astro -- --help` | Pass through to the package-owned Astro CLI wrapper |
+| `treeseed mailpit:up` | Start the package-managed Mailpit service |
+| `treeseed mailpit:down` | Stop the package-managed Mailpit service |
+| `treeseed mailpit:logs` | View Mailpit logs |
+| `treeseed sync:devvars` | Regenerate `.dev.vars` from local env |
+| `treeseed d1:migrate:local` | Apply local D1 migrations |
+| `treeseed astro -- --help` | Pass through to the package-owned Astro CLI wrapper |
 
 Treeseed CLI help is available through:
 
@@ -213,6 +238,36 @@ Treeseed CLI help is available through:
 - `treeseed <command> --help`
 
 Use the built-in help pages for option-level details and examples instead of treating the README as the full command reference.
+
+Structured machine output is available on the guidance commands and the main deployment/save/release commands through `--json`.
+
+### Canonical Happy Path
+
+```bash
+cd docs
+npm install
+treeseed setup
+treeseed dev
+treeseed work feature/my-change
+treeseed ship "feat: describe your change"
+treeseed teardown
+treeseed promote --patch
+```
+
+### Compatibility Aliases
+
+`npm run dev`, `npm run build`, `npm run test`, and similar aliases still work for compatibility and CI. The canonical interface is `treeseed ...`.
+
+Legacy expert commands also remain available for one compatibility cycle:
+
+- `treeseed config` -> prefer `treeseed prepare`
+- `treeseed deploy` -> prefer `treeseed publish`
+- `treeseed start` -> prefer `treeseed work`
+- `treeseed save` -> prefer `treeseed ship`
+- `treeseed release` -> prefer `treeseed promote`
+- `treeseed close` and `treeseed destroy` -> prefer `treeseed teardown`
+
+`npm run start` is intentionally deprecated because `treeseed work` and `treeseed start` are workflow commands, not local development commands.
 
 ## Local Environment
 
@@ -252,7 +307,7 @@ These should exist in `.env.local` for a normal local setup:
 - `TREESEED_MAILPIT_SMTP_HOST=127.0.0.1`
 - `TREESEED_MAILPIT_SMTP_PORT=1025`
 - `TREESEED_MAILPIT_UI_PORT=8025`
-  These define the local Mailpit runtime used during `npm run dev`.
+  These define the local Mailpit runtime used during `treeseed dev`.
 
 #### Recommended For Easy Local Form Testing
 
@@ -284,7 +339,7 @@ For local authoring, these may stay empty if Turnstile bypass is enabled.
 
 For production deploys, they should be treated as required.
 
-#### Needed For `treeseed save` Against A Real GitHub-Integrated Repo
+#### Needed For `treeseed ship` Against A Real GitHub-Integrated Repo
 
 - valid `gh` authentication via `gh auth login -h github.com`
 
@@ -321,7 +376,7 @@ Cloudflare account and worker identity are read from `treeseed.site.yaml`, while
 When in doubt:
 
 1. edit `.env.local`
-2. run `npm run sync:devvars`
+2. run `treeseed sync:devvars`
 3. restart local dev if necessary
 
 ## Deployment
@@ -331,7 +386,7 @@ Treeseed now splits environment setup from release publication.
 Phase 1: initialize persistent environments
 
 ```bash
-treeseed config --environment staging --environment prod
+treeseed prepare --environment staging --environment prod
 ```
 
 That flow validates inputs, provisions any missing Cloudflare resources, writes generated Wrangler config, syncs secrets, and marks the environment ready.
@@ -339,7 +394,7 @@ That flow validates inputs, provisions any missing Cloudflare resources, writes 
 Phase 2: publish into an already initialized environment
 
 ```bash
-npm run deploy -- --environment staging
+treeseed publish --environment staging
 ```
 
 That flow:
@@ -352,8 +407,8 @@ That flow:
 Feature branches start from the latest `staging` commit:
 
 ```bash
-treeseed start feature/my-change
-treeseed start feature/my-change --preview
+treeseed work feature/my-change
+treeseed work feature/my-change --preview
 ```
 
 Use `--preview` only when you want a branch-scoped Cloudflare preview deployment. Otherwise local development is the default.
@@ -379,11 +434,11 @@ Before the first real release, confirm:
 
 1. `treeseed.site.yaml` has the correct `name`, `slug`, `siteUrl`, `cloudflare.accountId`, and `cloudflare.workerName`
 2. `.env.local` or CI secrets provide the required deploy secrets
-3. `treeseed config --environment staging --environment prod`
-4. `treeseed start feature/my-change`
-5. `treeseed save "describe your change"`
-6. `treeseed close`
-7. `treeseed release --patch`
+3. `treeseed prepare --environment staging --environment prod`
+4. `treeseed work feature/my-change`
+5. `treeseed ship "describe your change"`
+6. `treeseed teardown`
+7. `treeseed promote --patch`
 
 That is the default path from local authoring to production publish.
 
@@ -398,7 +453,7 @@ Those files are operational artifacts and should not be committed.
 
 ## Destroying a Site
 
-`npm run destroy -- --environment <staging|prod|local>` is intentionally dangerous.
+`treeseed teardown --environment <staging|prod|local>` is intentionally dangerous.
 
 It deletes the selected persistent environment's:
 
@@ -411,7 +466,7 @@ By default it prints the resources it is about to remove and requires typed conf
 Use a dry run first:
 
 ```bash
-npm run destroy -- --dry-run
+treeseed teardown --environment staging --dry-run
 ```
 
 ## Content and Books
@@ -437,8 +492,8 @@ Authoring guidelines:
 
 Markdown cleanup helpers are available through:
 
-- `npm run cleanup:markdown -- <path>`
-- `npm run cleanup:markdown:check -- <path>`
+- `treeseed cleanup:markdown -- <path>`
+- `treeseed cleanup:markdown:check -- <path>`
 
 ## Working On This Tenant As A Future Standalone Repo
 
@@ -452,10 +507,10 @@ Because this package is still temporarily developed in the same repository, you 
 
 ## Troubleshooting
 
-- If Docker is not running, `npm run dev` and `npm run test` will fail when Mailpit cannot start.
+- If Docker is not running, `treeseed dev` and `treeseed test` will fail when Mailpit cannot start.
 - If `.env.local` is missing, copy `.env.local.example` into place.
-- If local form email does not appear, open `http://127.0.0.1:8025` and then run `npm run mailpit:logs`.
-- If local Cloudflare bindings drift, rerun `npm run sync:devvars` and `npm run d1:migrate:local`.
-- If a deploy looks wrong, inspect `.treeseed/generated/wrangler.toml` and rerun `npm run deploy -- --dry-run`.
-- If `treeseed save` fails before committing, read the structured report path if one was configured and fix the first failing gate: auth, env, lint, test, or build.
-- If `treeseed save` complains about GitHub auth, run `gh auth login -h github.com`.
+- If local form email does not appear, open `http://127.0.0.1:8025` and then run `treeseed mailpit:logs`.
+- If local Cloudflare bindings drift, rerun `treeseed sync:devvars` and `treeseed d1:migrate:local`.
+- If a deploy looks wrong, inspect `.treeseed/generated/wrangler.toml` and rerun `treeseed publish --environment staging --dry-run`.
+- If `treeseed ship` fails before committing, read the structured report path if one was configured and fix the first failing gate: auth, env, lint, test, or build.
+- If `treeseed ship` complains about GitHub auth, run `gh auth login -h github.com`.

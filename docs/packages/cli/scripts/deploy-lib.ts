@@ -11,6 +11,9 @@ const DEFAULT_COMPATIBILITY_FLAGS = ['nodejs_compat'];
 const GENERATED_ROOT = '.treeseed/generated';
 const STATE_ROOT = '.treeseed/state';
 const PERSISTENT_SCOPES = new Set(['local', 'staging', 'prod']);
+const TRESEED_ENVELOPE_SCHEMA_GENERATION = 'runtime-envelopes-v1';
+const TRESEED_MIGRATION_WAVE_ID = '0005_runtime_envelopes';
+const TRESEED_SUPPORTED_PAYLOAD_RANGE = { min: 1, max: 1 };
 
 function ensureParent(filePath) {
 	mkdirSync(dirname(filePath), { recursive: true });
@@ -220,6 +223,12 @@ function defaultStateFromConfig(deployConfig, target) {
 		lastManifestFingerprint: null,
 		lastDeploymentTimestamp: null,
 		lastDeployedCommit: null,
+		runtimeCompatibility: {
+			envelopeSchemaGeneration: TRESEED_ENVELOPE_SCHEMA_GENERATION,
+			migrationWaveId: TRESEED_MIGRATION_WAVE_ID,
+			supportedPayloadVersionRange: TRESEED_SUPPORTED_PAYLOAD_RANGE,
+		},
+		deploymentHistory: [],
 	};
 }
 
@@ -927,6 +936,23 @@ export function finalizeDeploymentState(tenantRoot, options = {}) {
 	state.lastDeployedUrl = target.kind === 'branch' ? targetWorkersDevUrl(state.workerName) : deployConfig.siteUrl;
 	state.lastDeploymentTimestamp = new Date().toISOString();
 	state.lastDeployedCommit = envOrNull('GITHUB_SHA') ?? envOrNull('TREESEED_DEPLOY_COMMIT') ?? null;
+	state.runtimeCompatibility = {
+		envelopeSchemaGeneration: TRESEED_ENVELOPE_SCHEMA_GENERATION,
+		migrationWaveId: TRESEED_MIGRATION_WAVE_ID,
+		supportedPayloadVersionRange: TRESEED_SUPPORTED_PAYLOAD_RANGE,
+	};
+	const nextHistoryEntry = {
+		commit: state.lastDeployedCommit,
+		timestamp: state.lastDeploymentTimestamp,
+		url: state.lastDeployedUrl,
+		target: deployTargetLabel(target),
+		appVersion: envOrNull('npm_package_version') ?? envOrNull('TREESEED_APP_VERSION') ?? null,
+		envelopeSchemaGeneration: TRESEED_ENVELOPE_SCHEMA_GENERATION,
+		migrationWaveId: TRESEED_MIGRATION_WAVE_ID,
+		supportedPayloadVersionRange: TRESEED_SUPPORTED_PAYLOAD_RANGE,
+	};
+	const history = Array.isArray(state.deploymentHistory) ? state.deploymentHistory : [];
+	state.deploymentHistory = [...history, nextHistoryEntry].slice(-20);
 	state.readiness.initialized = true;
 	state.readiness.lastValidatedAt = state.lastDeploymentTimestamp;
 	writeDeployState(tenantRoot, state, { target });

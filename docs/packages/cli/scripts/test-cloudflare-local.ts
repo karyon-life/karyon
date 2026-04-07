@@ -125,7 +125,7 @@ async function submitSubscribeForm({ formToken, sessionId, cookieHeader }, email
 }
 
 async function querySubscribers() {
-	const query = `SELECT email, status, source FROM subscriptions WHERE email = '${TEST_EMAIL}'`;
+	const query = `SELECT lookup_key AS email, status, json_extract(payload_json, '$.source') AS source FROM runtime_records WHERE record_type = 'subscription' AND lookup_key = '${TEST_EMAIL}'`;
 	const child = spawnProcess(
 		'wrangler',
 		[

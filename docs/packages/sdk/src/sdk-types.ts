@@ -35,6 +35,98 @@ export type SdkFilterOperator =
 	| 'updated_since'
 	| 'related_to';
 
+export type TreeseedSchemaVersion = number;
+
+export type TreeseedRuntimeRecordType =
+	| 'subscription'
+	| 'contact_submission'
+	| 'agent_run'
+	| 'message'
+	| 'agent_cursor'
+	| 'content_lease';
+
+export interface TreeseedRecordEnvelope<TPayload, TMeta = Record<string, unknown>> {
+	recordType: TreeseedRuntimeRecordType;
+	schemaVersion: TreeseedSchemaVersion;
+	status: string;
+	payload: TPayload;
+	meta: TMeta;
+}
+
+export interface TreeseedSubscriptionPayload {
+	email: string;
+	name: string | null;
+	source: string;
+	consentAt: string | null;
+	ipHash: string;
+}
+
+export interface TreeseedSubscriptionMeta {
+	legacyId?: number;
+}
+
+export interface TreeseedContactSubmissionPayload {
+	name: string;
+	email: string;
+	organization: string | null;
+	contactType: string;
+	subject: string;
+	message: string;
+	userAgent: string;
+	ipHash: string;
+}
+
+export interface TreeseedContactSubmissionMeta {
+	source?: string;
+}
+
+export interface TreeseedAgentRunPayload {
+	triggerSource: string;
+	handlerKind?: string | null;
+	triggerKind?: string | null;
+	selectedItemKey: string | null;
+	selectedMessageId: number | null;
+	claimedMessageId?: number | null;
+	branchName: string | null;
+	prUrl: string | null;
+	summary: string | null;
+	error: string | null;
+	errorCategory?: string | null;
+	commitSha?: string | null;
+	changedPaths?: string[];
+	finishedAt: string | null;
+}
+
+export interface TreeseedAgentRunMeta {
+	runId: string;
+	agentSlug: string;
+}
+
+export interface TreeseedMessagePayload {
+	body: Record<string, unknown>;
+}
+
+export interface TreeseedMessageMeta {
+	actor?: string;
+	trace?: Record<string, unknown>;
+}
+
+export interface TreeseedCursorPayload {
+	cursorValue: string;
+}
+
+export interface TreeseedCursorMeta {
+	updatedBy?: string;
+}
+
+export interface TreeseedLeasePayload {
+	token: string;
+}
+
+export interface TreeseedLeaseMeta {
+	actor?: string;
+}
+
 export interface SdkFilterCondition {
 	field: string;
 	op: SdkFilterOperator;
@@ -57,9 +149,12 @@ export interface SdkJsonEnvelope<TPayload> {
 export interface SdkMessageEntity {
 	[key: string]: unknown;
 	id: number;
+	recordType?: TreeseedRuntimeRecordType;
+	schemaVersion?: TreeseedSchemaVersion;
 	type: string;
 	status: string;
 	payloadJson: string;
+	metaJson?: string;
 	relatedModel: string | null;
 	relatedId: string | null;
 	priority: number;
@@ -76,6 +171,8 @@ export interface SdkMessageEntity {
 export interface SdkRunEntity {
 	[key: string]: unknown;
 	runId: string;
+	recordType?: TreeseedRuntimeRecordType;
+	schemaVersion?: TreeseedSchemaVersion;
 	agentSlug: string;
 	handlerKind?: string | null;
 	triggerKind?: string | null;
@@ -97,6 +194,8 @@ export interface SdkRunEntity {
 
 export interface SdkCursorEntity {
 	[key: string]: unknown;
+	recordType?: TreeseedRuntimeRecordType;
+	schemaVersion?: TreeseedSchemaVersion;
 	agentSlug: string;
 	cursorKey: string;
 	cursorValue: string;
@@ -105,6 +204,8 @@ export interface SdkCursorEntity {
 
 export interface SdkLeaseEntity {
 	[key: string]: unknown;
+	recordType?: TreeseedRuntimeRecordType;
+	schemaVersion?: TreeseedSchemaVersion;
 	model: string;
 	itemKey: string;
 	claimedBy: string;
@@ -116,10 +217,13 @@ export interface SdkLeaseEntity {
 export interface SdkSubscriptionEntity {
 	[key: string]: unknown;
 	id?: number;
+	recordType?: TreeseedRuntimeRecordType;
+	schemaVersion?: TreeseedSchemaVersion;
 	email: string;
 	name?: string | null;
 	status: string;
 	source?: string;
+	metaJson?: string;
 	consent_at?: string;
 	created_at?: string;
 	updated_at?: string;
