@@ -11,7 +11,14 @@ import {
 } from '@treeseed/core/environment';
 import { loadTreeseedDeployConfig } from '@treeseed/core/deploy/config';
 import { loadTreeseedManifest } from '@treeseed/core/tenant-config';
-import { ensureGeneratedWranglerConfig, syncCloudflareSecrets } from './deploy-lib.mjs';
+import {
+	createPersistentDeployTarget,
+	ensureGeneratedWranglerConfig,
+	markDeploymentInitialized,
+	printDeploySummary,
+	provisionCloudflareResources,
+	syncCloudflareSecrets,
+} from './deploy-lib.mjs';
 import { maybeResolveGitHubRepositorySlug } from './github-automation-lib.mjs';
 
 const MACHINE_CONFIG_RELATIVE_PATH = '.treeseed/config/machine.yaml';
@@ -418,14 +425,15 @@ export function syncTreeseedGitHubEnvironment({ tenantRoot, scope = 'prod', dryR
 
 export function syncTreeseedCloudflareEnvironment({ tenantRoot, scope = 'prod', dryRun = false } = {}) {
 	const values = resolveTreeseedMachineEnvironmentValues(tenantRoot, scope);
+	const target = createPersistentDeployTarget(scope);
 	for (const [key, value] of Object.entries(values)) {
 		if (typeof value === 'string' && value.length > 0) {
 			process.env[key] = value;
 		}
 	}
 
-	const { wranglerPath } = ensureGeneratedWranglerConfig(tenantRoot);
-	const syncedSecrets = syncCloudflareSecrets(tenantRoot, { dryRun });
+	const { wranglerPath } = ensureGeneratedWranglerConfig(tenantRoot, { target });
+	const syncedSecrets = syncCloudflareSecrets(tenantRoot, { dryRun, target });
 	const registry = collectTreeseedEnvironmentContext(tenantRoot);
 	const cloudflareVars = registry.entries
 		.filter((entry) => entry.scopes.includes(scope) && entry.targets.includes('cloudflare-var'))
@@ -434,9 +442,28 @@ export function syncTreeseedCloudflareEnvironment({ tenantRoot, scope = 'prod', 
 
 	return {
 		scope,
+		target,
 		wranglerPath,
 		secrets: syncedSecrets,
 		varsManagedByWranglerConfig: cloudflareVars,
+	};
+}
+
+export function initializeTreeseedPersistentEnvironment({ tenantRoot, scope = 'prod', dryRun = false } = {}) {
+	const normalizedScope = scope === 'prod' ? 'prod' : scope;
+	const target = createPersistentDeployTarget(normalizedScope);
+	const summary = provisionCloudflareResources(tenantRoot, { dryRun, target });
+	ensureGeneratedWranglerConfig(tenantRoot, { target });
+	const syncedSecrets = syncCloudflareSecrets(tenantRoot, { dryRun, target });
+	if (!dryRun) {
+		markDeploymentInitialized(tenantRoot, { target });
+	}
+
+	return {
+		scope: normalizedScope,
+		target,
+		summary,
+		secrets: syncedSecrets,
 	};
 }
 
@@ -454,6 +481,7 @@ export async function runTreeseedConfigWizard({
 		scopes,
 		updated: [],
 		synced: {},
+		initialized: [],
 	};
 
 	for (const scope of scopes) {
@@ -520,9 +548,38 @@ export async function runTreeseedConfigWizard({
 				summary.updated.push({ scope, id: entry.id, reused: false });
 			}
 		}
+
+		const validation = validateTreeseedEnvironmentValues({
+			values: resolveTreeseedMachineEnvironmentValues(tenantRoot, scope),
+			scope,
+			purpose: 'config',
+			deployConfig: registry.context.deployConfig,
+			tenantConfig: registry.context.tenantConfig,
+			plugins: registry.context.plugins,
+		});
+		if (!validation.ok) {
+			const details = [...validation.missing, ...validation.invalid]
+				.map((problem) => `- ${problem.message}`)
+				join('\n');
+			throw new Error(`Treeseed config validation failed for ${scope}:\n${details}`);
+		}
 	}
 
 	writeTreeseedLocalEnvironmentFiles(tenantRoot);
+
+	for (const scope of scopes) {
+		if (scope === 'local') {
+			continue;
+		}
+
+		const initialized = initializeTreeseedPersistentEnvironment({ tenantRoot, scope });
+		printDeploySummary(initialized.summary);
+		summary.initialized.push({
+			scope,
+			secrets: initialized.secrets.length,
+			target: initialized.summary.target,
+		});
+	}
 
 	if (sync === 'github' || sync === 'all') {
 		summary.synced.github = syncTreeseedGitHubEnvironment({ tenantRoot, scope: scopes.at(-1) ?? 'prod' });

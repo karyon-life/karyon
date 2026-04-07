@@ -24,6 +24,7 @@
   "scripts": {
     "setup": "npm install",
     "setup:ci": "npm ci",
+    "test": "node --test ./scripts/*.test.mjs",
     "build:dist": "node ./scripts/build-dist.mjs",
     "prepare": "npm run build:dist",
     "prepack": "npm run build:dist",

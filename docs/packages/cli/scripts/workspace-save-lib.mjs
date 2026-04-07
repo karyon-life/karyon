@@ -21,6 +21,20 @@ export function incrementPatchVersion(version) {
 	return `${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
 }
 
+export function incrementVersion(version, level = 'patch') {
+	const parsed = parseSemver(version);
+	if (level === 'major') {
+		return `${parsed.major + 1}.0.0`;
+	}
+	if (level === 'minor') {
+		return `${parsed.major}.${parsed.minor + 1}.0`;
+	}
+	if (level === 'patch') {
+		return `${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
+	}
+	throw new Error(`Unsupported release bump "${level}". Expected major, minor, or patch.`);
+}
+
 function readPackageJson(filePath) {
 	return JSON.parse(readFileSync(filePath, 'utf8'));
 }
@@ -115,6 +129,46 @@ export function applyWorkspaceVersionChanges(plan) {
 	return plan;
 }
 
+export function planWorkspaceReleaseBump(level = 'patch', root = workspaceRoot()) {
+	const packages = workspacePackages(root).map((pkg) => ({
+		...pkg,
+		packageJsonPath: resolve(pkg.dir, 'package.json'),
+		packageJson: readPackageJson(resolve(pkg.dir, 'package.json')),
+	}));
+	const publishable = new Set(publishableWorkspacePackages(root).map((pkg) => pkg.name));
+	const touched = new Set();
+	const versions = new Map();
+
+	for (const pkg of packages) {
+		if (!publishable.has(pkg.name)) {
+			continue;
+		}
+		const nextVersion = incrementVersion(pkg.packageJson.version, level);
+		pkg.packageJson.version = nextVersion;
+		versions.set(pkg.name, nextVersion);
+		touched.add(pkg.name);
+	}
+
+	for (const pkg of packages) {
+		for (const field of internalDependencyFields(pkg.packageJson)) {
+			for (const depName of Object.keys(pkg.packageJson[field] ?? {})) {
+				if (!versions.has(depName)) {
+					continue;
+				}
+				pkg.packageJson[field][depName] = `^${versions.get(depName)}`;
+				touched.add(pkg.name);
+			}
+		}
+	}
+
+	return {
+		packages,
+		touched,
+		versions,
+		level,
+	};
+}
+
 export function repoRoot(cwd = workspaceRoot()) {
 	return run('git', ['rev-parse', '--show-toplevel'], { cwd, capture: true }).trim();
 }
@@ -172,9 +226,9 @@ export function collectMergeConflictReport(repoDir) {
 	};
 }
 
-export function formatMergeConflictReport(report, repoDir) {
+export function formatMergeConflictReport(report, repoDir, targetBranch = 'main') {
 	const lines = [
-		'Treeseed save failed due to merge conflicts during `git pull --rebase origin main`.',
+		`Treeseed save failed due to merge conflicts during \`git pull --rebase origin ${targetBranch}\`.`,
 		`Repository root: ${repoDir}`,
 		`Branch: ${report.branch}`,
 		`Rebase in progress: ${report.rebaseInProgress ? 'yes' : 'no'}`,

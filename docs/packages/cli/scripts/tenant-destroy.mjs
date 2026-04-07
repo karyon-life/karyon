@@ -5,6 +5,7 @@ import { stdin as input, stdout as output } from 'node:process';
 import { applyTreeseedEnvironmentToProcess, assertTreeseedCommandEnvironment } from './config-runtime-lib.mjs';
 import {
 	cleanupDestroyedState,
+	createPersistentDeployTarget,
 	destroyCloudflareResources,
 	loadDeployState,
 	printDestroySummary,
@@ -21,6 +22,7 @@ function parseArgs(argv) {
 		skipConfirmation: false,
 		confirm: null,
 		removeBuildArtifacts: false,
+		environment: null,
 	};
 
 	const rest = [...argv];
@@ -45,6 +47,14 @@ function parseArgs(argv) {
 		}
 		if (current === '--remove-build-artifacts') {
 			parsed.removeBuildArtifacts = true;
+			continue;
+		}
+		if (current === '--environment') {
+			parsed.environment = rest.shift() ?? null;
+			continue;
+		}
+		if (current.startsWith('--environment=')) {
+			parsed.environment = current.split('=', 2)[1] ?? null;
 			continue;
 		}
 		throw new Error(`Unknown destroy argument: ${current}`);
@@ -79,10 +89,12 @@ async function readConfirmation(expectedConfirmation) {
 }
 
 const options = parseArgs(process.argv.slice(2));
-applyTreeseedEnvironmentToProcess({ tenantRoot, scope: 'prod' });
-assertTreeseedCommandEnvironment({ tenantRoot, scope: 'prod', purpose: 'destroy' });
+const scope = options.environment ?? 'prod';
+const target = createPersistentDeployTarget(scope);
+applyTreeseedEnvironmentToProcess({ tenantRoot, scope });
+assertTreeseedCommandEnvironment({ tenantRoot, scope, purpose: 'destroy' });
 const deployConfig = validateDestroyPrerequisites(tenantRoot, { requireRemote: !options.dryRun });
-const state = loadDeployState(tenantRoot, deployConfig);
+const state = loadDeployState(tenantRoot, deployConfig, { target });
 const expectedConfirmation = getExpectedConfirmation(deployConfig);
 
 if (!options.skipConfirmation) {
@@ -100,6 +112,7 @@ if (!options.skipConfirmation) {
 const result = destroyCloudflareResources(tenantRoot, {
 	dryRun: options.dryRun,
 	force: options.force,
+	target,
 });
 
 printDestroySummary(result);
@@ -109,5 +122,5 @@ if (options.dryRun) {
 	process.exit(0);
 }
 
-cleanupDestroyedState(tenantRoot, { removeBuildArtifacts: options.removeBuildArtifacts });
+cleanupDestroyedState(tenantRoot, { target, removeBuildArtifacts: options.removeBuildArtifacts });
 console.log('Treeseed destroy completed and local deployment state was removed.');

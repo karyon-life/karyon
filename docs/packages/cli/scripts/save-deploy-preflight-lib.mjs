@@ -72,9 +72,9 @@ export function runWorkspaceSavePreflight({ cwd }) {
 	runStep('build', 'tenant-build', { cwd });
 }
 
-export function runTenantDeployPreflight({ cwd }) {
-	applyTreeseedEnvironmentToProcess({ tenantRoot: cwd, scope: 'prod' });
-	assertTreeseedCommandEnvironment({ tenantRoot: cwd, scope: 'prod', purpose: 'deploy' });
+export function runTenantDeployPreflight({ cwd, scope = 'prod' }) {
+	applyTreeseedEnvironmentToProcess({ tenantRoot: cwd, scope });
+	assertTreeseedCommandEnvironment({ tenantRoot: cwd, scope, purpose: 'deploy' });
 	runStep('lint', 'tenant-lint', { cwd });
 	runStep('test', 'tenant-test', { cwd });
 	runStep('build', 'tenant-build', { cwd });

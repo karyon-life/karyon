@@ -5,17 +5,15 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { applyTreeseedEnvironmentToProcess } from './config-runtime-lib.mjs';
 import {
-	collectMissingDeployInputs,
+	assertDeploymentInitialized,
+	createBranchPreviewDeployTarget,
+	createPersistentDeployTarget,
+	deployTargetLabel,
 	ensureGeneratedWranglerConfig,
 	finalizeDeploymentState,
-	printDeploySummary,
-	provisionCloudflareResources,
-	promptForMissingDeployInputs,
 	runRemoteD1Migrations,
-	syncCloudflareSecrets,
-	validateDeployPrerequisites,
 } from './deploy-lib.mjs';
-import { ensureDeployWorkflow, ensureGitHubEnvironment } from './github-automation-lib.mjs';
+import { currentManagedBranch, PRODUCTION_BRANCH, STAGING_BRANCH } from './git-workflow-lib.mjs';
 import { packageScriptPath, wranglerBin } from './package-tools.mjs';
 import { runTenantDeployPreflight } from './save-deploy-preflight-lib.mjs';
 
@@ -38,6 +36,8 @@ function parseArgs(argv) {
 		dryRun: false,
 		only: null,
 		name: null,
+		environment: null,
+		targetBranch: null,
 	};
 
 	const rest = [...argv];
@@ -56,10 +56,56 @@ function parseArgs(argv) {
 			parsed.name = rest.shift() ?? null;
 			continue;
 		}
+		if (current === '--environment') {
+			parsed.environment = rest.shift() ?? null;
+			continue;
+		}
+		if (current.startsWith('--environment=')) {
+			parsed.environment = current.split('=', 2)[1] ?? null;
+			continue;
+		}
+		if (current === '--target-branch') {
+			parsed.targetBranch = rest.shift() ?? null;
+			continue;
+		}
+		if (current.startsWith('--target-branch=')) {
+			parsed.targetBranch = current.split('=', 2)[1] ?? null;
+			continue;
+		}
 		throw new Error(`Unknown deploy argument: ${current}`);
 	}
 
 	return parsed;
+}
+
+function inferEnvironmentFromBranch() {
+	const branch = currentManagedBranch(tenantRoot);
+	if (branch === STAGING_BRANCH) {
+		return 'staging';
+	}
+	if (branch === PRODUCTION_BRANCH) {
+		return 'prod';
+	}
+	return null;
+}
+
+function resolveTarget(options) {
+	if (options.targetBranch) {
+		return {
+			target: createBranchPreviewDeployTarget(options.targetBranch),
+			scope: 'staging',
+		};
+	}
+
+	const environment = options.environment ?? (process.env.CI ? inferEnvironmentFromBranch() : null);
+	if (!environment) {
+		throw new Error('Treeseed deploy requires `--environment local|staging|prod` outside CI.');
+	}
+
+	return {
+		target: createPersistentDeployTarget(environment),
+		scope: environment,
+	};
 }
 
 function runNodeScript(scriptPath, scriptArgs = [], env = {}) {
@@ -87,99 +133,49 @@ function runWranglerDeploy(configPath) {
 }
 
 async function main() {
-	applyTreeseedEnvironmentToProcess({ tenantRoot, scope: 'prod' });
 	const options = parseArgs(args);
-	const allowedSteps = new Set(['provision', 'secrets', 'migrate', 'build', 'publish']);
+	const { target, scope } = resolveTarget(options);
+	applyTreeseedEnvironmentToProcess({ tenantRoot, scope });
 
+	const allowedSteps = new Set(['migrate', 'build', 'publish']);
 	if (options.only && !allowedSteps.has(options.only)) {
 		throw new Error(`Unsupported deploy step "${options.only}". Expected one of ${[...allowedSteps].join(', ')}.`);
 	}
 
 	const shouldRun = (step) => !options.only || options.only === step;
-	const shouldRunPreflight = !options.only;
-	const needsRemoteAccess =
-		!options.dryRun &&
-		(['provision', 'secrets', 'migrate', 'publish'].some((step) => shouldRun(step)));
-
 	if (options.name) {
 		console.log(`Deploy target label: ${options.name}`);
 	}
 
-	if (shouldRunPreflight) {
-		try {
-			runTenantDeployPreflight({ cwd: tenantRoot });
-		} catch (error) {
-			const kind = error?.kind ?? 'preflight_failed';
-			writeDeployReport({
-				ok: false,
-				kind,
-				message: error instanceof Error ? error.message : String(error),
-			});
-			throw error;
-		}
+	if (scope === 'local') {
+		runTenantDeployPreflight({ cwd: tenantRoot, scope: 'local' });
+		runNodeScript(packageScriptPath('tenant-build'));
+		writeDeployReport({ ok: true, kind: 'success', scope, dryRun: options.dryRun, target: deployTargetLabel(target) });
+		console.log('Treeseed local deploy completed as a build-only publish target.');
+		return;
 	}
 
-	if (needsRemoteAccess) {
-		const { prompted, provided } = await promptForMissingDeployInputs(tenantRoot);
-		if (prompted && provided.length > 0) {
-			console.log(`Captured ${provided.length} missing deploy value(s) for this run.`);
-		}
+	try {
+		assertDeploymentInitialized(tenantRoot, { target });
+		runTenantDeployPreflight({ cwd: tenantRoot, scope });
+	} catch (error) {
+		writeDeployReport({
+			ok: false,
+			kind: 'preflight_failed',
+			target: deployTargetLabel(target),
+			message: error instanceof Error ? error.message : String(error),
+		});
+		throw error;
 	}
 
-	if (needsRemoteAccess) {
-		try {
-			validateDeployPrerequisites(tenantRoot, { requireRemote: true });
-		} catch (error) {
-			const missing = collectMissingDeployInputs(tenantRoot);
-			if (missing.length > 0 && (!process.stdin.isTTY || !process.stdout.isTTY)) {
-				console.error('Treeseed deploy is missing required values and cannot prompt in this environment.');
-				console.error('Provide them through environment variables or CI secrets before retrying:');
-				for (const item of missing) {
-					console.error(`- ${item.key}`);
-				}
-			}
-			writeDeployReport({
-				ok: false,
-				kind: 'auth_failed',
-				message: error instanceof Error ? error.message : String(error),
-				missingInputs: missing.map((item) => item.key),
-			});
-			throw error;
-		}
-	}
-
-	const workflowStatus = ensureDeployWorkflow(tenantRoot);
-	if (workflowStatus.changed) {
-		console.log(`Updated deploy workflow at ${workflowStatus.workflowPath}.`);
-	}
-
-	const githubEnvironment = ensureGitHubEnvironment(tenantRoot, { dryRun: options.dryRun, scope: 'prod', purpose: 'deploy' });
-	if (githubEnvironment.secrets.created.length > 0) {
-		console.log(`${options.dryRun ? 'Would create' : 'Created'} ${githubEnvironment.secrets.created.length} GitHub secret(s).`);
-	}
-	if (githubEnvironment.variables.created.length > 0) {
-		console.log(`${options.dryRun ? 'Would create' : 'Created'} ${githubEnvironment.variables.created.length} GitHub variable(s).`);
-	}
-
-	const { wranglerPath } = ensureGeneratedWranglerConfig(tenantRoot);
-
-	if (shouldRun('provision')) {
-		const summary = provisionCloudflareResources(tenantRoot, { dryRun: options.dryRun });
-		printDeploySummary(summary);
-		ensureGeneratedWranglerConfig(tenantRoot);
-	}
-
-	if (shouldRun('secrets')) {
-		const syncedSecrets = syncCloudflareSecrets(tenantRoot, { dryRun: options.dryRun });
-		console.log(`Secret sync ${options.dryRun ? 'planned' : 'completed'} for ${syncedSecrets.length} secret(s).`);
-	}
+	const { wranglerPath } = ensureGeneratedWranglerConfig(tenantRoot, { target });
 
 	if (shouldRun('migrate')) {
-		const result = runRemoteD1Migrations(tenantRoot, { dryRun: options.dryRun });
+		const result = runRemoteD1Migrations(tenantRoot, { dryRun: options.dryRun, target });
 		console.log(`${options.dryRun ? 'Planned' : 'Applied'} remote migrations for ${result.databaseName}.`);
 	}
 
-	if (shouldRun('build') && options.only) {
+	if (shouldRun('build')) {
 		if (options.dryRun) {
 			console.log('Dry run: skipped tenant build.');
 		} else {
@@ -189,10 +185,10 @@ async function main() {
 
 	if (shouldRun('publish')) {
 		if (options.dryRun) {
-			console.log(`Dry run: would deploy with generated Wrangler config at ${resolve(wranglerPath)}.`);
+			console.log(`Dry run: would deploy ${deployTargetLabel(target)} with generated Wrangler config at ${resolve(wranglerPath)}.`);
 		} else {
 			runWranglerDeploy(wranglerPath);
-			finalizeDeploymentState(tenantRoot);
+			finalizeDeploymentState(tenantRoot, { target });
 		}
 	}
 
@@ -201,6 +197,7 @@ async function main() {
 		kind: 'success',
 		dryRun: options.dryRun,
 		only: options.only,
+		target: deployTargetLabel(target),
 	});
 }
 

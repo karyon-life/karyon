@@ -10,8 +10,7 @@ const DEFAULT_COMPATIBILITY_DATE = '2026-04-05';
 const DEFAULT_COMPATIBILITY_FLAGS = ['nodejs_compat'];
 const GENERATED_ROOT = '.treeseed/generated';
 const STATE_ROOT = '.treeseed/state';
-const GENERATED_WRANGLER_PATH = `${GENERATED_ROOT}/wrangler.toml`;
-const STATE_PATH = `${STATE_ROOT}/deploy.json`;
+const PERSISTENT_SCOPES = new Set(['local', 'staging', 'prod']);
 
 function ensureParent(filePath) {
 	mkdirSync(dirname(filePath), { recursive: true });
@@ -47,8 +46,116 @@ function envOrNull(key) {
 	return typeof value === 'string' && value.length ? value : null;
 }
 
-function relativeFromGeneratedRoot(targetPath) {
-	return relative(resolve(process.cwd(), GENERATED_ROOT), targetPath).replaceAll('\\', '/');
+function sanitizeSegment(value) {
+	return String(value)
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9-]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.replace(/-{2,}/g, '-')
+		.slice(0, 36) || 'default';
+}
+
+export function normalizePersistentScope(scope = 'prod') {
+	if (!PERSISTENT_SCOPES.has(scope)) {
+		throw new Error(`Unsupported Treeseed environment "${scope}". Expected one of local, staging, prod.`);
+	}
+	return scope;
+}
+
+export function createPersistentDeployTarget(scope = 'prod') {
+	return {
+		kind: 'persistent',
+		scope: normalizePersistentScope(scope),
+	};
+}
+
+export function createBranchPreviewDeployTarget(branchName) {
+	const normalized = String(branchName ?? '').trim();
+	if (!normalized) {
+		throw new Error('Branch preview target requires a branch name.');
+	}
+
+	return {
+		kind: 'branch',
+		branchName: normalized,
+	};
+}
+
+function normalizeTarget(scopeOrTarget = 'prod') {
+	if (!scopeOrTarget || typeof scopeOrTarget === 'string') {
+		return createPersistentDeployTarget(scopeOrTarget ?? 'prod');
+	}
+
+	if (scopeOrTarget.kind === 'persistent') {
+		return createPersistentDeployTarget(scopeOrTarget.scope);
+	}
+
+	if (scopeOrTarget.kind === 'branch') {
+		return createBranchPreviewDeployTarget(scopeOrTarget.branchName);
+	}
+
+	throw new Error('Unsupported Treeseed deployment target.');
+}
+
+export function scopeFromTarget(target) {
+	return target.kind === 'persistent'
+		? target.scope
+		: 'staging';
+}
+
+function targetDirectoryParts(target) {
+	if (target.kind === 'persistent') {
+		return ['environments', target.scope];
+	}
+
+	return ['branches', sanitizeSegment(target.branchName)];
+}
+
+function targetKey(target) {
+	return target.kind === 'persistent'
+		? target.scope
+		: `branch:${target.branchName}`;
+}
+
+function resolveTargetPaths(tenantRoot, scopeOrTarget = 'prod') {
+	const target = normalizeTarget(scopeOrTarget);
+	const pathParts = targetDirectoryParts(target);
+	const generatedRoot = resolve(tenantRoot, GENERATED_ROOT, ...pathParts);
+	const statePath = resolve(tenantRoot, STATE_ROOT, ...pathParts, 'deploy.json');
+
+	return {
+		target,
+		generatedRoot,
+		wranglerPath: resolve(generatedRoot, 'wrangler.toml'),
+		workerEntryPath: resolve(generatedRoot, 'worker/index.js'),
+		statePath,
+	};
+}
+
+export function deployTargetLabel(scopeOrTarget = 'prod') {
+	const target = normalizeTarget(scopeOrTarget);
+	return target.kind === 'persistent' ? target.scope : `branch:${target.branchName}`;
+}
+
+function targetWorkerName(deployConfig, target) {
+	const baseName = deriveCloudflareWorkerName(deployConfig);
+	if (target.kind === 'persistent') {
+		if (target.scope === 'prod') {
+			return baseName;
+		}
+		return `${baseName}-${target.scope}`;
+	}
+
+	return `${baseName}-${sanitizeSegment(target.branchName)}`;
+}
+
+function targetWorkersDevUrl(workerName) {
+	return `https://${workerName}.workers.dev`;
+}
+
+function relativeFromGeneratedRoot(targetPath, generatedRoot) {
+	return relative(generatedRoot, targetPath).replaceAll('\\', '/');
 }
 
 function buildPublicVars(deployConfig) {
@@ -74,54 +181,72 @@ function buildSecretMap(deployConfig, state) {
 	};
 }
 
-function defaultStateFromConfig(deployConfig) {
-	const workerName = deriveCloudflareWorkerName(deployConfig);
+function defaultStateFromConfig(deployConfig, target) {
+	const workerName = targetWorkerName(deployConfig, target);
+	const suffix = target.kind === 'persistent' ? target.scope : sanitizeSegment(target.branchName);
+
 	return {
+		version: 2,
+		target,
+		previewEnabled: target.kind === 'branch',
 		workerName,
 		kvNamespaces: {
 			FORM_GUARD_KV: {
 				name: `${workerName}-form-guard`,
-				id: `dryrun-${deployConfig.slug}-form-guard`,
-				previewId: `dryrun-${deployConfig.slug}-form-guard-preview`,
+				id: `dryrun-${suffix}-form-guard`,
+				previewId: `dryrun-${suffix}-form-guard-preview`,
 			},
 			SESSION: {
 				name: `${workerName}-session`,
-				id: `dryrun-${deployConfig.slug}-session`,
-				previewId: `dryrun-${deployConfig.slug}-session-preview`,
+				id: `dryrun-${suffix}-session`,
+				previewId: `dryrun-${suffix}-session-preview`,
 			},
 		},
 		d1Databases: {
 			SITE_DATA_DB: {
 				databaseName: `${workerName}-site-data`,
-				databaseId: `dryrun-${deployConfig.slug}-site-data`,
-				previewDatabaseId: `dryrun-${deployConfig.slug}-site-data-preview`,
+				databaseId: `dryrun-${suffix}-site-data`,
+				previewDatabaseId: `dryrun-${suffix}-site-data-preview`,
 			},
 		},
 		generatedSecrets: {},
-		lastDeployedUrl: null,
+		readiness: {
+			initialized: false,
+			initializedAt: null,
+			lastValidatedAt: null,
+			lastConfigFingerprint: null,
+		},
+		lastDeployedUrl: target.kind === 'branch' ? targetWorkersDevUrl(workerName) : null,
 		lastManifestFingerprint: null,
 		lastDeploymentTimestamp: null,
+		lastDeployedCommit: null,
 	};
 }
 
-export function loadDeployState(tenantRoot, deployConfig) {
-	const statePath = resolve(tenantRoot, STATE_PATH);
-	const defaults = defaultStateFromConfig(deployConfig);
+export function loadDeployState(tenantRoot, deployConfig, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? 'prod');
+	const defaults = defaultStateFromConfig(deployConfig, target);
+	const { statePath } = resolveTargetPaths(tenantRoot, target);
 	const persisted = readJson(statePath, {});
 	const persistedSiteDataDb = persisted.d1Databases?.SITE_DATA_DB ?? persisted.d1Databases?.SUBSCRIBERS_DB ?? {};
 	const merged = {
 		...defaults,
 		...persisted,
+		target,
+		previewEnabled: persisted.previewEnabled ?? defaults.previewEnabled,
+		workerName: defaults.workerName,
 		kvNamespaces: {
 			...defaults.kvNamespaces,
 			...(persisted.kvNamespaces ?? {}),
 			FORM_GUARD_KV: {
 				...defaults.kvNamespaces.FORM_GUARD_KV,
 				...(persisted.kvNamespaces?.FORM_GUARD_KV ?? {}),
+				name: defaults.kvNamespaces.FORM_GUARD_KV.name,
 			},
 			SESSION: {
 				...defaults.kvNamespaces.SESSION,
 				...(persisted.kvNamespaces?.SESSION ?? {}),
+				name: defaults.kvNamespaces.SESSION.name,
 			},
 		},
 		d1Databases: {
@@ -130,35 +255,46 @@ export function loadDeployState(tenantRoot, deployConfig) {
 			SITE_DATA_DB: {
 				...defaults.d1Databases.SITE_DATA_DB,
 				...persistedSiteDataDb,
+				databaseName: defaults.d1Databases.SITE_DATA_DB.databaseName,
 			},
 		},
 		generatedSecrets: {
 			...(defaults.generatedSecrets ?? {}),
 			...(persisted.generatedSecrets ?? {}),
 		},
+		readiness: {
+			...defaults.readiness,
+			...(persisted.readiness ?? {}),
+		},
 	};
 
-	merged.workerName = defaults.workerName;
-	merged.kvNamespaces.FORM_GUARD_KV.name = defaults.kvNamespaces.FORM_GUARD_KV.name;
-	merged.kvNamespaces.SESSION.name = defaults.kvNamespaces.SESSION.name;
-	merged.d1Databases.SITE_DATA_DB.databaseName = defaults.d1Databases.SITE_DATA_DB.databaseName;
+	if (target.kind === 'branch' && !merged.lastDeployedUrl) {
+		merged.lastDeployedUrl = targetWorkersDevUrl(merged.workerName);
+	}
 
 	return merged;
 }
 
-export function writeDeployState(tenantRoot, state) {
-	writeJson(resolve(tenantRoot, STATE_PATH), state);
+export function writeDeployState(tenantRoot, state, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? state.target ?? 'prod');
+	const { statePath } = resolveTargetPaths(tenantRoot, target);
+	writeJson(statePath, {
+		...state,
+		target,
+	});
 }
 
-export function resolveGeneratedWranglerPath(tenantRoot) {
-	return resolve(tenantRoot, GENERATED_WRANGLER_PATH);
+export function resolveGeneratedWranglerPath(tenantRoot, options = {}) {
+	return resolveTargetPaths(tenantRoot, options.scope ?? options.target ?? 'prod').wranglerPath;
 }
 
-export function buildWranglerConfigContents(tenantRoot, deployConfig, state) {
-	const workerName = state.workerName ?? deriveCloudflareWorkerName(deployConfig);
-	const mainPath = relativeFromGeneratedRoot(resolve(tenantRoot, '.treeseed/generated/worker/index.js'));
-	const assetsDirectory = relativeFromGeneratedRoot(resolve(tenantRoot, 'dist'));
-	const migrationsDir = relativeFromGeneratedRoot(resolve(tenantRoot, 'migrations'));
+export function buildWranglerConfigContents(tenantRoot, deployConfig, state, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? state.target ?? 'prod');
+	const { generatedRoot } = resolveTargetPaths(tenantRoot, target);
+	const workerName = state.workerName ?? targetWorkerName(deployConfig, target);
+	const mainPath = relativeFromGeneratedRoot(resolve(generatedRoot, 'worker/index.js'), generatedRoot);
+	const assetsDirectory = relativeFromGeneratedRoot(resolve(tenantRoot, 'dist'), generatedRoot);
+	const migrationsDir = relativeFromGeneratedRoot(resolve(tenantRoot, 'migrations'), generatedRoot);
 	const vars = buildPublicVars(deployConfig);
 
 	return [
@@ -195,22 +331,24 @@ export function buildWranglerConfigContents(tenantRoot, deployConfig, state) {
 	].join('\n');
 }
 
-export function ensureGeneratedWranglerConfig(tenantRoot) {
+export function ensureGeneratedWranglerConfig(tenantRoot, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? 'prod');
 	const deployConfig = loadTreeseedDeployConfig();
-	const state = loadDeployState(tenantRoot, deployConfig);
-	const wranglerPath = resolveGeneratedWranglerPath(tenantRoot);
-	const manifestFingerprint = stableHash(JSON.stringify(deployConfig));
-	const contents = buildWranglerConfigContents(tenantRoot, deployConfig, state);
+	const state = loadDeployState(tenantRoot, deployConfig, { target });
+	const { wranglerPath } = resolveTargetPaths(tenantRoot, target);
+	const manifestFingerprint = stableHash(JSON.stringify({ deployConfig, targetKey: targetKey(target) }));
+	const contents = buildWranglerConfigContents(tenantRoot, deployConfig, state, { target });
 	ensureParent(wranglerPath);
 	writeFileSync(wranglerPath, contents, 'utf8');
 	state.lastManifestFingerprint = manifestFingerprint;
+	state.readiness.lastConfigFingerprint = manifestFingerprint;
 	if (!state.generatedSecrets) {
 		state.generatedSecrets = {};
 	}
 	const secretMap = buildSecretMap(deployConfig, state);
 	state.generatedSecrets.TREESEED_FORM_TOKEN_SECRET = secretMap.TREESEED_FORM_TOKEN_SECRET;
-	writeDeployState(tenantRoot, state);
-	return { wranglerPath, deployConfig, state, manifestFingerprint };
+	writeDeployState(tenantRoot, state, { target });
+	return { wranglerPath, deployConfig, state, manifestFingerprint, target };
 }
 
 function runWrangler(args, { cwd, allowFailure = false, json = false, capture = false, env = {}, input } = {}) {
@@ -228,16 +366,6 @@ function runWrangler(args, { cwd, allowFailure = false, json = false, capture = 
 	}
 
 	return result;
-}
-
-function parseWranglerAssignment(result, label, field) {
-	const source = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
-	const pattern = new RegExp(`${field}\\s*=\\s*"([^"]+)"`);
-	const match = source.match(pattern);
-	if (!match) {
-		throw new Error(`Unable to parse ${field} from ${label}.`);
-	}
-	return match[1];
 }
 
 function parseWranglerJsonOutput(result, label) {
@@ -272,17 +400,18 @@ function isPlaceholderResourceId(value) {
 	}
 
 	return (
-		value.startsWith('local-') ||
-		value.startsWith('dryrun-') ||
-		value.endsWith('-id') ||
-		value.endsWith('-preview-id')
+		value.startsWith('local-')
+		|| value.startsWith('dryrun-')
+		|| value.endsWith('-id')
+		|| value.endsWith('-preview-id')
 	);
 }
 
-function buildProvisioningSummary(deployConfig, state) {
+function buildProvisioningSummary(deployConfig, state, target) {
 	return {
-		workerName: state.workerName ?? deriveCloudflareWorkerName(deployConfig),
-		siteUrl: deployConfig.siteUrl,
+		target: deployTargetLabel(target),
+		workerName: state.workerName ?? targetWorkerName(deployConfig, target),
+		siteUrl: target.kind === 'branch' ? targetWorkersDevUrl(state.workerName) : deployConfig.siteUrl,
 		accountId: deployConfig.cloudflare.accountId,
 		formGuardKv: state.kvNamespaces.FORM_GUARD_KV,
 		sessionKv: state.kvNamespaces.SESSION,
@@ -290,22 +419,15 @@ function buildProvisioningSummary(deployConfig, state) {
 	};
 }
 
-function buildDestroySummary(deployConfig, state) {
-	return {
-		workerName: state.workerName ?? deriveCloudflareWorkerName(deployConfig),
-		siteUrl: deployConfig.siteUrl,
-		accountId: deployConfig.cloudflare.accountId,
-		formGuardKv: state.kvNamespaces.FORM_GUARD_KV,
-		sessionKv: state.kvNamespaces.SESSION,
-		siteDataDb: state.d1Databases.SITE_DATA_DB,
-	};
+function buildDestroySummary(deployConfig, state, target) {
+	return buildProvisioningSummary(deployConfig, state, target);
 }
 
 function isPlaceholderAccountId(value) {
 	return !value || value === 'replace-with-cloudflare-account-id';
 }
 
-function missingTurnstileRequirements(deployConfig) {
+function missingTurnstileRequirements() {
 	const issues = [];
 	if (!envOrNull('TREESEED_PUBLIC_TURNSTILE_SITE_KEY')) {
 		issues.push('Set TREESEED_PUBLIC_TURNSTILE_SITE_KEY before deploying.');
@@ -391,7 +513,7 @@ export function validateDeployPrerequisites(tenantRoot, { requireRemote = true }
 	}
 
 	if (requireRemote) {
-		issues.push(...missingTurnstileRequirements(deployConfig));
+		issues.push(...missingTurnstileRequirements());
 
 		const result = runWrangler(['whoami'], {
 			cwd: tenantRoot,
@@ -548,15 +670,18 @@ function deleteWorker(tenantRoot, workerName, { env, dryRun, force = false }) {
 	return { status: result.status === 0 ? 'deleted' : 'missing', name: workerName };
 }
 
-export function destroyCloudflareResources(tenantRoot, { dryRun = false, force = false } = {}) {
+export function destroyCloudflareResources(tenantRoot, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? 'prod');
 	const deployConfig = loadTreeseedDeployConfig();
-	const state = loadDeployState(tenantRoot, deployConfig);
-	state.workerName = deriveCloudflareWorkerName(deployConfig);
+	const state = loadDeployState(tenantRoot, deployConfig, { target });
+	state.workerName = targetWorkerName(deployConfig, target);
 
 	const env = {
 		CLOUDFLARE_ACCOUNT_ID: deployConfig.cloudflare.accountId,
 	};
 
+	const dryRun = options.dryRun ?? false;
+	const force = options.force ?? false;
 	const kvNamespaces = dryRun ? [] : listKvNamespaces(tenantRoot, env);
 	const d1Databases = dryRun ? [] : listD1Databases(tenantRoot, env);
 
@@ -579,20 +704,21 @@ export function destroyCloudflareResources(tenantRoot, { dryRun = false, force =
 	const worker = deleteWorker(tenantRoot, state.workerName, { env, dryRun, force });
 	const formGuard = deleteKvNamespace(tenantRoot, state.kvNamespaces.FORM_GUARD_KV.id, { env, dryRun });
 	const formGuardPreview =
-		state.kvNamespaces.FORM_GUARD_KV.previewId &&
-		state.kvNamespaces.FORM_GUARD_KV.previewId !== state.kvNamespaces.FORM_GUARD_KV.id
+		state.kvNamespaces.FORM_GUARD_KV.previewId
+		&& state.kvNamespaces.FORM_GUARD_KV.previewId !== state.kvNamespaces.FORM_GUARD_KV.id
 			? deleteKvNamespace(tenantRoot, state.kvNamespaces.FORM_GUARD_KV.previewId, { env, dryRun, preview: true })
 			: null;
 	const session = deleteKvNamespace(tenantRoot, state.kvNamespaces.SESSION.id, { env, dryRun });
 	const sessionPreview =
-		state.kvNamespaces.SESSION.previewId &&
-		state.kvNamespaces.SESSION.previewId !== state.kvNamespaces.SESSION.id
+		state.kvNamespaces.SESSION.previewId
+		&& state.kvNamespaces.SESSION.previewId !== state.kvNamespaces.SESSION.id
 			? deleteKvNamespace(tenantRoot, state.kvNamespaces.SESSION.previewId, { env, dryRun, preview: true })
 			: null;
 	const database = deleteD1Database(tenantRoot, state.d1Databases.SITE_DATA_DB.databaseName, { env, dryRun });
 
 	return {
-		summary: buildDestroySummary(deployConfig, state),
+		target,
+		summary: buildDestroySummary(deployConfig, state, target),
 		operations: {
 			worker,
 			formGuard,
@@ -604,22 +730,32 @@ export function destroyCloudflareResources(tenantRoot, { dryRun = false, force =
 	};
 }
 
-export function cleanupDestroyedState(tenantRoot, { removeBuildArtifacts = false } = {}) {
+export function cleanupDestroyedState(tenantRoot, options = {}) {
+	const target = options.scope || options.target ? normalizeTarget(options.scope ?? options.target) : null;
+	if (target) {
+		const { statePath, generatedRoot } = resolveTargetPaths(tenantRoot, target);
+		rmSync(statePath, { force: true });
+		rmSync(generatedRoot, { recursive: true, force: true });
+		return;
+	}
+
 	rmSync(resolve(tenantRoot, STATE_ROOT), { recursive: true, force: true });
 	rmSync(resolve(tenantRoot, GENERATED_ROOT), { recursive: true, force: true });
-	if (removeBuildArtifacts) {
+	if (options.removeBuildArtifacts) {
 		rmSync(resolve(tenantRoot, 'dist'), { recursive: true, force: true });
 	}
 }
 
-export function provisionCloudflareResources(tenantRoot, { dryRun = false } = {}) {
+export function provisionCloudflareResources(tenantRoot, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? 'prod');
 	const deployConfig = loadTreeseedDeployConfig();
-	const state = loadDeployState(tenantRoot, deployConfig);
-	state.workerName = deriveCloudflareWorkerName(deployConfig);
+	const state = loadDeployState(tenantRoot, deployConfig, { target });
+	state.workerName = targetWorkerName(deployConfig, target);
 
 	const env = {
 		CLOUDFLARE_ACCOUNT_ID: deployConfig.cloudflare.accountId,
 	};
+	const dryRun = options.dryRun ?? false;
 	const kvNamespaces = dryRun ? [] : listKvNamespaces(tenantRoot, env);
 	const d1Databases = dryRun ? [] : listD1Databases(tenantRoot, env);
 
@@ -643,8 +779,7 @@ export function provisionCloudflareResources(tenantRoot, { dryRun = false } = {}
 			return;
 		}
 
-		const args = ['kv', 'namespace', 'create', current.name];
-		runWrangler(args, { cwd: tenantRoot, capture: true, env });
+		runWrangler(['kv', 'namespace', 'create', current.name], { cwd: tenantRoot, capture: true, env });
 		const refreshed = listKvNamespaces(tenantRoot, env);
 		const created = refreshed.find((entry) => entry?.title === current.name);
 		if (!created?.id) {
@@ -691,18 +826,23 @@ export function provisionCloudflareResources(tenantRoot, { dryRun = false } = {}
 	ensureKv('SESSION');
 	ensureD1();
 
-	writeDeployState(tenantRoot, state);
-	return buildProvisioningSummary(deployConfig, state);
+	state.readiness.initialized = true;
+	state.readiness.initializedAt = new Date().toISOString();
+	state.readiness.lastValidatedAt = state.readiness.initializedAt;
+	writeDeployState(tenantRoot, state, { target });
+	return buildProvisioningSummary(deployConfig, state, target);
 }
 
-export function syncCloudflareSecrets(tenantRoot, { dryRun = false } = {}) {
+export function syncCloudflareSecrets(tenantRoot, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? 'prod');
 	const deployConfig = loadTreeseedDeployConfig();
-	const state = loadDeployState(tenantRoot, deployConfig);
+	const state = loadDeployState(tenantRoot, deployConfig, { target });
 	const env = {
 		CLOUDFLARE_ACCOUNT_ID: deployConfig.cloudflare.accountId,
 	};
 	const secrets = buildSecretMap(deployConfig, state);
 	const synced = [];
+	const dryRun = options.dryRun ?? false;
 
 	for (const [key, value] of Object.entries(secrets)) {
 		if (!value) {
@@ -714,7 +854,7 @@ export function syncCloudflareSecrets(tenantRoot, { dryRun = false } = {}) {
 			continue;
 		}
 
-		const result = spawnSync(process.execPath, [wranglerBin, 'secret', 'put', key, '--config', resolveGeneratedWranglerPath(tenantRoot)], {
+		const result = spawnSync(process.execPath, [wranglerBin, 'secret', 'put', key, '--config', resolveGeneratedWranglerPath(tenantRoot, { target })], {
 			cwd: tenantRoot,
 			input: `${value}\n`,
 			stdio: ['pipe', 'inherit', 'inherit'],
@@ -731,13 +871,14 @@ export function syncCloudflareSecrets(tenantRoot, { dryRun = false } = {}) {
 		...(state.generatedSecrets ?? {}),
 		TREESEED_FORM_TOKEN_SECRET: secrets.TREESEED_FORM_TOKEN_SECRET ?? state.generatedSecrets?.TREESEED_FORM_TOKEN_SECRET,
 	};
-	writeDeployState(tenantRoot, state);
+	writeDeployState(tenantRoot, state, { target });
 	return synced;
 }
 
-export function runRemoteD1Migrations(tenantRoot, { dryRun = false } = {}) {
-	const { wranglerPath, deployConfig, state } = ensureGeneratedWranglerConfig(tenantRoot);
-	if (dryRun) {
+export function runRemoteD1Migrations(tenantRoot, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? 'prod');
+	const { wranglerPath, deployConfig, state } = ensureGeneratedWranglerConfig(tenantRoot, { target });
+	if (options.dryRun) {
 		return { databaseName: state.d1Databases.SITE_DATA_DB.databaseName, dryRun: true };
 	}
 
@@ -752,18 +893,49 @@ export function runRemoteD1Migrations(tenantRoot, { dryRun = false } = {}) {
 	return { databaseName: state.d1Databases.SITE_DATA_DB.databaseName, dryRun: false };
 }
 
-export function finalizeDeploymentState(tenantRoot) {
+export function markDeploymentInitialized(tenantRoot, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? 'prod');
 	const deployConfig = loadTreeseedDeployConfig();
-	const state = loadDeployState(tenantRoot, deployConfig);
-	state.lastManifestFingerprint = stableHash(JSON.stringify(deployConfig));
-	state.lastDeployedUrl = deployConfig.siteUrl;
+	const state = loadDeployState(tenantRoot, deployConfig, { target });
+	const timestamp = new Date().toISOString();
+	state.readiness.initialized = true;
+	state.readiness.initializedAt = state.readiness.initializedAt ?? timestamp;
+	state.readiness.lastValidatedAt = timestamp;
+	state.readiness.lastConfigFingerprint = state.lastManifestFingerprint ?? state.readiness.lastConfigFingerprint;
+	writeDeployState(tenantRoot, state, { target });
+	return state;
+}
+
+export function assertDeploymentInitialized(tenantRoot, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? 'prod');
+	const deployConfig = loadTreeseedDeployConfig();
+	const state = loadDeployState(tenantRoot, deployConfig, { target });
+	if (state.readiness?.initialized) {
+		return state;
+	}
+
+	throw new Error(
+		`Treeseed environment ${deployTargetLabel(target)} has not been initialized. Run \`treeseed config --environment ${scopeFromTarget(target)}\` first.`,
+	);
+}
+
+export function finalizeDeploymentState(tenantRoot, options = {}) {
+	const target = normalizeTarget(options.scope ?? options.target ?? 'prod');
+	const deployConfig = loadTreeseedDeployConfig();
+	const state = loadDeployState(tenantRoot, deployConfig, { target });
+	state.lastManifestFingerprint = stableHash(JSON.stringify({ deployConfig, targetKey: targetKey(target) }));
+	state.lastDeployedUrl = target.kind === 'branch' ? targetWorkersDevUrl(state.workerName) : deployConfig.siteUrl;
 	state.lastDeploymentTimestamp = new Date().toISOString();
-	writeDeployState(tenantRoot, state);
+	state.lastDeployedCommit = envOrNull('GITHUB_SHA') ?? envOrNull('TREESEED_DEPLOY_COMMIT') ?? null;
+	state.readiness.initialized = true;
+	state.readiness.lastValidatedAt = state.lastDeploymentTimestamp;
+	writeDeployState(tenantRoot, state, { target });
 	return state;
 }
 
 export function printDeploySummary(summary) {
 	console.log('Treeseed deployment summary');
+	console.log(`  Target: ${summary.target}`);
 	console.log(`  Worker: ${summary.workerName}`);
 	console.log(`  Site URL: ${summary.siteUrl}`);
 	console.log(`  Account ID: ${summary.accountId}`);
@@ -775,6 +947,7 @@ export function printDeploySummary(summary) {
 export function printDestroySummary(result) {
 	const { summary, operations } = result;
 	console.log('Treeseed destroy summary');
+	console.log(`  Target: ${summary.target}`);
 	console.log(`  Worker: ${summary.workerName} -> ${operations.worker.status}`);
 	console.log(`  Site URL: ${summary.siteUrl}`);
 	console.log(`  Account ID: ${summary.accountId}`);

@@ -170,7 +170,7 @@ Useful commands:
 - `npm run build`
 - `npm run check`
 
-`treeseed save` and `treeseed deploy` now run `lint`, `test`, and `build` before any real save or deploy mutation occurs.
+`treeseed save`, `treeseed close`, `treeseed release`, and `treeseed deploy` run validation before mutating git history or publishing.
 
 Main commands:
 
@@ -180,8 +180,13 @@ Main commands:
 | `npm run dev:watch` | Start the same environment with layered rebuilds and browser refresh across `sdk`, `core`, and the tenant |
 | `npm run build` | Build the static site and generated Worker artifacts |
 | `npm run check` | Run the package-owned validation flow for the tenant |
-| `npm run deploy` | Provision or reuse Cloudflare resources and deploy the site |
-| `npm run destroy` | Dangerously delete the site's Worker, D1 database, and KV namespaces after typed confirmation |
+| `treeseed config --environment <local|staging|prod>` | Validate and initialize the selected persistent environment |
+| `treeseed start <branch-name> [--preview]` | Create a feature branch from the latest `staging`, optionally with a Cloudflare preview deployment |
+| `treeseed close` | Merge the current feature branch into `staging` and remove any preview artifacts for that branch |
+| `npm run deploy -- --environment <staging|prod|local>` | Run phase-2 deploy against an already initialized environment |
+| `npm run save -- "<message>"` | Commit and push the current branch only |
+| `treeseed release --major|--minor|--patch` | Bump versions on `staging`, merge `staging` into `main`, and let CI deploy production |
+| `npm run destroy -- --environment <staging|prod|local>` | Dangerously delete the selected persistent environment after typed confirmation |
 | `npm run preview` | Preview the built site locally |
 | `npm run cleanup:markdown -- <path>` | Normalize Markdown/MDX files |
 | `npm run test:unit` | Run workspace unit tests in dependency order: `sdk`, then `core` |
@@ -312,29 +317,42 @@ When in doubt:
 
 ## Deployment
 
-Treeseed deploys this site with a single command:
+Treeseed now splits environment setup from release publication.
+
+Phase 1: initialize persistent environments
 
 ```bash
-npm run deploy
+treeseed config --environment staging --environment prod
+```
+
+That flow validates inputs, provisions any missing Cloudflare resources, writes generated Wrangler config, syncs secrets, and marks the environment ready.
+
+Phase 2: publish into an already initialized environment
+
+```bash
+npm run deploy -- --environment staging
 ```
 
 That flow:
 
-1. reads `treeseed.site.yaml`
-2. reconciles Cloudflare resources
-3. generates `.treeseed/generated/wrangler.toml`
-4. syncs secrets and vars
-5. applies remote D1 migrations
-6. builds the static site and tiny Worker
-7. publishes the Worker plus static assets
+1. validates the selected environment is already initialized
+2. applies remote D1 migrations
+3. builds the static site and tiny Worker
+4. publishes the Worker plus static assets
 
-Use a dry run first when changing deploy behavior:
+Feature branches start from the latest `staging` commit:
 
 ```bash
-npm run deploy -- --dry-run
+treeseed start feature/my-change
+treeseed start feature/my-change --preview
 ```
 
-The GitHub Actions workflow at [deploy.yml](/home/adrian/Projects/nexical/karyon/docs/.github/workflows/deploy.yml) now uses that same `npm run deploy` path from `docs/`, so CI deploys the same Cloudflare Worker, D1 database, KV namespaces, generated Wrangler config, and static assets as local deploys.
+Use `--preview` only when you want a branch-scoped Cloudflare preview deployment. Otherwise local development is the default.
+
+The GitHub Actions workflow at [deploy.yml](/home/adrian/Projects/nexical/karyon/docs/.github/workflows/deploy.yml) now maps branches to environments:
+
+- `staging` pushes deploy the staging environment
+- `main` pushes deploy the production environment
 
 For automated deploys, keep these secrets in GitHub Actions:
 
@@ -346,31 +364,34 @@ For automated deploys, keep these secrets in GitHub Actions:
 
 Treeseed deploy now treats Turnstile as part of the standard production contract, so production deploys should always provide the public site key and the secret key.
 
-### Minimal Deploy Checklist
+### Minimal Release Checklist
 
-Before the first real deploy, confirm:
+Before the first real release, confirm:
 
 1. `treeseed.site.yaml` has the correct `name`, `slug`, `siteUrl`, `cloudflare.accountId`, and `cloudflare.workerName`
 2. `.env.local` or CI secrets provide the required deploy secrets
-3. `npm run lint`
-4. `npm run test`
-5. `npm run build`
-6. `npm run deploy -- --dry-run`
+3. `treeseed config --environment staging --environment prod`
+4. `treeseed start feature/my-change`
+5. `treeseed save "describe your change"`
+6. `treeseed close`
+7. `treeseed release --patch`
 
-That is the safest way to go from local authoring to production publish.
+That is the default path from local authoring to production publish.
 
 Generated deployment state is written to:
 
-- `.treeseed/generated/wrangler.toml`
-- `.treeseed/state/deploy.json`
+- `.treeseed/generated/environments/*/wrangler.toml`
+- `.treeseed/generated/branches/*/wrangler.toml`
+- `.treeseed/state/environments/*/deploy.json`
+- `.treeseed/state/branches/*/deploy.json`
 
 Those files are operational artifacts and should not be committed.
 
 ## Destroying a Site
 
-`npm run destroy` is intentionally dangerous.
+`npm run destroy -- --environment <staging|prod|local>` is intentionally dangerous.
 
-It deletes the site's:
+It deletes the selected persistent environment's:
 
 - Cloudflare Worker
 - D1 database

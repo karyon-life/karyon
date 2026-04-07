@@ -84,6 +84,7 @@ try {
 	console.log(`Machine config: ${configPath}`);
 	console.log(`Machine key: ${keyPath}`);
 	console.log(`Updated values: ${result.updated.length}`);
+	console.log(`Initialized environments: ${result.initialized.length}`);
 	if (result.synced.github) {
 		console.log(
 			`GitHub sync: ${result.synced.github.secrets.length} secrets, ${result.synced.github.variables.length} variables (${result.synced.github.repository})`,

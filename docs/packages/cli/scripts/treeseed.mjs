@@ -13,6 +13,8 @@ const COMMAND_MAP = new Map([
 	['test', packageScriptPath('tenant-test')],
 	['check', packageScriptPath('tenant-check')],
 	['config', packageScriptPath('config-treeseed')],
+	['start', packageScriptPath('workspace-start')],
+	['close', packageScriptPath('workspace-close')],
 	['deploy', packageScriptPath('tenant-deploy')],
 	['destroy', packageScriptPath('tenant-destroy')],
 	['preview', packageScriptPath('tenant-astro-command')],
@@ -43,6 +45,7 @@ const WORKSPACE_COMMANDS = new Map([
 	['release:verify', { script: packageScriptPath('workspace-release-verify'), extraArgs: ['--full-smoke'] }],
 	['release:publish:changed', { script: packageScriptPath('workspace-publish-changed-packages'), extraArgs: [] }],
 	['save', { script: packageScriptPath('workspace-save'), extraArgs: [] }],
+	['release', { script: packageScriptPath('workspace-release'), extraArgs: [] }],
 ]);
 
 if (!command) {

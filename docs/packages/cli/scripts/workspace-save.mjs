@@ -1,24 +1,19 @@
 #!/usr/bin/env node
 
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { mkdirSync } from 'node:fs';
 import { applyTreeseedEnvironmentToProcess } from './config-runtime-lib.mjs';
-import { ensureGitHubDeployAutomation, ensureDeployWorkflow } from './github-automation-lib.mjs';
 import {
-	MERGE_CONFLICT_EXIT_CODE,
-	applyWorkspaceVersionChanges,
 	collectMergeConflictReport,
 	currentBranch,
 	formatMergeConflictReport,
 	hasMeaningfulChanges,
 	originRemoteUrl,
-	planWorkspaceVersionChanges,
 	repoRoot,
 } from './workspace-save-lib.mjs';
+import { remoteBranchExists, STAGING_BRANCH, PRODUCTION_BRANCH } from './git-workflow-lib.mjs';
 import { run, workspaceRoot } from './workspace-tools.mjs';
-import { packageScriptPath } from './package-tools.mjs';
-import { runWorkspaceSavePreflight, validateSaveAutomationPrerequisites } from './save-deploy-preflight-lib.mjs';
+import { runWorkspaceSavePreflight } from './save-deploy-preflight-lib.mjs';
 
 function writeSaveReport(payload) {
 	const target = process.env.TREESEED_SAVE_REPORT_PATH;
@@ -31,10 +26,33 @@ function writeSaveReport(payload) {
 	writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 }
 
-const message = process.argv.slice(2).join(' ').trim();
+function parseArgs(argv) {
+	const parsed = {
+		hotfix: false,
+		messageParts: [],
+	};
+
+	for (const current of argv) {
+		if (current === '--hotfix') {
+			parsed.hotfix = true;
+			continue;
+		}
+		parsed.messageParts.push(current);
+	}
+
+	return {
+		hotfix: parsed.hotfix,
+		message: parsed.messageParts.join(' ').trim(),
+	};
+}
+
+const options = parseArgs(process.argv.slice(2));
+const message = options.message;
 const root = workspaceRoot();
 const gitRoot = repoRoot(root);
-applyTreeseedEnvironmentToProcess({ tenantRoot: root, scope: 'prod' });
+const branch = currentBranch(gitRoot);
+const scope = branch === STAGING_BRANCH ? 'staging' : branch === PRODUCTION_BRANCH ? 'prod' : 'local';
+applyTreeseedEnvironmentToProcess({ tenantRoot: root, scope });
 
 if (!message) {
 	writeSaveReport({ ok: false, kind: 'usage', message: 'Treeseed save requires a commit message.' });
@@ -42,14 +60,20 @@ if (!message) {
 	process.exit(1);
 }
 
-if (currentBranch(gitRoot) !== 'main') {
+if (!branch) {
+	writeSaveReport({ ok: false, kind: 'missing_branch', message: 'Treeseed save requires an active git branch.' });
+	console.error('Treeseed save requires an active git branch.');
+	process.exit(1);
+}
+
+if (branch === PRODUCTION_BRANCH && !options.hotfix) {
 	writeSaveReport({
 		ok: false,
-		kind: 'wrong_branch',
-		branch: currentBranch(gitRoot),
-		message: `Treeseed save must run from the main branch. Current branch: ${currentBranch(gitRoot)}`,
+		kind: 'protected_branch',
+		branch,
+		message: 'Treeseed save is blocked on main. Use `treeseed release` for normal production promotion or `treeseed save --hotfix` for an explicit hotfix.',
 	});
-	console.error(`Treeseed save must run from the main branch. Current branch: ${currentBranch(gitRoot)}`);
+	console.error('Treeseed save is blocked on main. Use `treeseed release` for normal production promotion or `treeseed save --hotfix` for an explicit hotfix.');
 	process.exit(1);
 }
 
@@ -62,40 +86,17 @@ try {
 }
 
 try {
-	validateSaveAutomationPrerequisites({ cwd: root });
-} catch (error) {
-	const kind = error?.kind ?? 'auth_failed';
-	const payload = {
-		ok: false,
-		kind,
-		message: error instanceof Error ? error.message : String(error),
-		...(error?.missingEnv ? { missingEnv: error.missingEnv } : {}),
-		...(error?.details ? { details: error.details } : {}),
-	};
-	writeSaveReport(payload);
-	console.error(payload.message);
-	process.exit(1);
-}
-
-try {
 	runWorkspaceSavePreflight({ cwd: root });
 } catch (error) {
 	const kind = error?.kind ?? 'preflight_failed';
-	const payload = {
+	writeSaveReport({
 		ok: false,
 		kind,
 		message: error instanceof Error ? error.message : String(error),
-	};
-	writeSaveReport(payload);
-	console.error(payload.message);
+	});
+	console.error(error instanceof Error ? error.message : String(error));
 	process.exit(error?.exitCode ?? 1);
 }
-
-ensureDeployWorkflow(root);
-
-const versionPlan = planWorkspaceVersionChanges(root);
-const shouldInstall = versionPlan.touched.size > 0;
-applyWorkspaceVersionChanges(versionPlan);
 
 if (!hasMeaningfulChanges(gitRoot)) {
 	writeSaveReport({ ok: false, kind: 'no_changes', message: 'Treeseed save found no meaningful repository changes to commit.' });
@@ -103,47 +104,41 @@ if (!hasMeaningfulChanges(gitRoot)) {
 	process.exit(1);
 }
 
-if (shouldInstall) {
-	run('npm', ['install'], { cwd: root });
-}
 run('git', ['add', '-A'], { cwd: gitRoot });
 run('git', ['commit', '-m', message], { cwd: gitRoot });
 
 try {
-	run('git', ['pull', '--rebase', 'origin', 'main'], { cwd: gitRoot });
+	if (remoteBranchExists(gitRoot, branch)) {
+		run('git', ['pull', '--rebase', 'origin', branch], { cwd: gitRoot });
+		run('git', ['push', 'origin', branch], { cwd: gitRoot });
+	} else {
+		run('git', ['push', '-u', 'origin', branch], { cwd: gitRoot });
+	}
 } catch (error) {
 	const report = collectMergeConflictReport(gitRoot);
 	writeSaveReport({
 		ok: false,
 		kind: 'merge_conflict',
-		exitCode: MERGE_CONFLICT_EXIT_CODE,
+		branch,
 		report,
-		formatted: formatMergeConflictReport(report, gitRoot),
+		formatted: formatMergeConflictReport(report, gitRoot, branch),
 	});
-	console.error(formatMergeConflictReport(report, gitRoot));
-	process.exit(MERGE_CONFLICT_EXIT_CODE);
+	console.error(formatMergeConflictReport(report, gitRoot, branch));
+	process.exit(12);
 }
-
-run(process.execPath, [packageScriptPath('workspace-release-verify'), '--changed'], { cwd: root });
-const automation = ensureGitHubDeployAutomation(root, { dryRun: false });
-run('git', ['push', 'origin', 'main'], { cwd: gitRoot });
 
 const summary = {
 	ok: true,
 	kind: 'success',
 	message,
+	branch,
+	scope,
+	hotfix: options.hotfix,
 	root,
 	repositoryRoot: gitRoot,
-	workflowChanged: automation.workflow.changed,
-	githubSecretsCreated: automation.secrets.created,
-	githubVariablesCreated: automation.variables.created,
-	automationMode: automation.mode,
-	versionedPackages: [...versionPlan.bumped],
 };
 writeSaveReport(summary);
 
 console.log('Treeseed save completed successfully.');
-console.log(`Workflow synced: ${automation.workflow.changed ? 'yes' : 'no'}`);
-console.log(`GitHub secrets created: ${automation.secrets.created.length}`);
-console.log(`GitHub variables created: ${automation.variables.created.length}`);
-console.log(`Versioned packages: ${[...versionPlan.bumped].join(', ') || 'none'}`);
+console.log(`Branch: ${branch}`);
+console.log(`Environment scope: ${scope}`);
