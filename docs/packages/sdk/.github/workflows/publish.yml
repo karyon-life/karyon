@@ -1,10 +1,10 @@
-name: Publish @treeseed/core
+name: Publish @treeseed/sdk
 
 on:
   workflow_dispatch:
   push:
     tags:
-      - 'treeseed-core-v*'
+      - 'treeseed-sdk-v*'
 
 jobs:
   publish:

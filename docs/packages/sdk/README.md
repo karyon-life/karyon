@@ -10,6 +10,18 @@ It exposes the public data model surface used by Treeseed itself:
 
 `@treeseed/core` consumes this package for Treeseed-specific runtime behavior, but the SDK is designed to be usable independently by external tooling and non-Treeseed agents.
 
+## Consumer Contract
+
+- Node `>=20`
+- install from npm as a normal package dependency
+- the package root is safe to import from plain Node ESM
+
+Example:
+
+```bash
+npm install @treeseed/sdk
+```
+
 ## Local Development
 
 Inside this repository, contributors should work from the workspace root at `docs/`:

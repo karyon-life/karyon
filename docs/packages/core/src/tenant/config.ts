@@ -15,6 +15,15 @@ function resolvePackageRoot() {
 
 const packageRoot = resolvePackageRoot();
 const packageFixtureRoot = resolve(packageRoot, 'fixture');
+const explicitTenantRoot = process.env.TREESEED_TENANT_ROOT
+	? resolve(process.env.TREESEED_TENANT_ROOT)
+	: null;
+
+function pathWithin(parent: string, candidate: string) {
+	const normalizedParent = resolve(parent);
+	const normalizedCandidate = resolve(candidate);
+	return normalizedCandidate === normalizedParent || normalizedCandidate.startsWith(`${normalizedParent}/`);
+}
 
 function collectTenantRootCandidates(start: string) {
 	const candidates: string[] = [];
@@ -37,11 +46,19 @@ function uniqueCandidates(entries: string[]) {
 }
 
 function tenantRootCandidates() {
-	return uniqueCandidates([
-		...collectTenantRootCandidates(process.cwd()),
-		...collectTenantRootCandidates(packageRoot),
-		packageFixtureRoot,
-	]);
+	const cwd = resolve(process.cwd());
+	const cwdCandidates = collectTenantRootCandidates(cwd);
+	const packageCandidates = collectTenantRootCandidates(packageRoot);
+
+	if (explicitTenantRoot) {
+		return uniqueCandidates([explicitTenantRoot, ...cwdCandidates, packageFixtureRoot, ...packageCandidates]);
+	}
+
+	if (pathWithin(packageRoot, cwd)) {
+		return uniqueCandidates([packageFixtureRoot, ...cwdCandidates, ...packageCandidates]);
+	}
+
+	return uniqueCandidates([...cwdCandidates, packageFixtureRoot, ...packageCandidates]);
 }
 
 function resolveTenantPath(manifestPath: string) {

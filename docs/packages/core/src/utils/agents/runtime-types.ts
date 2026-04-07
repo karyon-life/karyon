@@ -3,7 +3,7 @@ import type {
 	AgentRuntimeSpec,
 	AgentRunStatus,
 	AgentTriggerConfig,
-} from '../../types/agents';
+} from '@treeseed/sdk/types/agents';
 import type { AgentErrorCategory } from './contracts/run.ts';
 import type { ScopedAgentSdk, SdkMessageEntity } from '@treeseed/sdk';
 
@@ -134,3 +134,5 @@ export interface AgentHandler<TInputs = unknown, TResult = unknown> {
 	execute(context: AgentContext, inputs: TInputs): Promise<TResult>;
 	emitOutputs(context: AgentContext, result: TResult): Promise<AgentExecutionResult>;
 }
+
+export const TRESEED_AGENT_RUNTIME_TYPES_MODULE = true;

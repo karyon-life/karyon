@@ -52,10 +52,10 @@
     "test:e2e:local": "treeseed test:e2e:local",
     "test:e2e:staging": "treeseed test:e2e:staging",
     "test:e2e:full": "treeseed test:e2e:full",
-    "test:release": "treeseed test:release",
-    "test:release:full": "treeseed test:release:full",
+    "test:release": "node ./packages/run-ts.mjs ./packages/cli/scripts/workspace-release-verify.ts",
+    "test:release:full": "node ./packages/run-ts.mjs ./packages/cli/scripts/workspace-release-verify.ts --full-smoke",
     "agents": "treeseed agents",
-    "release:verify": "treeseed release:verify",
+    "release:verify": "node ./packages/run-ts.mjs ./packages/cli/scripts/workspace-release-verify.ts --full-smoke",
     "release:publish:changed": "treeseed release:publish:changed",
     "audit:source-typescript": "node ./packages/run-ts.mjs ./packages/audit-owned-source.ts"
   },

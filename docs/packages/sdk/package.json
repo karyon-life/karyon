@@ -9,6 +9,9 @@
     "directory": "."
   },
   "homepage": "https://treeseed.ai",
+  "bugs": {
+    "url": "https://github.com/treeseed-ai/sdk/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -24,14 +27,15 @@
   "scripts": {
     "setup": "npm install",
     "setup:ci": "npm ci",
-    "build:dist": "node ../run-ts.mjs ./scripts/build-dist.ts",
+    "build:dist": "node ./scripts/run-ts.mjs ./scripts/build-dist.ts",
     "prepare": "npm run build:dist",
     "prepack": "npm run build:dist",
     "test:unit": "vitest run --config ./vitest.config.ts",
+    "test:smoke": "node ./scripts/run-ts.mjs ./scripts/test-smoke.ts",
     "release:setup": "npm run setup:ci",
-    "release:check-tag": "node ../run-ts.mjs ./scripts/assert-release-tag-version.ts",
-    "release:verify": "npm run build:dist && npm run test:unit",
-    "release:publish": "node ../run-ts.mjs ./scripts/publish-package.ts"
+    "release:check-tag": "node ./scripts/run-ts.mjs ./scripts/assert-release-tag-version.ts",
+    "release:verify": "node ./scripts/run-ts.mjs ./scripts/release-verify.ts",
+    "release:publish": "node ./scripts/run-ts.mjs ./scripts/publish-package.ts"
   },
   "dependencies": {
     "esbuild": "^0.25.10",

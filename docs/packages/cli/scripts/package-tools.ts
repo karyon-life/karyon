@@ -28,10 +28,23 @@ function resolvePackageBinary(packageName, binName = packageName) {
 	return resolve(dirname(packageJsonPath), relativePath);
 }
 
+function resolveTreeseedPackageRoot(packageName, exportPath?: string, fallbackDirName?: string) {
+	try {
+		const resolvedEntry = require.resolve(exportPath ?? packageName);
+		return resolve(dirname(resolvedEntry), '..');
+	} catch {
+		if (!fallbackDirName) {
+			throw new Error(`Unable to resolve package root for "${packageName}".`);
+		}
+		return resolve(packageRoot, '..', fallbackDirName);
+	}
+}
+
 export const astroBin = resolvePackageBinary('astro', 'astro');
 export const wranglerBin = resolvePackageBinary('wrangler', 'wrangler');
-export const corePackageRoot = resolve(dirname(require.resolve('@treeseed/core/config')), '..');
-export const sdkPackageRoot = resolve(dirname(require.resolve('@treeseed/sdk')), '..');
+export const corePackageRoot = resolveTreeseedPackageRoot('@treeseed/core', '@treeseed/core/config', 'core');
+export const sdkPackageRoot = resolveTreeseedPackageRoot('@treeseed/sdk', '@treeseed/sdk', 'sdk');
+export const agentPackageRoot = resolveTreeseedPackageRoot('@treeseed/agent', '@treeseed/agent', 'agent');
 
 export function loadPackageJson(root = process.cwd()) {
 	const packageJsonPath = resolve(root, 'package.json');

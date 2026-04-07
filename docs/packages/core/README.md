@@ -9,6 +9,13 @@
 
 The package is designed to be installed from npm by downstream tenant repositories. Its current location inside this monorepo is temporary and exists only so the Karyon tenant and the package can be developed together while the platform stabilizes.
 
+## Consumer Contract
+
+- Node `>=20`
+- install alongside `@treeseed/cli` in a tenant repository
+- the package root exports Node-safe runtime utilities only
+- Astro and Starlight integration is available through explicit subpath exports
+
 ## What The Package Owns
 
 `@treeseed/core` is intended to own Treeseed framework and platform runtime behavior for a tenant site:

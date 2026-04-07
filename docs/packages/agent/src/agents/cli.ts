@@ -1,6 +1,3 @@
-import { AgentKernel } from './kernel/agent-kernel.ts';
-import { AgentSdk } from './sdk.ts';
-
 function parseArgs(argv: string[]) {
 	const [, , command = 'doctor', ...rest] = argv;
 	return {
@@ -9,7 +6,32 @@ function parseArgs(argv: string[]) {
 	};
 }
 
+function renderHelp() {
+	return [
+		'treeseed-agents <command>',
+		'',
+		'Commands:',
+		'  doctor',
+		'  run-agent <slug>',
+		'  drain-messages',
+		'  release-leases',
+		'  replay-message <id>',
+		'  start',
+	].join('\n');
+}
+
 async function main() {
+	const { command, args } = parseArgs(process.argv);
+	if (command === '--help' || command === '-h' || command === 'help') {
+		console.log(renderHelp());
+		return;
+	}
+
+	const [{ AgentKernel }, { AgentSdk }] = await Promise.all([
+		import('./kernel/agent-kernel.ts'),
+		import('./sdk.ts'),
+	]);
+
 	const repoRoot = process.cwd();
 	const sdk = AgentSdk.createLocal({
 		repoRoot,
@@ -17,7 +39,6 @@ async function main() {
 		persistTo: process.env.TREESEED_AGENT_D1_PERSIST_TO ?? undefined,
 	});
 	const kernel = new AgentKernel(sdk, repoRoot);
-	const { command, args } = parseArgs(process.argv);
 
 	if (command === 'doctor') {
 		console.log(JSON.stringify({ ok: true, command, ...(await kernel.doctor()) }, null, 2));

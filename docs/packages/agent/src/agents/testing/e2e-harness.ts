@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import type { AgentExecutionAdapter, AgentMutationAdapter } from '../runtime-types.ts';
 import { MemoryAgentDatabase } from '../d1-store.ts';
 import { AgentKernel } from '../kernel/agent-kernel.ts';
@@ -18,32 +19,38 @@ import type {
 } from '../sdk-types';
 
 const execFileAsync = promisify(execFile);
+const require = createRequire(import.meta.url);
 
 function nowIso() {
 	return new Date().toISOString();
 }
 
 function resolveDocsRoot() {
-	const packageFixtureRoot = path.resolve(
-		path.dirname(fileURLToPath(import.meta.url)),
-		'../../../../fixture',
-	);
-	const cwdRoot = path.resolve(process.cwd());
+	if (process.env.TREESEED_AGENT_FIXTURE_ROOT) {
+		return path.resolve(process.env.TREESEED_AGENT_FIXTURE_ROOT);
+	}
 
-	return cwdRoot.endsWith(`${path.sep}docs`) ? cwdRoot : packageFixtureRoot;
+	const corePackageRoot = path.resolve(path.dirname(require.resolve('@treeseed/core')), '..');
+	return path.resolve(corePackageRoot, 'fixture');
 }
 
 async function resolveWranglerBin() {
 	if (process.env.TREESEED_AGENT_WRANGLER_BIN) {
 		return path.resolve(process.env.TREESEED_AGENT_WRANGLER_BIN);
 	}
-	const docsLocal = path.resolve(resolveDocsRoot(), 'node_modules', '.bin', 'wrangler');
-	const workspaceLocal = path.resolve(resolveDocsRoot(), '..', 'node_modules', '.bin', 'wrangler');
+
 	try {
-		await access(docsLocal);
-		return docsLocal;
+		const wranglerPackageRoot = path.resolve(path.dirname(require.resolve('wrangler/package.json')));
+		const packageJson = JSON.parse(await readFile(path.join(wranglerPackageRoot, 'package.json'), 'utf8'));
+		const relativeBin = typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.wrangler;
+		if (!relativeBin) {
+			throw new Error('Unable to resolve wrangler binary path from package.json.');
+		}
+		return path.resolve(wranglerPackageRoot, relativeBin);
 	} catch {
-		return workspaceLocal;
+		const packageLocal = path.resolve(resolveDocsRoot(), 'node_modules', '.bin', 'wrangler');
+		await access(packageLocal);
+		return packageLocal;
 	}
 }
 

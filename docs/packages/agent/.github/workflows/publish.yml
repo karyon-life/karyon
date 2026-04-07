@@ -1,10 +1,10 @@
-name: Publish @treeseed/core
+name: Publish @treeseed/agent
 
 on:
   workflow_dispatch:
   push:
     tags:
-      - 'treeseed-core-v*'
+      - 'treeseed-agent-v*'
 
 jobs:
   publish:

@@ -25,7 +25,9 @@ function ensureDir(filePath) {
 }
 
 function rewriteRuntimeSpecifiers(contents) {
-	return contents.replace(/(['"`])(\.[^'"`\n]+)\.(mjs|ts)\1/g, '$1$2.js$1');
+	return contents
+		.replace(/(['"`])(\.[^'"`\n]+)\.(mjs|ts)\1/g, '$1$2.js$1')
+		.replace(/(['"`])\.\.\/src\//g, '$1../');
 }
 
 async function compileModule(filePath, sourceRoot, outputRoot) {
