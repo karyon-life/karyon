@@ -7,9 +7,8 @@
 	"include": [
 		"src/**/*.ts",
 		"src/**/*.d.ts",
-		"src/**/*.mjs",
 		"test/**/*.ts",
-		"scripts/**/*.mjs",
+		"scripts/**/*.ts",
 		"vitest.config.ts"
 	],
   "exclude": [

@@ -8,9 +8,9 @@ import {
 	createPersistentDeployTarget,
 	deployTargetLabel,
 	loadDeployState,
-} from './deploy-lib.mjs';
-import { renderDeployWorkflow } from './github-automation-lib.mjs';
-import { incrementVersion } from './workspace-save-lib.mjs';
+} from './deploy-lib.ts';
+import { renderDeployWorkflow } from './github-automation-lib.ts';
+import { incrementVersion } from './workspace-save-lib.ts';
 
 function makeTenantRoot() {
 	const root = mkdtempSync(join(tmpdir(), 'treeseed-cli-test-'));

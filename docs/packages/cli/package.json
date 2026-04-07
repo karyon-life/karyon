@@ -24,14 +24,14 @@
   "scripts": {
     "setup": "npm install",
     "setup:ci": "npm ci",
-    "test": "node --test ./scripts/*.test.mjs",
-    "build:dist": "node ./scripts/build-dist.mjs",
+    "test": "npm run build:dist && node --test ./scripts/*.test.mjs",
+    "build:dist": "node ../run-ts.mjs ./scripts/build-dist.ts",
     "prepare": "npm run build:dist",
     "prepack": "npm run build:dist",
     "release:setup": "npm run setup:ci",
-    "release:check-tag": "node ./scripts/assert-release-tag-version.mjs",
+    "release:check-tag": "node ../run-ts.mjs ./scripts/assert-release-tag-version.ts",
     "release:verify": "npm run build:dist",
-    "release:publish": "node ./scripts/publish-package.mjs"
+    "release:publish": "node ../run-ts.mjs ./scripts/publish-package.ts"
   },
   "dependencies": {
     "@treeseed/agent": "^0.0.1",
@@ -45,6 +45,6 @@
     "@types/node": "^24.6.0"
   },
   "bin": {
-    "treeseed": "./dist/scripts/treeseed.js"
+    "treeseed": "./dist/cli/main.js"
   }
 }

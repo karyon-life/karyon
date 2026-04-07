@@ -41,7 +41,7 @@ function packageFile(relativePath: string) {
 }
 
 function packageModuleFile(relativeStem: string) {
-	for (const extension of ['.js', '.mjs', '.ts']) {
+	for (const extension of ['.js', '.ts', '.ts']) {
 		const candidateUrl = new URL(`${relativeStem}${extension}`, import.meta.url);
 		const candidatePath = fileURLToPath(candidateUrl);
 		if (existsSync(candidatePath)) {

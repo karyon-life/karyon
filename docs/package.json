@@ -44,7 +44,8 @@
     "test:release:full": "treeseed test:release:full",
     "agents": "treeseed agents",
     "release:verify": "treeseed release:verify",
-    "release:publish:changed": "treeseed release:publish:changed"
+    "release:publish:changed": "treeseed release:publish:changed",
+    "audit:source-typescript": "node ./packages/run-ts.mjs ./packages/audit-owned-source.ts"
   },
   "dependencies": {
     "@treeseed/cli": "^0.0.1",

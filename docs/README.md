@@ -205,6 +205,15 @@ Additional local helpers:
 | `npm run d1:migrate:local` | Apply local D1 migrations |
 | `npm run astro -- --help` | Pass through to the package-owned Astro CLI wrapper |
 
+Treeseed CLI help is available through:
+
+- `treeseed help`
+- `treeseed --help`
+- `treeseed help <command>`
+- `treeseed <command> --help`
+
+Use the built-in help pages for option-level details and examples instead of treating the README as the full command reference.
+
 ## Local Environment
 
 Treeseed owns the local runtime contract.

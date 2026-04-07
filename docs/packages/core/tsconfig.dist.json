@@ -14,6 +14,6 @@
     "moduleResolution": "Bundler",
     "types": ["node", "astro/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.mjs", "src/**/*.d.ts"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
   "exclude": ["fixture", "test", "dist"]
 }
