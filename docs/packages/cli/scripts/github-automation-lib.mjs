@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { loadTreeseedDeployConfig } from '@treeseed/core/deploy/config';
+import { resolveTreeseedEnvironmentRegistry } from '@treeseed/core/environment';
 import { corePackageRoot } from './package-tools.mjs';
 
 function envOrNull(key) {
@@ -91,29 +92,24 @@ export function resolveGitRepositoryRoot(tenantRoot) {
 	return result.status === 0 ? result.stdout.trim() : tenantRoot;
 }
 
-export function requiredGitHubSecrets(tenantRoot) {
+export function requiredGitHubEnvironment(tenantRoot, { scope = 'prod', purpose = 'save' } = {}) {
 	const deployConfig = loadTreeseedDeployConfig();
-	const secrets = [
-		'CLOUDFLARE_API_TOKEN',
-		'TREESEED_FORM_TOKEN_SECRET',
-	];
+	const registry = resolveTreeseedEnvironmentRegistry({ deployConfig });
+	const relevant = registry.entries.filter(
+		(entry) =>
+			entry.scopes.includes(scope)
+			&& entry.purposes.includes(purpose)
+			&& (!entry.isRelevant || entry.isRelevant(registry.context, scope, purpose)),
+	);
 
-	if (deployConfig.turnstile?.enabled !== false) {
-		secrets.push('TREESEED_PUBLIC_TURNSTILE_SITE_KEY', 'TREESEED_TURNSTILE_SECRET_KEY');
-	}
+	return {
+		secrets: [...new Set(relevant.filter((entry) => entry.targets.includes('github-secret')).map((entry) => entry.id))],
+		variables: [...new Set(relevant.filter((entry) => entry.targets.includes('github-variable')).map((entry) => entry.id))],
+	};
+}
 
-	if (deployConfig.smtp?.enabled) {
-		secrets.push(
-			'TREESEED_SMTP_HOST',
-			'TREESEED_SMTP_PORT',
-			'TREESEED_SMTP_USERNAME',
-			'TREESEED_SMTP_PASSWORD',
-			'TREESEED_SMTP_FROM',
-			'TREESEED_SMTP_REPLY_TO',
-		);
-	}
-
-	return [...new Set(secrets)];
+export function requiredGitHubSecrets(tenantRoot) {
+	return requiredGitHubEnvironment(tenantRoot).secrets;
 }
 
 export function renderDeployWorkflow({ workingDirectory }) {
@@ -168,6 +164,17 @@ export function listGitHubSecretNames(repository, tenantRoot) {
 	);
 }
 
+export function listGitHubVariableNames(repository, tenantRoot) {
+	const result = runGh(['variable', 'list', '--repo', repository, '--json', 'name'], {
+		cwd: tenantRoot,
+	});
+	return new Set(
+		(JSON.parse(result.stdout || '[]'))
+			.map((entry) => entry?.name)
+			.filter((value) => typeof value === 'string' && value.length > 0),
+	);
+}
+
 export function formatMissingSecretsReport(repository, missingSecrets, reason = 'missing_local_env') {
 	const lines = [
 		'Treeseed GitHub secret sync failed.',
@@ -184,11 +191,21 @@ export function formatMissingSecretsReport(repository, missingSecrets, reason = 
 }
 
 export function ensureGitHubSecrets(tenantRoot, { dryRun = false } = {}) {
+	return ensureGitHubEnvironment(tenantRoot, { dryRun }).secrets;
+}
+
+export function ensureGitHubEnvironment(tenantRoot, { dryRun = false, scope = 'prod', purpose = 'save' } = {}) {
 	if (isGitHubAutomationStubbed()) {
 		return {
 			repository: maybeResolveGitHubRepositorySlug(tenantRoot),
-			existing: [],
-			created: [],
+			secrets: {
+				existing: [],
+				created: [],
+			},
+			variables: {
+				existing: [],
+				created: [],
+			},
 			skipped: 'stubbed',
 			mode: 'stub',
 		};
@@ -199,50 +216,77 @@ export function ensureGitHubSecrets(tenantRoot, { dryRun = false } = {}) {
 		if (dryRun) {
 			return {
 				repository: null,
-				existing: [],
-				created: [],
+				secrets: { existing: [], created: [] },
+				variables: { existing: [], created: [] },
 				skipped: 'missing_repository',
 			};
 		}
 		throw new Error('Unable to determine GitHub repository from the current tenant. Configure an origin remote before syncing GitHub secrets.');
 	}
-	const requiredSecrets = requiredGitHubSecrets(tenantRoot);
+	const required = requiredGitHubEnvironment(tenantRoot, { scope, purpose });
+	const requiredSecrets = required.secrets;
+	const requiredVariables = required.variables;
 	const existingSecrets = listGitHubSecretNames(repository, tenantRoot);
+	const existingVariables = listGitHubVariableNames(repository, tenantRoot);
 	const missingRemote = requiredSecrets.filter((name) => !existingSecrets.has(name));
+	const missingRemoteVariables = requiredVariables.filter((name) => !existingVariables.has(name));
 
 	const missingLocal = missingRemote
 		.filter((name) => !envOrNull(name))
 		.map((name) => ({ name, localEnvPresent: false, remotePresent: false }));
+	const missingLocalVariables = missingRemoteVariables
+		.filter((name) => !envOrNull(name))
+		.map((name) => ({ name, localEnvPresent: false, remotePresent: false }));
 
-	if (missingLocal.length > 0) {
-		throw new Error(formatMissingSecretsReport(repository, missingLocal));
+	if (missingLocal.length > 0 || missingLocalVariables.length > 0) {
+		throw new Error(formatMissingSecretsReport(repository, [...missingLocal, ...missingLocalVariables]));
 	}
 
-	const created = [];
+	const createdSecrets = [];
 	for (const name of missingRemote) {
 		if (dryRun) {
-			created.push(name);
+			createdSecrets.push(name);
 			continue;
 		}
 		runGh(['secret', 'set', name, '--repo', repository, '--body', envOrNull(name) ?? ''], {
 			cwd: tenantRoot,
 		});
-		created.push(name);
+		createdSecrets.push(name);
+	}
+
+	const createdVariables = [];
+	for (const name of missingRemoteVariables) {
+		if (dryRun) {
+			createdVariables.push(name);
+			continue;
+		}
+		runGh(['variable', 'set', name, '--repo', repository, '--body', envOrNull(name) ?? ''], {
+			cwd: tenantRoot,
+		});
+		createdVariables.push(name);
 	}
 
 	return {
 		repository,
-		existing: requiredSecrets.filter((name) => existingSecrets.has(name)),
-		created,
+		secrets: {
+			existing: requiredSecrets.filter((name) => existingSecrets.has(name)),
+			created: createdSecrets,
+		},
+		variables: {
+			existing: requiredVariables.filter((name) => existingVariables.has(name)),
+			created: createdVariables,
+		},
 	};
 }
 
 export function ensureGitHubDeployAutomation(tenantRoot, { dryRun = false } = {}) {
 	const workflow = ensureDeployWorkflow(tenantRoot);
-	const secrets = ensureGitHubSecrets(tenantRoot, { dryRun });
+	const environment = ensureGitHubEnvironment(tenantRoot, { dryRun });
 	return {
 		mode: getGitHubAutomationMode(),
 		workflow,
-		secrets,
+		secrets: environment.secrets,
+		variables: environment.variables,
+		environment,
 	};
 }

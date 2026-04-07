@@ -3,6 +3,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { mkdirSync } from 'node:fs';
+import { applyTreeseedEnvironmentToProcess } from './config-runtime-lib.mjs';
 import { ensureGitHubDeployAutomation, ensureDeployWorkflow } from './github-automation-lib.mjs';
 import {
 	MERGE_CONFLICT_EXIT_CODE,
@@ -33,6 +34,7 @@ function writeSaveReport(payload) {
 const message = process.argv.slice(2).join(' ').trim();
 const root = workspaceRoot();
 const gitRoot = repoRoot(root);
+applyTreeseedEnvironmentToProcess({ tenantRoot: root, scope: 'prod' });
 
 if (!message) {
 	writeSaveReport({ ok: false, kind: 'usage', message: 'Treeseed save requires a commit message.' });
@@ -134,6 +136,7 @@ const summary = {
 	repositoryRoot: gitRoot,
 	workflowChanged: automation.workflow.changed,
 	githubSecretsCreated: automation.secrets.created,
+	githubVariablesCreated: automation.variables.created,
 	automationMode: automation.mode,
 	versionedPackages: [...versionPlan.bumped],
 };
@@ -142,4 +145,5 @@ writeSaveReport(summary);
 console.log('Treeseed save completed successfully.');
 console.log(`Workflow synced: ${automation.workflow.changed ? 'yes' : 'no'}`);
 console.log(`GitHub secrets created: ${automation.secrets.created.length}`);
+console.log(`GitHub variables created: ${automation.variables.created.length}`);
 console.log(`Versioned packages: ${[...versionPlan.bumped].join(', ') || 'none'}`);

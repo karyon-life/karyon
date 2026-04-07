@@ -16,6 +16,7 @@
     "dev": "treeseed dev",
     "dev:watch": "treeseed dev --watch",
     "start": "npm run dev",
+    "config": "treeseed config",
     "lint": "treeseed lint",
     "build": "treeseed build",
     "check": "treeseed check",

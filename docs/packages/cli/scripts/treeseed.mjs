@@ -12,6 +12,7 @@ const COMMAND_MAP = new Map([
 	['lint', packageScriptPath('tenant-lint')],
 	['test', packageScriptPath('tenant-test')],
 	['check', packageScriptPath('tenant-check')],
+	['config', packageScriptPath('config-treeseed')],
 	['deploy', packageScriptPath('tenant-deploy')],
 	['destroy', packageScriptPath('tenant-destroy')],
 	['preview', packageScriptPath('tenant-astro-command')],

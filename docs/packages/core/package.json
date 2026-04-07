@@ -118,6 +118,10 @@
       "types": "./dist/plugins/runtime.d.ts",
       "default": "./dist/plugins/runtime.js"
     },
+    "./environment": {
+      "types": "./dist/environment.d.ts",
+      "default": "./dist/environment.js"
+    },
     "./site-resources": {
       "types": "./dist/site-resources.d.ts",
       "default": "./dist/site-resources.js"

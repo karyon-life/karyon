@@ -11,7 +11,7 @@ const scriptsRoot = resolve(packageRoot, 'scripts');
 const distRoot = resolve(packageRoot, 'dist');
 
 const JS_SOURCE_EXTENSIONS = new Set(['.mjs', '.ts']);
-const COPY_EXTENSIONS = new Set(['.astro', '.css', '.d.ts', '.js', '.json', '.jsonc', '.mjs']);
+const COPY_EXTENSIONS = new Set(['.astro', '.css', '.d.ts', '.js', '.json', '.jsonc', '.mjs', '.yaml', '.yml']);
 
 function walkFiles(root) {
 	const files = [];
@@ -249,6 +249,7 @@ function rewriteDeclarations() {
 function emitTypeDeclarations() {
 	const sourceFiles = [
 		resolve(srcRoot, 'contracts.ts'),
+		resolve(srcRoot, 'environment.ts'),
 		resolve(srcRoot, 'types/agents.ts'),
 		resolve(srcRoot, 'types/cloudflare.ts'),
 		resolve(srcRoot, 'plugins/plugin.ts'),

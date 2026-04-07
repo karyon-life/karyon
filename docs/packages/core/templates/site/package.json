@@ -6,6 +6,7 @@
   "scripts": {
     "postinstall": "treeseed starlight:patch",
     "starlight:patch": "treeseed starlight:patch",
+    "config": "treeseed config",
     "dev": "treeseed dev",
     "dev:watch": "treeseed dev --watch",
     "lint": "treeseed lint",

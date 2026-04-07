@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { packageScriptPath } from './package-tools.mjs';
+import { applyTreeseedEnvironmentToProcess, assertTreeseedCommandEnvironment } from './config-runtime-lib.mjs';
 import { collectCliPreflight } from './workspace-preflight-lib.mjs';
-import { getGitHubAutomationMode, requiredGitHubSecrets } from './github-automation-lib.mjs';
+import { getGitHubAutomationMode, requiredGitHubEnvironment } from './github-automation-lib.mjs';
 
 function runStep(label, scriptName, { cwd, env } = {}) {
 	const result = spawnSync(process.execPath, [packageScriptPath(scriptName)], {
@@ -26,6 +27,9 @@ function missingRequiredEnv(requiredKeys) {
 }
 
 export function validateSaveAutomationPrerequisites({ cwd }) {
+	applyTreeseedEnvironmentToProcess({ tenantRoot: cwd, scope: 'prod' });
+	assertTreeseedCommandEnvironment({ tenantRoot: cwd, scope: 'prod', purpose: 'save' });
+
 	if (getGitHubAutomationMode() !== 'real') {
 		return {
 			ok: true,
@@ -43,8 +47,8 @@ export function validateSaveAutomationPrerequisites({ cwd }) {
 		throw error;
 	}
 
-	const requiredEnv = requiredGitHubSecrets(cwd);
-	const missingEnv = missingRequiredEnv(requiredEnv);
+	const required = requiredGitHubEnvironment(cwd, { scope: 'prod', purpose: 'save' });
+	const missingEnv = missingRequiredEnv([...required.secrets, ...required.variables]);
 	if (missingEnv.length > 0) {
 		const error = new Error(
 			`Treeseed save is missing required environment variables: ${missingEnv.join(', ')}.`,
@@ -69,6 +73,8 @@ export function runWorkspaceSavePreflight({ cwd }) {
 }
 
 export function runTenantDeployPreflight({ cwd }) {
+	applyTreeseedEnvironmentToProcess({ tenantRoot: cwd, scope: 'prod' });
+	assertTreeseedCommandEnvironment({ tenantRoot: cwd, scope: 'prod', purpose: 'deploy' });
 	runStep('lint', 'tenant-lint', { cwd });
 	runStep('test', 'tenant-test', { cwd });
 	runStep('build', 'tenant-build', { cwd });

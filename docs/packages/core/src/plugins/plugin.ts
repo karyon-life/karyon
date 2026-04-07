@@ -1,4 +1,5 @@
 import type { TreeseedDeployConfig, TreeseedTenantConfig } from '../contracts';
+import type { TreeseedEnvironmentRegistryOverlay } from '../environment';
 import type { TreeseedSiteLayerDefinition } from '../site-resources';
 
 export type TreeseedSiteRouteContribution = {
@@ -27,6 +28,13 @@ export type TreeseedPluginSiteContext = {
 	pluginConfig: Record<string, unknown>;
 };
 
+export type TreeseedPluginEnvironmentContext = {
+	projectRoot: string;
+	tenantConfig?: TreeseedTenantConfig;
+	deployConfig?: TreeseedDeployConfig;
+	pluginConfig: Record<string, unknown>;
+};
+
 export interface TreeseedPlugin {
 	id?: string;
 	provides?: Record<string, any>;
@@ -36,6 +44,9 @@ export interface TreeseedPlugin {
 	>;
 	siteHooks?: TreeseedSiteExtensionContribution | ((context: TreeseedPluginSiteContext) => TreeseedSiteExtensionContribution);
 	siteLayers?: TreeseedSiteLayerDefinition[] | ((context: TreeseedPluginSiteContext) => TreeseedSiteLayerDefinition[] | undefined);
+	environmentRegistry?:
+		| TreeseedEnvironmentRegistryOverlay
+		| ((context: TreeseedPluginEnvironmentContext) => TreeseedEnvironmentRegistryOverlay | undefined);
 	[key: string]: unknown;
 }
 

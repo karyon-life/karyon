@@ -2,6 +2,7 @@
 
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { applyTreeseedEnvironmentToProcess, assertTreeseedCommandEnvironment } from './config-runtime-lib.mjs';
 import {
 	cleanupDestroyedState,
 	destroyCloudflareResources,
@@ -78,6 +79,8 @@ async function readConfirmation(expectedConfirmation) {
 }
 
 const options = parseArgs(process.argv.slice(2));
+applyTreeseedEnvironmentToProcess({ tenantRoot, scope: 'prod' });
+assertTreeseedCommandEnvironment({ tenantRoot, scope: 'prod', purpose: 'destroy' });
 const deployConfig = validateDestroyPrerequisites(tenantRoot, { requireRemote: !options.dryRun });
 const state = loadDeployState(tenantRoot, deployConfig);
 const expectedConfirmation = getExpectedConfirmation(deployConfig);

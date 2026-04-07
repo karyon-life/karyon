@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { corePackageRoot, packageScriptPath, spawnNodeBinary, wranglerBin } from './package-tools.mjs';
+import { applyTreeseedEnvironmentToProcess, assertTreeseedCommandEnvironment } from './config-runtime-lib.mjs';
 import { ensureGeneratedWranglerConfig } from './deploy-lib.mjs';
 import { loadTreeseedDeployConfig } from '@treeseed/core/deploy/config';
 import {
@@ -178,6 +179,8 @@ process.on('SIGTERM', () => {
 });
 
 process.env.TREESEED_LOCAL_DEV_MODE = process.env.TREESEED_LOCAL_DEV_MODE ?? 'cloudflare';
+applyTreeseedEnvironmentToProcess({ tenantRoot, scope: 'local' });
+assertTreeseedCommandEnvironment({ tenantRoot, scope: 'local', purpose: 'dev' });
 
 runTenantBuildCycle({
 	includeSdkBuild: isEditablePackageWorkspace(),

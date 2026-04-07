@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { applyTreeseedEnvironmentToProcess } from './config-runtime-lib.mjs';
 import {
 	collectMissingDeployInputs,
 	ensureGeneratedWranglerConfig,
@@ -14,7 +15,7 @@ import {
 	syncCloudflareSecrets,
 	validateDeployPrerequisites,
 } from './deploy-lib.mjs';
-import { ensureDeployWorkflow, ensureGitHubSecrets } from './github-automation-lib.mjs';
+import { ensureDeployWorkflow, ensureGitHubEnvironment } from './github-automation-lib.mjs';
 import { packageScriptPath, wranglerBin } from './package-tools.mjs';
 import { runTenantDeployPreflight } from './save-deploy-preflight-lib.mjs';
 
@@ -86,6 +87,7 @@ function runWranglerDeploy(configPath) {
 }
 
 async function main() {
+	applyTreeseedEnvironmentToProcess({ tenantRoot, scope: 'prod' });
 	const options = parseArgs(args);
 	const allowedSteps = new Set(['provision', 'secrets', 'migrate', 'build', 'publish']);
 
@@ -151,9 +153,12 @@ async function main() {
 		console.log(`Updated deploy workflow at ${workflowStatus.workflowPath}.`);
 	}
 
-	const secretStatus = ensureGitHubSecrets(tenantRoot, { dryRun: options.dryRun });
-	if (secretStatus.created.length > 0) {
-		console.log(`${options.dryRun ? 'Would create' : 'Created'} ${secretStatus.created.length} GitHub secret(s).`);
+	const githubEnvironment = ensureGitHubEnvironment(tenantRoot, { dryRun: options.dryRun, scope: 'prod', purpose: 'deploy' });
+	if (githubEnvironment.secrets.created.length > 0) {
+		console.log(`${options.dryRun ? 'Would create' : 'Created'} ${githubEnvironment.secrets.created.length} GitHub secret(s).`);
+	}
+	if (githubEnvironment.variables.created.length > 0) {
+		console.log(`${options.dryRun ? 'Would create' : 'Created'} ${githubEnvironment.variables.created.length} GitHub variable(s).`);
 	}
 
 	const { wranglerPath } = ensureGeneratedWranglerConfig(tenantRoot);

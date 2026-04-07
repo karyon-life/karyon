@@ -4,10 +4,8 @@
 /app/.elixir_ls/
 *.ez
 erl_crash.dump
-
 # Rust (NIFs)
 **/native/**/target/
-
 # Node (JS)
 npm-debug.log*
 node_modules/
@@ -17,13 +15,11 @@ build/
 .astro/
 astro.config.mjs.timestamp-* 
 docs/public/*.md
-
 # Environment variables
 .env
 .env.production
 .env.local
 config/*.secret.exs
-
 # IDEs and Editors
 .idea/
 .vscode/
@@ -35,7 +31,6 @@ config/*.secret.exs
 *.sw?
 *~
 .DS_Store
-
 # Misc
 artifacts/
 coverage/
@@ -48,10 +43,7 @@ coverage/
 *.dll
 *.dylib
 *.gz
-
 # AI
 .codex
-
-
-
-
+.dev.vars
+.treeseed/

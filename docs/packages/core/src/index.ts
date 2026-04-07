@@ -24,6 +24,19 @@ export {
 export { defineTreeseedPlugin } from './plugins/plugin';
 export { loadTreeseedPluginRuntime, loadTreeseedPlugins } from './plugins/runtime';
 export {
+	getTreeseedEnvironmentSuggestedValues,
+	isTreeseedEnvironmentEntryRelevant,
+	loadTreeseedEnvironmentOverlay,
+	resolveTreeseedEnvironmentContext,
+	resolveTreeseedEnvironmentRegistry,
+	TREESEED_ENVIRONMENT_PURPOSES,
+	TREESEED_ENVIRONMENT_REQUIREMENTS,
+	TREESEED_ENVIRONMENT_SCOPES,
+	TREESEED_ENVIRONMENT_SENSITIVITY,
+	TREESEED_ENVIRONMENT_TARGETS,
+	validateTreeseedEnvironmentValues,
+} from './environment';
+export {
 	buildTreeseedSiteLayers,
 	resolveTreeseedPageEntrypoint,
 	resolveTreeseedSiteResource,
